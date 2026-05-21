@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Seguro - Servidores do Altar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        liturgic: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-full text-slate-800 overflow-hidden" id="mainBody">
+
+    <div id="loginOverlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 sm:p-8 text-center space-y-6 border border-slate-100">
+            <div class="mx-auto h-14 w-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center border border-emerald-100 shadow-sm">
+                <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-slate-900">Acesso Restrito</h2>
+                <p class="text-slate-500 text-xs sm:text-sm mt-1">Insira a credencial autorizada para acessar o painel da pastoral.</p>
+            </div>
+            <div class="space-y-3 text-left">
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider" for="accessPassword">Senha de Acesso</label>
+                <input type="password" id="accessPassword" placeholder="••••••••" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-center text-lg bg-slate-50">
+                <p id="loginError" class="text-red-600 text-xs font-semibold hidden text-center">Senha incorreta. Tente novamente.</p>
+            </div>
+            <button onclick="validateAccess()" class="w-full py-3 bg-liturgic-700 hover:bg-liturgic-800 text-white font-semibold rounded-xl transition shadow-md shadow-emerald-900/10">
+                Desbloquear Painel
+            </button>
+            <div class="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
+                Paróquia Santa Teresinha e Santo Agostinho • Ampére - PR
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboardApp" class="hidden min-h-full flex flex-col">
+        <header class="bg-liturgic-800 text-white shadow-md">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-3">
+                        <svg class="h-8 w-8 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                        <div>
+                            <h1 class="text-xl font-bold tracking-tight">Servidores do Altar</h1>
+                            <p class="text-xs text-emerald-200">Painel de Monitoramento Paroquial</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span id="roleBadge" class="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border">
+                            -
+                        </span>
+                        <button onclick="lockDashboard()" class="p-1.5 bg-liturgic-900 hover:bg-red-950 text-emerald-300 hover:text-red-200 rounded-lg border border-emerald-700 hover:border-red-900 transition" title="Sair / Bloquear">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+            
+            <div class="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r-xl shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="flex items-start">
+                    <svg class="h-6 w-6 text-emerald-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    <div>
+                        <h3 class="font-semibold text-emerald-900 text-sm sm:text-base">Encontro de Formação Mensal</h3>
+                        <p class="text-emerald-700 text-xs sm:text-sm mt-0.5">Ocorre todo 2º Sábado do mês, às 9:00h na Igreja Matriz. Presença indispensável para formandos e ativos.</p>
+                    </div>
+                </div>
+                <div>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">Sábado às 9h</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Total de Servidores</p>
+                        <h3 class="text-3xl font-extrabold text-slate-900 mt-1" id="kpi-total">0</h3>
+                    </div>
+                    <div class="bg-indigo-50 p-3 rounded-xl text-indigo-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Activos (Exercendo)</p>
+                        <h3 class="text-3xl font-extrabold text-emerald-600 mt-1" id="kpi-exercendo">0</h3>
+                        <p class="text-xs text-slate-400 mt-1" id="kpi-exercendo-pct">0%</p>
+                    </div>
+                    <div class="bg-emerald-50 p-3 rounded-xl text-emerald-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">En Formación</p>
+                        <h3 class="text-3xl font-extrabold text-amber-600 mt-1" id="kpi-formando">0</h3>
+                        <p class="text-xs text-slate-400 mt-1" id="kpi-formando-pct">0%</p>
+                    </div>
+                    <div class="bg-amber-50 p-3 rounded-xl text-amber-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Capillas Activas</p>
+                        <h3 class="text-3xl font-extrabold text-indigo-900 mt-1" id="kpi-capelas">0</h3>
+                    </div>
+                    <div class="bg-slate-100 p-3 rounded-xl text-slate-600">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 lg:col-span-2 flex flex-col">
+                    <h3 class="text-lg font-bold text-slate-950 mb-4">Servidores por Capela</h3>
+                    <div class="flex-1 min-h-[300px] flex items-center justify-center">
+                        <canvas id="capelasChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
+                    <h3 class="text-lg font-bold text-slate-950 mb-4">Estado de Formação</h3>
+                    <div class="flex-1 min-h-[250px] flex items-center justify-center relative">
+                        <canvas id="stateChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div id="adminActionBar" class="bg-emerald-800 text-white p-6 rounded-2xl shadow-md hidden">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="bg-emerald-900 text-emerald-300 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border border-emerald-600">Painel de Controle</span>
+                            <h3 class="text-lg font-bold">Gerenciamento Avançado de Dados</h3>
+                        </div>
+                        <p class="text-sm text-emerald-200 mt-1">Como administrador, você pode importar planilhas, cadastrar novos acólitos ou modificar registros.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <label class="cursor-pointer inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-dashed border-emerald-400 bg-emerald-900/30 hover:bg-emerald-900/60 text-sm font-medium text-white transition">
+                            <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            Importar CSV (Relação)
+                            <input type="file" id="csvFileInput" accept=".csv" class="hidden">
+                        </label>
+                        <button onclick="openAddModal()" class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 text-sm font-bold shadow-sm transition">
+                            <svg class="h-5 w-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            Novo Servidor
+                        </button>
+                        <button onclick="exportToCSV()" class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-emerald-900 hover:bg-emerald-950 text-white text-sm font-semibold border border-emerald-700 transition">
+                            <svg class="h-5 w-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            Exportar CSV
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-6 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="relative flex-1 max-w-md">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </span>
+                        <input type="text" id="searchInput" oninput="filterData()" placeholder="Buscar por nome do servidor ou responsável..." class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white">
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <select id="filterCapela" onchange="filterData()" class="px-3 py-2 border border-slate-200 rounded-xl bg-white text-sm focus:ring-emerald-500"></select>
+                        <select id="filterEstado" onchange="filterData()" class="px-3 py-2 border border-slate-200 rounded-xl bg-white text-sm focus:ring-emerald-500">
+                            <option value="">Todos os Estados</option>
+                            <option value="Exercendo">Exercendo (Ativos)</option>
+                            <option value="Formando-se">Formando-se (Novos)</option>
+                        </select>
+                        <button onclick="clearFilters()" class="text-xs font-semibold text-slate-500 hover:text-emerald-600 px-2 py-1">Limpar Filtros</button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-slate-100">
+                                <th class="px-6 py-4">Servidor</th>
+                                <th class="px-6 py-4">Local onde serve</th>
+                                <th class="px-6 py-4">Escala (Dia / Hora)</th>
+                                <th class="px-6 py-4">Responsáveis</th>
+                                <th class="px-6 py-4">Estado</th>
+                                <th class="px-6 py-4 text-right dynamic-action-header">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody" class="divide-y divide-slate-100 text-sm"></tbody>
+                    </table>
+                </div>
+
+                <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <div>Mostrando <span id="displayed-count" class="font-semibold text-slate-800">0</span> de <span id="total-count" class="font-semibold text-slate-800">0</span> servidores</div>
+                    <div id="no-results-msg" class="hidden text-amber-600 font-semibold">Nenhum resultado encontrado.</div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="bg-slate-900 text-slate-400 py-6 border-t border-slate-800 mt-auto">
+            <div class="max-w-7xl mx-auto px-4 text-center text-xs space-y-1">
+                <p>© 2026 Pastoral dos Servidores do Altar. Paróquia Santa Teresinha e Santo Agostinho - Ampére/PR.</p>
+            </div>
+        </footer>
+    </div>
+
+    <div id="serverModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 id="modalTitle" class="font-bold text-slate-900 text-lg">Novo Servidor</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form id="serverForm" onsubmit="handleFormSubmit(event)" class="p-6 space-y-4 overflow-y-auto flex-1 text-left">
+                <input type="hidden" id="editIndex" value="">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" for="formNome">Nome do Servidor *</label>
+                    <input type="text" id="formNome" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" for="formCapela">Capela *</label>
+                        <select id="formCapela" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white"></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" for="formEstado">Estado *</label>
+                        <select id="formEstado" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white">
+                            <option value="Exercendo">Exercendo (Ativo)</option>
+                            <option value="Formando-se">Formando-se</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" for="formDia">Dia da Escala</label>
+                        <select id="formDia" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white">
+                            <option value="">Sem dia fixo</option>
+                            <option value="Sábado">Sábado</option>
+                            <option value="Domingo">Domingo</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" for="formHora">Horário da Missa</label>
+                        <input type="text" id="formHora" placeholder="Ex: 19:00" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
+                    </div>
+                </div>
+                <div class="border-t border-slate-100 pt-3 space-y-3">
+                    <h4 class="text-sm font-bold text-slate-800">Contato Familiar</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" for="formPais">Responsável</label>
+                            <input type="text" id="formPais" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" for="formContato">WhatsApp</label>
+                            <input type="text" id="formContato" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="border-t border-slate-100 pt-4 flex items-center justify-end space-x-3">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-600">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-liturgic-700 text-white rounded-xl text-sm font-semibold shadow-sm">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="contactModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="font-bold text-slate-900 text-lg">Responsáveis & Contato</h3>
+                <button onclick="closeContactModal()" class="text-slate-400 hover:text-slate-600">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4 text-left">
+                <div>
+                    <span class="text-xs font-semibold text-slate-400 uppercase">Servidor</span>
+                    <p id="contactModalServidor" class="text-base font-bold text-slate-900 mt-0.5">-</p>
+                </div>
+                <div>
+                    <span class="text-xs font-semibold text-slate-400 uppercase">Pais / Responsáveis</span>
+                    <p id="contactModalPais" class="text-sm font-medium text-slate-800 mt-0.5">-</p>
+                </div>
+                <div>
+                    <span class="text-xs font-semibold text-slate-400 uppercase">Contato Principal</span>
+                    <div class="flex items-center justify-between mt-1 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <p id="contactModalTelefone" class="text-base font-semibold text-indigo-700">-</p>
+                        <button onclick="copyContactText()" class="p-2 text-slate-500 hover:text-emerald-600 bg-white rounded-lg border border-slate-200 shadow-sm" title="Copiar contato">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 text-right">
+                <button onclick="closeContactModal()" class="px-4 py-2 bg-slate-800 text-white rounded-xl text-sm font-semibold">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-5 right-5 z-50 hidden flex items-center bg-emerald-600 text-white text-sm font-semibold px-4 py-3 rounded-xl shadow-lg">
+        <span id="toastMsg">Sucesso!</span>
+    </div>
+
+    <script>
+        // --- SECURITY SETUP CONFIGURATION ---
+        // DEFINICIÓN DE CONTRASEÑAS MÁSTER
+        const CREDENTIALS = {
+            readOnly: "altar2026",      // Contraseña para el equipo/coordinadores (Solo lectura)
+            adminMaster: "arnaldo99"   // TU CONTRASEÑA (Acceso total, edición e importación)
+        };
+
+        let currentRole = null; // 'admin' o 'readonly'
+
+        // Base database initialized from files
+        let servers = [
+            { nome: "Carlos Daniel Américo", capela: "Capela N. S. Aparecida (Colina Verde)", dia: "Domingo", hora: "09:00", pais: "Adelar Américo e Francieli", contato: "99917-3494", estado: "Exercendo" },
+            { nome: "João Vitor P. Alves", capela: "Capela Santa Paulina", dia: "Sábado", hora: "18:00", pais: "Elizandra P. Alves", contato: "99911-4797", estado: "Exercendo" },
+            { nome: "Luan Felipe Ceconi Calione", capela: "Capela Santa Paulina", dia: "Sábado", hora: "18:00", pais: "Marcia ceconi Calione", contato: "98824-7950", estado: "Exercendo" },
+            { nome: "Marcos Felipe Coleto Flor", capela: "Capela Santa Paulina", dia: "Sábado", hora: "18:00", pais: "Sandra Coleto Flor", contato: "99974-7904", estado: "Exercendo" },
+            { nome: "Ulisses  Eduardo De Jesus", capela: "Capela Santa Paulina", dia: "Sábado", hora: "18:00", pais: "Aline De Jesus", contato: "99900-6502", estado: "Exercendo" },
+            { nome: "Vinissius José Dos Santos", capela: "Capela Santa Paulina", dia: "Sábado", hora: "18:00", pais: "Clenir Marcinhak dos Santos", contato: "98822-5618", estado: "Exercendo" },
+            { nome: "Gabriel Henrique Barbon", capela: "Matriz", dia: "Domingo", hora: "09:00", pais: "Daniel Barbon", contato: "99977-4446", estado: "Exercendo" },
+            { nome: "Jaqueline Bets", capela: "Matriz", dia: "Domingo", hora: "19:00", pais: "Terezinha Bets", contato: "99904-6738", estado: "Exercendo" },
+            { nome: "João Pedro Bets", capela: "Matriz", dia: "Domingo", hora: "19:00", pais: "Terezinha Bets", contato: "99904-6738", estado: "Exercendo" },
+            { nome: "Bárbara Furlan Jaguzeski", capela: "Capela N. S.  Mercês, Uassari", dia: "Domingo", hora: "19:00", pais: "Beatriz Furlan", contato: "99913-1517", estado: "Formando-se" },
+            { nome: "Manuela Cecília", capela: "Capela N. S.  Mercês, Uassari", dia: "Domingo", hora: "19:00", pais: "Mônica Zavali Martins", contato: "99905-5212", estado: "Formando-se" },
+            { nome: "Izabela Alupe Dias", capela: "Capela N. S. Aparecida (Colina Verde)", dia: "Domingo", hora: "09:00", pais: "Andreia e Valdecir", contato: "99906-0945", estado: "Formando-se" },
+            { nome: "Valentina da Rosa de Souza", capela: "Capela N. S. de Fátima", dia: "Sábado", hora: "19:00", pais: "Sandra Lucia da Rosa", contato: "99973-6757", estado: "Formando-se" },
+            { nome: "Valentina Favreto Picoli", capela: "Capela N. S. de Fátima", dia: "Sábado", hora: "19:00", pais: "Karina Favreto", contato: "99972-0083", estado: "Formando-se" }
+        ];
+
+        const capelasList = ["Matriz", "Capela Santa Paulina", "Capela N. S. de Fátima", "Capela N. S. Aparecida (Colina Verde)", "Capela N. S.  Mercês, Uassari", "Capela N. S. Graças", "Capela São Francisco", "Capela XVI de Novembro"];
+        let capelasChartInstance = null;
+        let stateChartInstance = null;
+
+        // Login authentication checker
+        function validateAccess() {
+            const pwdInput = document.getElementById('accessPassword').value.trim();
+            const errorMsg = document.getElementById('loginError');
+
+            if (pwdInput === CREDENTIALS.adminMaster) {
+                currentRole = 'admin';
+                grantAccess();
+            } else if (pwdInput === CREDENTIALS.readOnly) {
+                currentRole = 'readonly';
+                grantAccess();
+            } else {
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+        function grantAccess() {
+            // UI Unlocking
+            document.getElementById('loginOverlay').classList.add('hidden');
+            document.getElementById('dashboardApp').classList.remove('hidden');
+            document.getElementById('mainBody').classList.remove('overflow-hidden');
+            
+            // Setup session rules
+            const badge = document.getElementById('roleBadge');
+            const adminBar = document.getElementById('adminActionBar');
+            
+            if (currentRole === 'admin') {
+                badge.className = "text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border bg-emerald-100 text-emerald-800 border-emerald-300";
+                badge.textContent = "Administrador";
+                adminBar.classList.remove('hidden');
+            } else {
+                badge.className = "text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border bg-slate-100 text-slate-700 border-slate-300";
+                badge.textContent = "Consulta";
+                adminBar.classList.add('hidden');
+            }
+
+            initFiltersAndSelects();
+            updateDashboard();
+            setupCSVReader();
+            showToast("Painel desbloqueado com sucesso!");
+        }
+
+        function lockDashboard() {
+            currentRole = null;
+            document.getElementById('accessPassword').value = '';
+            document.getElementById('loginError').classList.add('hidden');
+            document.getElementById('loginOverlay').classList.remove('hidden');
+            document.getElementById('dashboardApp').classList.add('hidden');
+            document.getElementById('mainBody').classList.add('overflow-hidden');
+        }
+
+        // Allow entering key with Enter keypress
+        document.getElementById('accessPassword')?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') validateAccess();
+        });
+
+        function initFiltersAndSelects() {
+            const filterCapela = document.getElementById('filterCapela');
+            const formCapela = document.getElementById('formCapela');
+            filterCapela.innerHTML = '<option value="">Todas as Capelas</option>';
+            formCapela.innerHTML = '<option value="">-- Selecionar Capela --</option>';
+
+            capelasList.forEach(capela => {
+                const op = document.createElement('option'); op.value = capela; op.textContent = capela;
+                filterCapela.appendChild(op);
+                const opForm = document.createElement('option'); opForm.value = capela; opForm.textContent = capela;
+                formCapela.appendChild(opForm);
+            });
+        }
+
+        function updateDashboard() {
+            const total = servers.length;
+            const exercendo = servers.filter(s => s.estado === 'Exercendo').length;
+            const formando = servers.filter(s => s.estado === 'Formando-se').length;
+            const activeCapelas = [...new Set(servers.map(s => s.capela))].filter(Boolean).length;
+
+            document.getElementById('kpi-total').textContent = total;
+            document.getElementById('kpi-exercendo').textContent = exercendo;
+            document.getElementById('kpi-exercendo-pct').textContent = total > 0 ? `${Math.round((exercendo/total)*100)}% do total` : '0%';
+            document.getElementById('kpi-formando').textContent = formando;
+            document.getElementById('kpi-formando-pct').textContent = total > 0 ? `${Math.round((formando/total)*100)}% do total` : '0%';
+            document.getElementById('kpi-capelas').textContent = activeCapelas;
+
+            renderCharts();
+            filterData();
+        }
+
+        function renderCharts() {
+            const capelaCounts = {};
+            capelasList.forEach(c => capelaCounts[c] = 0);
+            servers.forEach(s => { if (s.capela) capelaCounts[s.capela] = (capelaCounts[s.capela] || 0) + 1; });
+
+            const barCtx = document.getElementById('capelasChart').getContext('2d');
+            if (capelasChartInstance) capelasChartInstance.destroy();
+            capelasChartInstance = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(capelaCounts),
+                    datasets: [{ label: 'Servidores', data: Object.values(capelaCounts), backgroundColor: '#10b981', borderRadius: 6 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const doughnutCtx = document.getElementById('stateChart').getContext('2d');
+            if (stateChartInstance) stateChartInstance.destroy();
+            stateChartInstance = new Chart(doughnutCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Exercendo', 'Formando-se'],
+                    datasets: [{ data: [servers.filter(s=>s.estado==='Exercendo').length, servers.filter(s=>s.estado==='Formando-se').length], backgroundColor: ['#059669', '#f59e0b'] }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, cutout: '70%' }
+            });
+        }
+
+        function filterData() {
+            const searchVal = document.getElementById('searchInput').value.toLowerCase().trim();
+            const capelaFilterVal = document.getElementById('filterCapela').value;
+            const estadoFilterVal = document.getElementById('filterEstado').value;
+
+            const filtered = servers.filter(s => {
+                const matchesSearch = s.nome.toLowerCase().includes(searchVal) || (s.pais && s.pais.toLowerCase().includes(searchVal));
+                const matchesCapela = !capelaFilterVal || s.capela === capelaFilterVal;
+                const matchesEstado = !estadoFilterVal || s.estado === estadoFilterVal;
+                return matchesSearch && matchesCapela && matchesEstado;
+            });
+            renderTable(filtered);
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            document.getElementById('displayed-count').textContent = data.length;
+            document.getElementById('total-count').textContent = servers.length;
+
+            // Show or hide actions header column based on role
+            const actionHeader = document.querySelector('.dynamic-action-header');
+            if (currentRole === 'admin') {
+                actionHeader.classList.remove('hidden');
+            } else {
+                actionHeader.classList.add('hidden');
+            }
+
+            if (data.length === 0) {
+                document.getElementById('no-results-msg').classList.remove('hidden');
+                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-10 text-center text-slate-400">Nenhum servidor encontrado.</td></tr>`;
+                return;
+            }
+            document.getElementById('no-results-msg').classList.add('hidden');
+
+            data.forEach((server) => {
+                const globalIndex = servers.indexOf(server);
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 transition-all";
+
+                const badgeClass = server.estado === 'Exercendo' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
+                
+                // Hide or show row management tools
+                const actionsCell = currentRole === 'admin' ? `
+                    <td class="px-6 py-4 text-right space-x-1">
+                        <button onclick="openEditModal(${globalIndex})" class="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+                        <button onclick="deleteServer(${globalIndex})" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded-lg transition"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                    </td>
+                ` : `<td class="hidden"></td>`;
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-semibold text-slate-900">${server.nome}</td>
+                    <td class="px-6 py-4 text-slate-600">${server.capela || '-'}</td>
+                    <td class="px-6 py-4"><span class="font-medium">${server.dia || 'Sem escala'}</span> <span class="text-xs text-slate-400 block">${server.hora || ''}</span></td>
+                    <td class="px-6 py-4">
+                        <span class="text-slate-700 block text-xs font-medium">${server.pais || '-'}</span>
+                        <button onclick="openContactModal('${server.nome}', '${server.pais}', '${server.contato}')" class="text-xs font-bold text-indigo-600 hover:underline">Ver contato</button>
+                    </td>
+                    <td class="px-6 py-4"><span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${badgeClass}">${server.estado}</span></td>
+                    ${actionsCell}
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function clearFilters() {
+            document.getElementById('searchInput').value = ''; document.getElementById('filterCapela').value = ''; document.getElementById('filterEstado').value = '';
+            filterData();
+        }
+
+        function openAddModal() {
+            if (currentRole !== 'admin') return;
+            document.getElementById('modalTitle').textContent = "Novo Servidor"; document.getElementById('editIndex').value = "";
+            document.getElementById('serverForm').reset(); document.getElementById('serverModal').classList.remove('hidden');
+        }
+
+        function openEditModal(index) {
+            if (currentRole !== 'admin') return;
+            const server = servers[index];
+            document.getElementById('modalTitle').textContent = "Editar Servidor"; document.getElementById('editIndex').value = index;
+            document.getElementById('formNome').value = server.nome || ''; document.getElementById('formCapela').value = server.capela || '';
+            document.getElementById('formEstado').value = server.estado || 'Exercendo'; document.getElementById('formDia').value = server.dia || '';
+            document.getElementById('formHora').value = server.hora || ''; document.getElementById('formPais').value = server.pais || '';
+            document.getElementById('formContato').value = server.contato || '';
+            document.getElementById('serverModal').classList.remove('hidden');
+        }
+
+        function closeModal() { document.getElementById('serverModal').classList.add('hidden'); }
+
+        function handleFormSubmit(event) {
+            event.preventDefault();
+            if (currentRole !== 'admin') return;
+            const index = document.getElementById('editIndex').value;
+            const payload = {
+                nome: document.getElementById('formNome').value.trim(), capela: document.getElementById('formCapela').value,
+                estado: document.getElementById('formEstado').value, dia: document.getElementById('formDia').value,
+                hora: document.getElementById('formHora').value.trim(), pais: document.getElementById('formPais').value.trim(), contato: document.getElementById('formContato').value.trim()
+            };
+            if (index === "") { servers.push(payload); showToast("Servidor registrado!"); } 
+            else { servers[parseInt(index)] = payload; showToast("Dados atualizados!"); }
+            closeModal(); updateDashboard();
+        }
+
+        function deleteServer(index) {
+            if (currentRole !== 'admin') return;
+            if (confirm(`Remover "${servers[index].nome}"?`)) { servers.splice(index, 1); showToast("Registro removido."); updateDashboard(); }
+        }
+
+        function openContactModal(nome, pais, contato) {
+            document.getElementById('contactModalServidor').textContent = nome;
+            document.getElementById('contactModalPais').textContent = pais || "Não informado";
+            document.getElementById('contactModalTelefone').textContent = contato || "Sem número";
+            document.getElementById('contactModal').classList.remove('hidden');
+        }
+        function closeContactModal() { document.getElementById('contactModal').classList.add('hidden'); }
+
+        function copyContactText() {
+            const text = document.getElementById('contactModalTelefone').textContent;
+            const el = document.createElement('textarea'); el.value = text; document.body.appendChild(el); el.select();
+            document.execCommand('copy'); document.body.removeChild(el); showToast("Contato copiado!");
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast'); document.getElementById('toastMsg').textContent = msg;
+            toast.classList.remove('hidden'); setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        function setupCSVReader() {
+            document.getElementById('csvFileInput')?.addEventListener('change', function(e) {
+                const file = e.target.files[0]; if (!file || currentRole !== 'admin') return;
+                const reader = new FileReader();
+                reader.onload = function(evt) { parseCSVData(evt.target.result); };
+                reader.readAsText(file, 'UTF-8');
+            });
+        }
+
+        function parseCSVData(text) {
+            try {
+                const lines = text.split('\n').map(line => line.split(','));
+                let headerIndex = lines.findIndex(line => line.some(col => col.toLowerCase().includes('servidores do altar')));
+                if (headerIndex === -1) { alert('CSV inválido.'); return; }
+
+                const imported = [];
+                for (let i = headerIndex + 1; i < lines.length; i++) {
+                    const line = lines[i]; if (line.length < 2 || !line[0]) continue;
+                    imported.push({
+                        nome: line[0].replace(/"/g, '').trim(), capela: line[1] ? line[1].replace(/"/g, '').trim() : '',
+                        dia: line[2] ? line[2].trim() : '', hora: line[3] ? line[3].trim() : '',
+                        pais: line[4] ? line[4].trim() : '', contato: line[5] ? line[5].trim() : '',
+                        estado: line[6] && line[6].toLowerCase().includes('formando') ? 'Formando-se' : 'Exercendo'
+                    });
+                }
+                if (imported.length > 0) { servers = imported; showToast("Dados importados!"); updateDashboard(); }
+            } catch (err) { alert('Erro ao ler arquivo.'); }
+        }
+
+        function exportToCSV() {
+            let csv = "SERVIDORES DO ALTAR,ONDE VAI SERVIR?,DIA,HORA,PAIS / RESPONSÁVEIS,CONTATO,Estado\n";
+            servers.forEach(s => { csv += `"${s.nome}","${s.capela}","${s.dia}","${s.hora}","${s.pais}","${s.contato}","${s.estado}"\n`; });
+            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob); const link = document.createElement("a");
+            link.setAttribute("href", url); link.setAttribute("download", "Relação_Atualizada.csv");
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
+```
+
+---
+
+### ¿Cómo funcionan las llaves de acceso en este nuevo código?
+
+He definido las contraseñas en las líneas **223 y 224** del código de JavaScript. Son las siguientes:
+
+| Tipo de Acceso | Contraseña Predeterminada | ¿Qué puede hacer? |
+| :--- | :--- | :--- |
+| **Acceso General (Lectura)** | `altar2026` | Ver gráficos, usar filtros, ver teléfonos y escalas. Ideal para catequistas o sacerdotes. |
+| **Acceso Admin (Tuyo)** | `arnaldo99` | Acceso completo. Desbloquea la barra verde de herramientas, permite importar Excel/CSV, añadir monaguillos, editar escalas y borrar registros. |
+
+### Cómo cambiar las contraseñas:
+Si deseas cambiarlas por otras de tu preferencia antes de subir el archivo al servidor, solo abre el archivo en cualquier editor de texto (como el Bloc de Notas), busca la palabra `CREDENTIALS` y reemplaza los textos correspondientes:
+
+```javascript
+const CREDENTIALS = {
+    readOnly: "tu_nueva_clave_de_lectura",
+    adminMaster: "tu_nueva_clave_de_administrador"
+};
