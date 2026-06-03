@@ -946,7 +946,7 @@
                     adminControlsHtml = `
                         <div class="flex gap-1.5 justify-center">
                             <button onclick="editServer('${server.id}')" class="p-1 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[11px] font-bold transition-all">Editar</button>
-                            <button onclick="deleteServer('${server.id}', '${server.Nome.replace(/'/g, "\\'")}')" class="p-1 px-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition-all">Borrar</button>
+                            <button onclick="deleteServer('${server.id}', '${server.Nome.replace(/'/g, "\\'")}')" class="p-1 px-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition-all">Apagar</button>
                         </div>
                     `;
                 } else {
@@ -980,17 +980,17 @@
                     </td>
                     <td class="py-4 px-6">
                         <div class="font-medium text-slate-800">${server.Capela || 'S/D'}</div>
-                        <div class="text-xs text-slate-400">${server.Bairro || 'Sin Barrio'}</div>
+                        <div class="text-xs text-slate-400">${server.Bairro || 'Sem bairro'}</div>
                     </td>
                     <td class="py-4 px-6">
                         <div class="flex flex-col space-y-1 text-xs">
-                            <span class="flex items-center gap-1">${batizadoIcon} Bautismo</span>
-                            <span class="flex items-center gap-1">${eucaristiaIcon} Comunión</span>
+                            <span class="flex items-center gap-1">${batizadoIcon} Batismo</span>
+                            <span class="flex items-center gap-1">${eucaristiaIcon} Comunhão</span>
                             <span class="flex items-center gap-1">${crismaIcon} Crisma</span>
                         </div>
                     </td>
                     <td class="py-4 px-6 text-xs max-w-xs ${alertClass}">
-                        ${tieneAlergia ? `🚨 <strong>Alergia/Enfermedad:</strong> ${server.Descricao_alergia_doenca || 'Sí, requiere precaución.'}` : 'Sin condiciones reportadas'}
+                        ${tieneAlergia ? `🚨 <strong>Alergia/Doença:</strong> ${server.Descricao_alergia_doenca || 'Sim, é preciso ter cuidado.'}` : 'Sem condições relatadas'}
                     </td>
                     <td class="py-4 px-6 text-xs font-semibold text-center">
                         ${adminControlsHtml}
