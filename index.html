@@ -997,7 +997,7 @@
                         </div>
                     </td>
                     <td class="py-4 px-6 text-xs max-w-xs ${alertClass}">
-                        ${tieneAlergia ? `🚨 <strong>Alergia/Doença:</strong> ${server.Descricao_alergia_doenca || 'Sim, é preciso ter cuidado.'}` : 'Sem condições relatadas'}
+                        ${tieneAlergia ? `🚨 ${server.Descricao_alergia_doenca || 'Sim, é preciso ter cuidado.'}` : 'Sem condições relatadas'}
                     </td>
                     <td class="py-4 px-6 text-xs font-semibold text-center">
                         ${adminControlsHtml}
