@@ -939,6 +939,13 @@
                 const wpParentName = (server.Nome_mae || server.Nome_pai || 'Responsável').trim();
                 const wpParentNum = server.Whatsapp_mae || server.Whatsapp_pai || server.Whatsapp_tutor_guardiao;
                 const wpParent = wpParentNum ? generateWpLink(wpParentNum, `Olá ${wpParentName}, tudo bem? Gostaria de falar sobre o coroinha ${server.Nome}...`) : null;
+                const parentLabel = server.Nome_mae
+                    ? `Mãe: ${server.Nome_mae}`
+                    : server.Nome_pai
+                        ? `Pai: ${server.Nome_pai}`
+                        : server.Nome_tutor_guardiao
+                            ? `Tutor: ${server.Nome_tutor_guardiao}`
+                            : 'Responsável';
 
                 // Controles de Administrador
                 let adminControlsHtml = '';
@@ -953,7 +960,7 @@
                     adminControlsHtml = `
                         <div class="flex flex-col gap-1.5">
                             ${wpCandidate ? `<a href="${wpCandidate}" target="_blank" class="text-center text-[11px] text-emerald-600 hover:text-emerald-800 font-semibold bg-emerald-50 px-2 py-1 rounded-md">💬 Candidato</a>` : ''}
-                            ${wpParent ? `<a href="${wpParent}" target="_blank" class="text-center text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2 py-1 rounded-md">📞 Tutor</a>` : '<span class="text-slate-400 text-center">Sin números</span>'}
+                            ${wpParent ? `<a href="${wpParent}" target="_blank" class="text-center text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2 py-1 rounded-md">📞 ${parentLabel}</a>` : '<span class="text-slate-400 text-center">Sem números</span>'}
                         </div>
                     `;
                 }
