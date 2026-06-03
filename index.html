@@ -1,668 +1,1485 @@
 <!DOCTYPE html>
-<html lang="es" class="h-full bg-slate-50">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Seguro - Servidores do Altar</title>
+    <title>Gestor y Dashboard - Servidores del Altar</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        liturgic: {
-                            50: '#f0fdf4',
-                            100: '#dcfce7',
-                            500: '#10b981',
-                            600: '#059669',
-                            700: '#047857',
-                            800: '#065f46',
-                            900: '#064e3b',
+                        liturgical: {
+                            gold: '#D4AF37',
+                            goldHover: '#C59B27',
+                            red: '#991B1B',
+                            purple: '#581C87',
+                            green: '#065F46',
+                            blue: '#1E3A8A',
+                            slate: '#0F172A'
                         }
                     }
                 }
             }
         }
     </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=300;400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            height: 250px;
+            width: 100%;
+        }
+    </style>
 </head>
-<body class="h-full text-slate-800 overflow-hidden" id="mainBody">
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col justify-between">
 
-    <div id="loginOverlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 sm:p-8 text-center space-y-6 border border-slate-100">
-            <div class="mx-auto h-14 w-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center border border-emerald-100 shadow-sm">
-                <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                </svg>
+    <!-- NAVBAR -->
+    <header class="bg-liturgical-blue text-white shadow-lg border-b-4 border-liturgical-gold">
+        <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-2.5 bg-white/10 rounded-xl border border-white/20">
+                    <svg class="w-8 h-8 text-liturgical-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m-6-12h12M5 21h14"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight">Servidores del Altar</h1>
+                    <p class="text-xs sm:text-sm text-blue-200">Panel de Control y Monitoreo Parroquial</p>
+                </div>
             </div>
-            <div>
-                <h2 class="text-xl font-bold text-slate-900">Acesso Restrito</h2>
-                <p class="text-slate-500 text-xs sm:text-sm mt-1">Insira a credencial autorizada para acessar o painel da pastoral.</p>
+            
+            <!-- PANEL DE CONTROL DE ACCESO -->
+            <div class="flex items-center gap-4 flex-wrap">
+                <!-- Indicador de Sincronización de Base de Datos -->
+                <span id="db-status" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1.5">
+                    <span class="w-2 h-2 bg-amber-500 rounded-full animate-ping"></span>
+                    Conectando a la nube...
+                </span>
+                
+                <!-- Botón de Modo Administrador -->
+                <button id="btn-admin-toggle" class="bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-4 py-2 rounded-xl border border-white/20 transition-all flex items-center gap-1.5">
+                    <span id="admin-icon">🔒</span>
+                    <span id="admin-btn-text">Acceso Admin</span>
+                </button>
             </div>
-            <div class="space-y-3 text-left">
-                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider" for="accessPassword">Senha de Acesso</label>
-                <input type="password" id="accessPassword" placeholder="••••••••" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-center text-lg bg-slate-50">
-                <p id="loginError" class="text-red-600 text-xs font-semibold hidden text-center">Senha incorreta. Tente novamente.</p>
+        </div>
+    </header>
+
+    <!-- LOADING SCREEN -->
+    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-white transition-opacity duration-300">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-liturgical-gold mb-4"></div>
+        <h2 class="text-lg font-bold">Iniciando Servidores del Altar...</h2>
+        <p class="text-sm text-slate-400 mt-1">Conectando de forma segura con la base de datos</p>
+    </div>
+
+    <main class="max-w-[90rem] mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-8 flex-grow w-full">
+        
+        <!-- ALERT MESSAGE -->
+        <div id="error-alert" class="hidden bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-2xl flex items-center justify-between shadow-sm">
+            <div class="flex items-center space-x-3">
+                <span class="text-xl">⚠️</span>
+                <p id="error-alert-text" class="text-sm font-medium"></p>
             </div>
-            <button onclick="validateAccess()" class="w-full py-3 bg-liturgic-700 hover:bg-liturgic-800 text-white font-semibold rounded-xl transition shadow-md shadow-emerald-900/10">
-                Desbloquear Painel
-            </button>
-            <div class="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
-                Paróquia Santa Teresinha e Santo Agostinho • Ampére - PR
+            <button onclick="document.getElementById('error-alert').classList.add('hidden')" class="text-rose-500 hover:text-rose-700 font-bold px-2 py-1">✕</button>
+        </div>
+
+        <!-- ZONE DE NOTIFICACIÓN DE MODO ADMIN -->
+        <div id="admin-banner" class="hidden bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl">🔓</span>
+                <div>
+                    <h4 class="font-bold text-sm">Modo Administrador Activo</h4>
+                    <p class="text-xs text-emerald-600">Tienes permisos para editar, borrar, agregar monaguillos y subir archivos CSV.</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="btn-add-manual" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all">
+                    + Agregar Servidor
+                </button>
+                <button id="btn-logout" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl transition-all">
+                    Salir de Admin
+                </button>
+            </div>
+        </div>
+
+        <!-- DROPZONE / UPLOAD AREA (Solo visible para administradores) -->
+        <section id="upload-section" class="hidden bg-white rounded-3xl border-2 border-dashed border-slate-300 p-8 text-center transition-all hover:border-liturgical-blue relative overflow-hidden group shadow-sm">
+            <input type="file" id="csv-file-input" accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+            <div class="flex flex-col items-center justify-center space-y-4">
+                <div class="p-4 bg-blue-50 text-liturgical-blue rounded-full group-hover:scale-110 transition-transform">
+                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V4a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">Actualizar Base de Datos Completa (CSV)</h3>
+                    <p class="text-sm text-slate-500 max-w-md mx-auto mt-1">Arrastra aquí tu archivo o haz clic para buscarlo.</p>
+                </div>
+                <div class="text-xs text-slate-400">Esta acción actualizará y consolidará los registros existentes de manera permanente en la nube.</div>
+                <div id="upload-progress" class="hidden w-64 bg-slate-100 rounded-full h-2 mt-2 overflow-hidden">
+                    <div id="upload-progress-bar" class="bg-emerald-500 h-full w-0 transition-all duration-300"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- DASHBOARD CONTAINER -->
+        <div id="dashboard-content" class="space-y-8">
+            
+            <!-- KPI CARDS (6 columns layout) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                <!-- KPI 1: Total de Registros -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-32">
+                    <div class="flex justify-between items-start">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total de Registros</p>
+                        <div class="p-1.5 bg-blue-50 text-liturgical-blue rounded-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 id="kpi-total" class="text-2xl font-black text-slate-900 leading-none">0</h3>
+                        <span class="text-[10px] text-slate-400 block mt-1">Registrados en total</span>
+                    </div>
+                </div>
+
+                <!-- KPI 2: Instituídos -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-32">
+                    <div class="flex justify-between items-start">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Instituídos</p>
+                        <div class="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 id="kpi-instituidos" class="text-2xl font-black text-indigo-600 leading-none">0</h3>
+                        <span class="text-[10px] text-slate-400 block mt-1">Servidores activos oficiales</span>
+                    </div>
+                </div>
+
+                <!-- KPI 3: Candidatos -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-32">
+                    <div class="flex justify-between items-start">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Candidatos</p>
+                        <div class="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 id="kpi-candidatos" class="text-2xl font-black text-amber-600 leading-none">0</h3>
+                        <span class="text-[10px] text-slate-400 block mt-1">En fase inicial</span>
+                    </div>
+                </div>
+
+                <!-- KPI 4: Formandos -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-32">
+                    <div class="flex justify-between items-start">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Formandos</p>
+                        <div class="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222"></path></svg>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 id="kpi-formandos" class="text-2xl font-black text-emerald-600 leading-none">0</h3>
+                        <span class="text-[10px] text-slate-400 block mt-1">En capacitación doctrinal</span>
+                    </div>
+                </div>
+
+                <!-- KPI 5: Edad Promedio -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-32">
+                    <div class="flex justify-between items-start">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Edad Promedio</p>
+                        <div class="p-1.5 bg-purple-50 text-purple-600 rounded-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2V12a2 2 0 002 2z"></path></svg>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 id="kpi-edad" class="text-2xl font-black text-slate-900 leading-none">0 <span class="text-xs font-normal text-slate-500">años</span></h3>
+                        <span class="text-[10px] text-slate-400 block mt-1">Perfil demográfico</span>
+                    </div>
+                </div>
+
+                <!-- KPI 6: Alergias -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-32">
+                    <div class="flex justify-between items-start">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Alergias / Salud</p>
+                        <div class="p-1.5 bg-rose-50 text-liturgical-red rounded-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 id="kpi-alergias" class="text-2xl font-black text-liturgical-red leading-none">0</h3>
+                        <span class="text-[10px] text-slate-400 block mt-1">Atención médica necesaria</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CHARTS SECTION -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Chart 1: Capillas -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                    <h3 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-liturgical-blue"></span>
+                        Servidores por Capilla (Capela)
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="chart-capillas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 2: Sacramentos -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                    <h3 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-liturgical-gold"></span>
+                        Estado de Sacramentos
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="chart-sacramentos"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 3: Rango de edades por tipo de registro -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                    <h3 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-liturgical-green"></span>
+                        Rangos de Edad por Tipo de Registro (6-11 y 12-24 años)
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="chart-edades"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 4: Horarios de Estudio -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                    <h3 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-liturgical-purple"></span>
+                        Turnos de Estudio (Disponibilidad)
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="chart-horarios"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEARCH, FILTERS & TABLE SECTION -->
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                <!-- Header / Filtros -->
+                <div class="p-6 border-b border-slate-100 space-y-4">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800">Directorio de Servidores</h3>
+                            <p class="text-xs text-slate-500 mt-1">Busca, filtra e interactúa con los contactos de los servidores y tutores</p>
+                        </div>
+                        <!-- Buscador -->
+                        <div class="w-full md:w-80 relative">
+                            <input type="text" id="search-input" placeholder="Buscar por nombre o ID..." class="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue transition-all" />
+                            <svg class="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                    </div>
+
+                    <!-- Filtros select -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                        <div>
+                            <label class="text-xs font-semibold text-slate-500 block mb-1">Capilla</label>
+                            <select id="filter-capilla" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-liturgical-blue">
+                                <option value="all">Todas</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-slate-500 block mb-1">Estado</label>
+                            <select id="filter-estado" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-liturgical-blue">
+                                <option value="all">Todos</option>
+                                <option value="Ativo">Activo</option>
+                                <option value="Inativo">Inactivo</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-slate-500 block mb-1">Alergias / Condiciones</label>
+                            <select id="filter-alergias" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-liturgical-blue">
+                                <option value="all">Todos</option>
+                                <option value="Sim">Sí (Tiene Alergias)</option>
+                                <option value="Não">No (Sin Alergias)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-slate-500 block mb-1">Tipo de Registro</label>
+                            <select id="filter-tipo" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-liturgical-blue">
+                                <option value="all">Todos</option>
+                                <option value="Candidato">Candidato</option>
+                                <option value="Formando">Formando</option>
+                                <option value="Instituído">Instituído</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-500 text-xs font-semibold uppercase tracking-wider">
+                                <th class="py-4 px-6">ID / Nombre</th>
+                                <th class="py-4 px-6">Edad/Sexo</th>
+                                <th class="py-4 px-6">Capilla / Origen</th>
+                                <th class="py-4 px-6">Sacramental</th>
+                                <th class="py-4 px-6">Salud / Alergias</th>
+                                <th class="py-4 px-6">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="divide-y divide-slate-100 text-sm text-slate-600">
+                            <!-- Rows injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Empty state -->
+                <div id="empty-state" class="hidden text-center py-12">
+                    <svg class="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0V9a2 2 0 00-2-2H6a2 2 0 00-2 2v4.5m12+3.5h.01M5.071 19.293a10 10 0 1114.142 0M12 11h.01"></path></svg>
+                    <p class="text-slate-500 font-medium">No se encontraron servidores con los filtros seleccionados</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ADMIN LOGIN MODAL -->
+    <div id="admin-login-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-800" id="login-modal-title">Acceso de Administrador</h3>
+                <button onclick="document.getElementById('admin-login-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+            </div>
+            
+            <div id="setup-instructions" class="hidden text-xs bg-amber-50 text-amber-800 p-3 rounded-xl border border-amber-200">
+                ⭐ <strong>Primera Configuración:</strong> Introduce la Clave de Invitación obligatoria para poder definir la contraseña maestra de administración.
+            </div>
+
+            <!-- Entrada para Clave de Invitación / Inicialización (Opción 3) -->
+            <div id="container-init-key" class="hidden space-y-2">
+                <label class="text-xs font-semibold text-slate-500 block">Clave de Invitación Secreta *</label>
+                <input type="password" id="admin-init-key-input" placeholder="Introduce el código de seguridad inicial..." class="w-full px-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue" />
+            </div>
+
+            <div class="space-y-2">
+                <label id="label-password" class="text-xs font-semibold text-slate-500 block">Contraseña de Acceso</label>
+                <input type="password" id="admin-password-input" placeholder="Introduce la contraseña..." class="w-full px-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue" />
+                <p id="login-error" class="hidden text-xs text-rose-600 font-medium">Contraseña o clave de invitación incorrecta.</p>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button id="btn-login-cancel" onclick="document.getElementById('admin-login-modal').classList.add('hidden')" class="w-1/2 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200 transition-colors">Cancelar</button>
+                <button id="btn-login-submit" class="w-1/2 py-2 bg-liturgical-blue text-white text-xs font-bold rounded-xl hover:bg-liturgical-blue/90 transition-colors">Entrar</button>
             </div>
         </div>
     </div>
 
-    <div id="dashboardApp" class="hidden min-h-full flex flex-col">
-        <header class="bg-liturgic-800 text-white shadow-md">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex items-center justify-between h-16">
-                    <div class="flex items-center space-x-3">
-                        <svg class="h-8 w-8 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                        </svg>
-                        <div>
-                            <h1 class="text-xl font-bold tracking-tight">Servidores do Altar</h1>
-                            <p class="text-xs text-emerald-200">Painel de Monitoramento Paroquial</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-3">
-                        <span id="roleBadge" class="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border">
-                            -
-                        </span>
-                        <button onclick="lockDashboard()" class="p-1.5 bg-liturgic-900 hover:bg-red-950 text-emerald-300 hover:text-red-200 rounded-lg border border-emerald-700 hover:border-red-900 transition" title="Sair / Bloquear">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
+    <!-- ADD/EDIT DIALOG MODAL -->
+    <div id="edit-server-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl border border-slate-100 space-y-4 my-8">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-800" id="edit-modal-title">Agregar/Editar Servidor</h3>
+                <button onclick="document.getElementById('edit-server-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
             </div>
-        </header>
+            <form id="server-form" class="space-y-4 text-xs">
+                <!-- ID Hidden field -->
+                <input type="hidden" id="form-id" />
 
-        <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-            
-            <div class="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r-xl shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div class="flex items-start">
-                    <svg class="h-6 w-6 text-emerald-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                    </svg>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <h3 class="font-semibold text-emerald-900 text-sm sm:text-base">Encontro de Formação Mensal</h3>
-                        <p class="text-emerald-700 text-xs sm:text-sm mt-0.5">Ocorre todo 2º Sábado do mês, às 9:00h na Igreja Matriz. Presença indispensável para formandos e ativos.</p>
+                        <label class="font-semibold text-slate-500 block mb-1">Nombre Completo *</label>
+                        <input type="text" id="form-nome" required class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
                     </div>
-                </div>
-                <div>
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">Sábado às 9h</span>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Total de Servidores</p>
-                        <h3 class="text-3xl font-extrabold text-slate-900 mt-1" id="kpi-total">0</h3>
-                    </div>
-                    <div class="bg-indigo-50 p-3 rounded-xl text-indigo-600">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        <label class="font-semibold text-slate-500 block mb-1">Fecha de Nacimiento</label>
+                        <input type="date" id="form-data-nasc" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Activos (Exercendo)</p>
-                        <h3 class="text-3xl font-extrabold text-emerald-600 mt-1" id="kpi-exercendo">0</h3>
-                        <p class="text-xs text-slate-400 mt-1" id="kpi-exercendo-pct">0%</p>
+                        <label class="font-semibold text-slate-500 block mb-1">Edad *</label>
+                        <input type="number" id="form-idade" required min="0" max="30" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
                     </div>
-                    <div class="bg-emerald-50 p-3 rounded-xl text-emerald-600">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    </div>
-                </div>
-
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">En Formación</p>
-                        <h3 class="text-3xl font-extrabold text-amber-600 mt-1" id="kpi-formando">0</h3>
-                        <p class="text-xs text-slate-400 mt-1" id="kpi-formando-pct">0%</p>
+                        <label class="font-semibold text-slate-500 block mb-1">Sexo *</label>
+                        <select id="form-sexo" required class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                            <option value="Masculino">Masculino</option>
+                            <option value="Femenino">Femenino</option>
+                        </select>
                     </div>
-                    <div class="bg-amber-50 p-3 rounded-xl text-amber-600">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-                    </div>
-                </div>
-
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Capillas Activas</p>
-                        <h3 class="text-3xl font-extrabold text-indigo-900 mt-1" id="kpi-capelas">0</h3>
-                    </div>
-                    <div class="bg-slate-100 p-3 rounded-xl text-slate-600">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        <label class="font-semibold text-slate-500 block mb-1">Capilla (Capela) *</label>
+                        <input type="text" id="form-capela" required placeholder="Ej: Matriz, Santa Paulina..." class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
                     </div>
                 </div>
-            </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 lg:col-span-2 flex flex-col">
-                    <h3 class="text-lg font-bold text-slate-950 mb-4">Servidores por Capela</h3>
-                    <div class="flex-1 min-h-[300px] flex items-center justify-center">
-                        <canvas id="capelasChart"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
-                    <h3 class="text-lg font-bold text-slate-950 mb-4">Estado de Formação</h3>
-                    <div class="flex-1 min-h-[250px] flex items-center justify-center relative">
-                        <canvas id="stateChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <div id="adminActionBar" class="bg-emerald-800 text-white p-6 rounded-2xl shadow-md hidden">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <div class="flex items-center space-x-2">
-                            <span class="bg-emerald-900 text-emerald-300 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border border-emerald-600">Painel de Controle</span>
-                            <h3 class="text-lg font-bold">Gerenciamento Avançado de Dados</h3>
-                        </div>
-                        <p class="text-sm text-emerald-200 mt-1">Como administrador, você pode importar planilhas, cadastrar novos acólitos ou modificar registros.</p>
+                        <label class="font-semibold text-slate-500 block mb-1">Tipo de Registro *</label>
+                        <select id="form-tipo" required class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                            <option value="Candidato">Candidato</option>
+                            <option value="Formando">Formando</option>
+                            <option value="Instituído">Instituído</option>
+                        </select>
                     </div>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <label class="cursor-pointer inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-dashed border-emerald-400 bg-emerald-900/30 hover:bg-emerald-900/60 text-sm font-medium text-white transition">
-                            <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                            Importar CSV (Relação)
-                            <input type="file" id="csvFileInput" accept=".csv" class="hidden">
+                    <div>
+                        <label class="font-semibold text-slate-500 block mb-1">Estado de Actividad *</label>
+                        <select id="form-estado" required class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                            <option value="Ativo">Ativo</option>
+                            <option value="Inativo">Inativo</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="font-semibold text-slate-500 block mb-1">Horario de Estudio</label>
+                        <input type="text" id="form-horario-estudo" placeholder="Ej: Manhã;Tarde" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 p-3 rounded-xl space-y-3">
+                    <h4 class="font-bold text-slate-700">Sacramentos Recibidos</h4>
+                    <div class="flex gap-6">
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" id="form-batizado" class="rounded text-liturgical-blue w-4 h-4" /> Bautismo
                         </label>
-                        <button onclick="openAddModal()" class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 text-sm font-bold shadow-sm transition">
-                            <svg class="h-5 w-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                            Novo Servidor
-                        </button>
-                        <button onclick="exportToCSV()" class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-emerald-900 hover:bg-emerald-950 text-white text-sm font-semibold border border-emerald-700 transition">
-                            <svg class="h-5 w-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                            Exportar CSV
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div class="p-6 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div class="relative flex-1 max-w-md">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                            <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        </span>
-                        <input type="text" id="searchInput" oninput="filterData()" placeholder="Buscar por nome do servidor ou responsável..." class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white">
-                    </div>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <select id="filterCapela" onchange="filterData()" class="px-3 py-2 border border-slate-200 rounded-xl bg-white text-sm focus:ring-emerald-500"></select>
-                        <select id="filterEstado" onchange="filterData()" class="px-3 py-2 border border-slate-200 rounded-xl bg-white text-sm focus:ring-emerald-500">
-                            <option value="">Todos os Estados</option>
-                            <option value="Exercendo">Exercendo (Ativos)</option>
-                            <option value="Formando-se">Formando-se (Novos)</option>
-                        </select>
-                        <button onclick="clearFilters()" class="text-xs font-semibold text-slate-500 hover:text-emerald-600 px-2 py-1">Limpar Filtros</button>
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" id="form-comunion" class="rounded text-liturgical-blue w-4 h-4" /> Primera Comunión
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" id="form-crisma" class="rounded text-liturgical-blue w-4 h-4" /> Confirmación (Crisma)
+                        </label>
                     </div>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50 text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-slate-100">
-                                <th class="px-6 py-4">Servidor</th>
-                                <th class="px-6 py-4">Local onde serve</th>
-                                <th class="px-6 py-4">Escala (Dia / Hora)</th>
-                                <th class="px-6 py-4">Responsáveis</th>
-                                <th class="px-6 py-4">Estado</th>
-                                <th class="px-6 py-4 text-right dynamic-action-header">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody" class="divide-y divide-slate-100 text-sm"></tbody>
-                    </table>
-                </div>
-
-                <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                    <div>Mostrando <span id="displayed-count" class="font-semibold text-slate-800">0</span> de <span id="total-count" class="font-semibold text-slate-800">0</span> servidores</div>
-                    <div id="no-results-msg" class="hidden text-amber-600 font-semibold">Nenhum resultado encontrado.</div>
-                </div>
-            </div>
-        </main>
-
-        <footer class="bg-slate-900 text-slate-400 py-6 border-t border-slate-800 mt-auto">
-            <div class="max-w-7xl mx-auto px-4 text-center text-xs space-y-1">
-                <p>© 2026 Pastoral dos Servidores do Altar. Paróquia Santa Teresinha e Santo Agostinho - Ampére/PR.</p>
-            </div>
-        </footer>
-    </div>
-
-    <div id="serverModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
-            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <h3 id="modalTitle" class="font-bold text-slate-900 text-lg">Novo Servidor</h3>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600">
-                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-            <form id="serverForm" onsubmit="handleFormSubmit(event)" class="p-6 space-y-4 overflow-y-auto flex-1 text-left">
-                <input type="hidden" id="editIndex" value="">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" for="formNome">Nome do Servidor *</label>
-                    <input type="text" id="formNome" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" for="formCapela">Capela *</label>
-                        <select id="formCapela" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white"></select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" for="formEstado">Estado *</label>
-                        <select id="formEstado" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white">
-                            <option value="Exercendo">Exercendo (Ativo)</option>
-                            <option value="Formando-se">Formando-se</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" for="formDia">Dia da Escala</label>
-                        <select id="formDia" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white">
-                            <option value="">Sem dia fixo</option>
-                            <option value="Sábado">Sábado</option>
-                            <option value="Domingo">Domingo</option>
+                        <label class="font-semibold text-slate-500 block mb-1">¿Posee Alergias o Enfermedad?</label>
+                        <select id="form-tem-alergia" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                            <option value="Não">Não (No)</option>
+                            <option value="Sim">Sim (Sí)</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" for="formHora">Horário da Missa</label>
-                        <input type="text" id="formHora" placeholder="Ex: 19:00" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
+                        <label class="font-semibold text-slate-500 block mb-1">Descripción de Alergia/Enfermedad</label>
+                        <input type="text" id="form-desc-alergia" placeholder="Detalle de alergias..." class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
                     </div>
                 </div>
-                <div class="border-t border-slate-100 pt-3 space-y-3">
-                    <h4 class="text-sm font-bold text-slate-800">Contato Familiar</h4>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                <div class="bg-slate-50 p-3 rounded-xl space-y-3">
+                    <h4 class="font-bold text-slate-700">Contactos de Padres y Tutores (Opcional)</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" for="formPais">Responsável</label>
-                            <input type="text" id="formPais" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
+                            <label class="font-semibold text-slate-400 block mb-1">Nombre de la Madre</label>
+                            <input type="text" id="form-nome-mae" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm" />
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1" for="formContato">WhatsApp</label>
-                            <input type="text" id="formContato" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
+                            <label class="font-semibold text-slate-400 block mb-1">WhatsApp Madre</label>
+                            <input type="text" id="form-wp-mae" placeholder="46999102698" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm" />
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="font-semibold text-slate-400 block mb-1">Nombre del Padre</label>
+                            <input type="text" id="form-nome-pai" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm" />
+                        </div>
+                        <div>
+                            <label class="font-semibold text-slate-400 block mb-1">WhatsApp Padre</label>
+                            <input type="text" id="form-wp-pai" placeholder="46935052173" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm" />
                         </div>
                     </div>
                 </div>
-                <div class="border-t border-slate-100 pt-4 flex items-center justify-end space-x-3">
-                    <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-600">Cancelar</button>
-                    <button type="submit" class="px-4 py-2 bg-liturgic-700 text-white rounded-xl text-sm font-semibold shadow-sm">Salvar</button>
+
+                <div class="flex gap-2 pt-2 justify-end">
+                    <button type="button" onclick="document.getElementById('edit-server-modal').classList.add('hidden')" class="px-5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors">Cancelar</button>
+                    <button type="submit" class="px-6 py-2 bg-liturgical-blue text-white font-bold rounded-xl hover:bg-liturgical-blue/90 transition-colors">Guardar Cambios</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div id="contactModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
-            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <h3 class="font-bold text-slate-900 text-lg">Responsáveis & Contato</h3>
-                <button onclick="closeContactModal()" class="text-slate-400 hover:text-slate-600">
-                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
+    <!-- CUSTOM CONFIRMATION MODAL (Evita usar confirm() nativo del navegador) -->
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
+            <div class="flex items-center space-x-3 text-amber-500">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <h3 class="text-lg font-bold text-slate-800" id="confirm-title">Confirmar Acción</h3>
             </div>
-            <div class="p-6 space-y-4 text-left">
-                <div>
-                    <span class="text-xs font-semibold text-slate-400 uppercase">Servidor</span>
-                    <p id="contactModalServidor" class="text-base font-bold text-slate-900 mt-0.5">-</p>
-                </div>
-                <div>
-                    <span class="text-xs font-semibold text-slate-400 uppercase">Pais / Responsáveis</span>
-                    <p id="contactModalPais" class="text-sm font-medium text-slate-800 mt-0.5">-</p>
-                </div>
-                <div>
-                    <span class="text-xs font-semibold text-slate-400 uppercase">Contato Principal</span>
-                    <div class="flex items-center justify-between mt-1 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                        <p id="contactModalTelefone" class="text-base font-semibold text-indigo-700">-</p>
-                        <button onclick="copyContactText()" class="p-2 text-slate-500 hover:text-emerald-600 bg-white rounded-lg border border-slate-200 shadow-sm" title="Copiar contato">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 text-right">
-                <button onclick="closeContactModal()" class="px-4 py-2 bg-slate-800 text-white rounded-xl text-sm font-semibold">Fechar</button>
+            <p id="confirm-message" class="text-xs text-slate-500 leading-relaxed"></p>
+            <div class="flex gap-2 pt-2">
+                <button id="btn-confirm-cancel" class="w-1/2 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200 transition-colors">Cancelar</button>
+                <button id="btn-confirm-submit" class="w-1/2 py-2 bg-liturgical-blue text-white text-xs font-bold rounded-xl hover:bg-liturgical-blue/90 transition-colors">Confirmar</button>
             </div>
         </div>
     </div>
 
-    <div id="toast" class="fixed bottom-5 right-5 z-50 hidden flex items-center bg-emerald-600 text-white text-sm font-semibold px-4 py-3 rounded-xl shadow-lg">
-        <span id="toastMsg">Sucesso!</span>
-    </div>
+    <!-- FOOTER -->
+    <footer class="bg-slate-900 text-slate-400 py-8 border-t border-slate-800 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-2">
+            <p class="text-sm">Diseño de Dashboard de Altar Parroquial • Sincronización en la Nube</p>
+            <p class="text-xs text-slate-500">Ampére - Paraná, Brasil • 2026</p>
+        </div>
+    </footer>
 
-    <script>
-        // --- SECURITY SETUP CONFIGURATION ---
-        // DEFINICIÓN DE CONTRASEÑAS MÁSTER
-        const CREDENTIALS = {
-            readOnly: "altar2026",      // Contraseña para el equipo/coordinadores (Solo lectura)
-            adminMaster: "arnaldo99"   // TU CONTRASEÑA (Acceso total, edición e importación)
+    <!-- FIREBASE SERVICES SCRIPTS AND LOGIC (ONLY ONE SCRIPT BLOCK FOR SAFETY) -->
+    <script type="module">
+        // Importación de módulos oficiales de Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==========================================
+        // CONFIGURACIÓN DE SEGURIDAD (OPCIÓN 3)
+        // ==========================================
+        // Esta clave secreta actúa como clave de invitación inicial. 
+        // Solo quien la conozca puede definir la contraseña de administración la primera vez.
+        const INIT_SECRET_KEY = "ALTAR2026"; 
+
+        // Configuración dinámica de Firebase
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "",
+            authDomain: "",
+            projectId: "",
+            storageBucket: "",
+            messagingSenderId: "",
+            appId: ""
+        };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Rutas de Firestore (Cumpliendo la regla RULE 1 de Canvas)
+        const serversColRef = collection(db, 'artifacts', appId, 'public', 'data', 'servers');
+        const settingsDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'adminConfig');
+
+        // Estado global de la aplicación
+        let dataset = [];
+        let user = null;
+        let isAdmin = false;
+        let isConfiguredPassword = false;
+        let correctPasswordHash = ""; 
+        let charts = {};
+
+        // Iniciar sesión (Regla 3 de Firebase de Canvas)
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                showError('Error de autenticación con Firebase. Verifique sus claves.');
+                document.getElementById('loading-overlay').classList.add('hidden');
+            }
         };
 
-        let currentRole = null; // 'admin' o 'readonly'
-
-        // Base database initialized from files
-        let servers = [
-            { nome: "Carlos Daniel Américo", capela: "Capela N. S. Aparecida (Colina Verde)", dia: "Domingo", hora: "09:00", pais: "Adelar Américo e Francieli", contato: "99917-3494", estado: "Exercendo" },
-            { nome: "João Vitor P. Alves", capela: "Capela Santa Paulina", dia: "Sábado", hora: "18:00", pais: "Elizandra P. Alves", contato: "99911-4797", estado: "Exercendo" },
-            { nome: "Luan Felipe Ceconi Calione", capela: "Capela Santa Paulina", dia: "Sábado", hora: "18:00", pais: "Marcia ceconi Calione", contato: "98824-7950", estado: "Exercendo" },
-            { nome: "Marcos Felipe Coleto Flor", capela: "Capela Santa Paulina", dia: "Sábado", hora: "18:00", pais: "Sandra Coleto Flor", contato: "99974-7904", estado: "Exercendo" },
-            { nome: "Ulisses  Eduardo De Jesus", capela: "Capela Santa Paulina", dia: "Sábado", hora: "18:00", pais: "Aline De Jesus", contato: "99900-6502", estado: "Exercendo" },
-            { nome: "Vinissius José Dos Santos", capela: "Capela Santa Paulina", dia: "Sábado", hora: "18:00", pais: "Clenir Marcinhak dos Santos", contato: "98822-5618", estado: "Exercendo" },
-            { nome: "Gabriel Henrique Barbon", capela: "Matriz", dia: "Domingo", hora: "09:00", pais: "Daniel Barbon", contato: "99977-4446", estado: "Exercendo" },
-            { nome: "Jaqueline Bets", capela: "Matriz", dia: "Domingo", hora: "19:00", pais: "Terezinha Bets", contato: "99904-6738", estado: "Exercendo" },
-            { nome: "João Pedro Bets", capela: "Matriz", dia: "Domingo", hora: "19:00", pais: "Terezinha Bets", contato: "99904-6738", estado: "Exercendo" },
-            { nome: "Bárbara Furlan Jaguzeski", capela: "Capela N. S.  Mercês, Uassari", dia: "Domingo", hora: "19:00", pais: "Beatriz Furlan", contato: "99913-1517", estado: "Formando-se" },
-            { nome: "Manuela Cecília", capela: "Capela N. S.  Mercês, Uassari", dia: "Domingo", hora: "19:00", pais: "Mônica Zavali Martins", contato: "99905-5212", estado: "Formando-se" },
-            { nome: "Izabela Alupe Dias", capela: "Capela N. S. Aparecida (Colina Verde)", dia: "Domingo", hora: "09:00", pais: "Andreia e Valdecir", contato: "99906-0945", estado: "Formando-se" },
-            { nome: "Valentina da Rosa de Souza", capela: "Capela N. S. de Fátima", dia: "Sábado", hora: "19:00", pais: "Sandra Lucia da Rosa", contato: "99973-6757", estado: "Formando-se" },
-            { nome: "Valentina Favreto Picoli", capela: "Capela N. S. de Fátima", dia: "Sábado", hora: "19:00", pais: "Karina Favreto", contato: "99972-0083", estado: "Formando-se" }
-        ];
-
-        const capelasList = ["Matriz", "Capela Santa Paulina", "Capela N. S. de Fátima", "Capela N. S. Aparecida (Colina Verde)", "Capela N. S.  Mercês, Uassari", "Capela N. S. Graças", "Capela São Francisco", "Capela XVI de Novembro"];
-        let capelasChartInstance = null;
-        let stateChartInstance = null;
-
-        // Login authentication checker
-        function validateAccess() {
-            const pwdInput = document.getElementById('accessPassword').value.trim();
-            const errorMsg = document.getElementById('loginError');
-
-            if (pwdInput === CREDENTIALS.adminMaster) {
-                currentRole = 'admin';
-                grantAccess();
-            } else if (pwdInput === CREDENTIALS.readOnly) {
-                currentRole = 'readonly';
-                grantAccess();
+        // Escuchar el estado de autenticación de Firebase
+        onAuthStateChanged(auth, async (u) => {
+            if (u) {
+                user = u;
+                document.getElementById('db-status').innerHTML = `<span class="w-2 h-2 bg-emerald-500 rounded-full"></span> Conectado a la Nube`;
+                document.getElementById('db-status').className = "text-xs px-3 py-1.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1.5";
+                
+                checkAdminConfiguration();
+                subscribeToDatabase();
             } else {
-                errorMsg.classList.remove('hidden');
+                user = null;
+                document.getElementById('db-status').innerHTML = `<span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span> Desconectado`;
             }
-        }
-
-        function grantAccess() {
-            // UI Unlocking
-            document.getElementById('loginOverlay').classList.add('hidden');
-            document.getElementById('dashboardApp').classList.remove('hidden');
-            document.getElementById('mainBody').classList.remove('overflow-hidden');
-            
-            // Setup session rules
-            const badge = document.getElementById('roleBadge');
-            const adminBar = document.getElementById('adminActionBar');
-            
-            if (currentRole === 'admin') {
-                badge.className = "text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border bg-emerald-100 text-emerald-800 border-emerald-300";
-                badge.textContent = "Administrador";
-                adminBar.classList.remove('hidden');
-            } else {
-                badge.className = "text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border bg-slate-100 text-slate-700 border-slate-300";
-                badge.textContent = "Consulta";
-                adminBar.classList.add('hidden');
-            }
-
-            initFiltersAndSelects();
-            updateDashboard();
-            setupCSVReader();
-            showToast("Painel desbloqueado com sucesso!");
-        }
-
-        function lockDashboard() {
-            currentRole = null;
-            document.getElementById('accessPassword').value = '';
-            document.getElementById('loginError').classList.add('hidden');
-            document.getElementById('loginOverlay').classList.remove('hidden');
-            document.getElementById('dashboardApp').classList.add('hidden');
-            document.getElementById('mainBody').classList.add('overflow-hidden');
-        }
-
-        // Allow entering key with Enter keypress
-        document.getElementById('accessPassword')?.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') validateAccess();
         });
 
-        function initFiltersAndSelects() {
-            const filterCapela = document.getElementById('filterCapela');
-            const formCapela = document.getElementById('formCapela');
-            filterCapela.innerHTML = '<option value="">Todas as Capelas</option>';
-            formCapela.innerHTML = '<option value="">-- Selecionar Capela --</option>';
+        // Suscribirse a los datos de Firestore en tiempo real (Regla 2 y snapshot error)
+        function subscribeToDatabase() {
+            if (!user) return;
 
-            capelasList.forEach(capela => {
-                const op = document.createElement('option'); op.value = capela; op.textContent = capela;
-                filterCapela.appendChild(op);
-                const opForm = document.createElement('option'); opForm.value = capela; opForm.textContent = capela;
-                formCapela.appendChild(opForm);
+            onSnapshot(serversColRef, (snapshot) => {
+                const loadedData = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    loadedData.push({ 
+                        id: doc.id, 
+                        Id: doc.id,
+                        ...data 
+                    });
+                });
+                
+                dataset = loadedData;
+                updateUI(dataset);
+                
+                // Ocultar pantalla de carga inicial
+                document.getElementById('loading-overlay').classList.add('opacity-0');
+                setTimeout(() => {
+                    document.getElementById('loading-overlay').classList.add('hidden');
+                }, 300);
+
+            }, (error) => {
+                showError('Error cargando los datos de la base de datos de Firestore: ' + error.message);
+                document.getElementById('loading-overlay').classList.add('hidden');
             });
         }
 
-        function updateDashboard() {
-            const total = servers.length;
-            const exercendo = servers.filter(s => s.estado === 'Exercendo').length;
-            const formando = servers.filter(s => s.estado === 'Formando-se').length;
-            const activeCapelas = [...new Set(servers.map(s => s.capela))].filter(Boolean).length;
-
-            document.getElementById('kpi-total').textContent = total;
-            document.getElementById('kpi-exercendo').textContent = exercendo;
-            document.getElementById('kpi-exercendo-pct').textContent = total > 0 ? `${Math.round((exercendo/total)*100)}% do total` : '0%';
-            document.getElementById('kpi-formando').textContent = formando;
-            document.getElementById('kpi-formando-pct').textContent = total > 0 ? `${Math.round((formando/total)*100)}% do total` : '0%';
-            document.getElementById('kpi-capelas').textContent = activeCapelas;
-
-            renderCharts();
-            filterData();
+        // Comprobación de configuración inicial de administrador
+        async function checkAdminConfiguration() {
+            try {
+                const docSnap = await getDoc(settingsDocRef);
+                if (docSnap.exists()) {
+                    isConfiguredPassword = true;
+                    correctPasswordHash = docSnap.data().password;
+                    document.getElementById('setup-instructions').classList.add('hidden');
+                    document.getElementById('container-init-key').classList.add('hidden');
+                    document.getElementById('label-password').textContent = "Contraseña de Acceso";
+                } else {
+                    isConfiguredPassword = false;
+                    document.getElementById('setup-instructions').classList.remove('hidden');
+                    document.getElementById('container-init-key').classList.remove('hidden');
+                    document.getElementById('label-password').textContent = "Nueva Contraseña que deseas crear";
+                }
+            } catch (err) {
+                console.error("Error leyendo configuraciones de administrador: ", err);
+            }
         }
 
-        function renderCharts() {
-            const capelaCounts = {};
-            capelasList.forEach(c => capelaCounts[c] = 0);
-            servers.forEach(s => { if (s.capela) capelaCounts[s.capela] = (capelaCounts[s.capela] || 0) + 1; });
+        // Ejecutar autenticación al cargar
+        initAuth();
 
-            const barCtx = document.getElementById('capelasChart').getContext('2d');
-            if (capelasChartInstance) capelasChartInstance.destroy();
-            capelasChartInstance = new Chart(barCtx, {
+        // Actualizar UI
+        function updateUI(data) {
+            updateKPIs(data);
+            populateFilters(data);
+            renderCharts(data);
+            renderTable(data);
+            setupInteractiveEvents(data);
+        }
+
+        // Helper para normalizar comparaciones de texto en portugués sin importar acentos
+        const cleanStr = (s) => (s || '').toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+        // KPIs
+        function updateKPIs(data) {
+            document.getElementById('kpi-total').textContent = data.length;
+            
+            const countInstituidos = data.filter(d => cleanStr(d.Tipo).includes('instituido') || cleanStr(d.Tipo).includes('serv')).length;
+            document.getElementById('kpi-instituidos').textContent = countInstituidos;
+
+            const countCandidatos = data.filter(d => cleanStr(d.Tipo).includes('candidato')).length;
+            document.getElementById('kpi-candidatos').textContent = countCandidatos;
+
+            const countFormandos = data.filter(d => cleanStr(d.Tipo).includes('formando')).length;
+            document.getElementById('kpi-formandos').textContent = countFormandos;
+
+            const ages = data.map(d => parseInt(d.Idade)).filter(n => !isNaN(n));
+            const avgAge = ages.length > 0 ? (ages.reduce((a,b) => a+b, 0) / ages.length).toFixed(1) : "0";
+            document.getElementById('kpi-edad').innerHTML = `${avgAge} <span class="text-xs font-normal text-slate-500">años</span>`;
+
+            const allergies = data.filter(d => ['sim', 'si', 's'].includes(cleanStr(d.Possui_alergia_doenca))).length;
+            document.getElementById('kpi-alergias').textContent = allergies;
+        }
+
+        // Llenado de filtros dinámicos
+        function populateFilters(data) {
+            const capillas = [...new Set(data.map(d => (d.Capela || 'Sin Definir').trim()))];
+            const selectCapilla = document.getElementById('filter-capilla');
+            const savedVal = selectCapilla.value;
+            
+            selectCapilla.innerHTML = '<option value="all">Todas</option>';
+            capillas.forEach(cap => {
+                if (cap.trim() !== "") {
+                    const opt = document.createElement('option');
+                    opt.value = cap;
+                    opt.textContent = cap;
+                    selectCapilla.appendChild(opt);
+                }
+            });
+            selectCapilla.value = savedVal || "all";
+        }
+
+        // Generar Gráficos Estadísticos con ChartJS
+        function renderCharts(data) {
+            if (charts.capillas) charts.capillas.destroy();
+            if (charts.sacramentos) charts.sacramentos.destroy();
+            if (charts.edades) charts.edades.destroy();
+            if (charts.horarios) charts.horarios.destroy();
+
+            // 1. CAPILLAS
+            const capillasCount = {};
+            data.forEach(d => {
+                const c = (d.Capela || 'No informada').trim();
+                capillasCount[c] = (capillasCount[c] || 0) + 1;
+            });
+
+            charts.capillas = new Chart(document.getElementById('chart-capillas'), {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(capelaCounts),
-                    datasets: [{ label: 'Servidores', data: Object.values(capelaCounts), backgroundColor: '#10b981', borderRadius: 6 }]
+                    labels: Object.keys(capillasCount),
+                    datasets: [{
+                        label: 'Registros',
+                        data: Object.values(capillasCount),
+                        backgroundColor: '#1E3A8A', 
+                        borderRadius: 8
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
             });
 
-            const doughnutCtx = document.getElementById('stateChart').getContext('2d');
-            if (stateChartInstance) stateChartInstance.destroy();
-            stateChartInstance = new Chart(doughnutCtx, {
+            // 2. SACRAMENTOS
+            let batizados = data.filter(d => ['sim', 'si', 's'].includes(cleanStr(d.Batizado))).length;
+            let comunion = data.filter(d => ['sim', 'si', 's'].includes(cleanStr(d.Primeira_eucaristia))).length;
+            let crisma = data.filter(d => ['sim', 'si', 's'].includes(cleanStr(d.Crismado))).length;
+
+            charts.sacramentos = new Chart(document.getElementById('chart-sacramentos'), {
+                type: 'bar',
+                data: {
+                    labels: ['Bautizado', '1ª Comunión', 'Confirmación'],
+                    datasets: [
+                        {
+                            label: 'Tiene Sacramento',
+                            data: [batizados, comunion, crisma],
+                            backgroundColor: '#D4AF37', 
+                            borderRadius: 8
+                        },
+                        {
+                            label: 'Pendiente',
+                            data: [data.length - batizados, data.length - comunion, data.length - crisma],
+                            backgroundColor: '#E2E8F0', 
+                            borderRadius: 8
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+
+            // 3. EDADES POR TIPO DE REGISTRO (Rangos: 6-11 y 12-24 años)
+            const tiposEnRangos = {
+                '6-11': { candidato: 0, formando: 0, instituido: 0 },
+                '12-24': { candidato: 0, formando: 0, instituido: 0 }
+            };
+
+            data.forEach(d => {
+                const edad = parseInt(d.Idade);
+                if (!isNaN(edad)) {
+                    const rawTipo = cleanStr(d.Tipo);
+                    let tipoKey = 'candidato';
+                    if (rawTipo.includes('form')) tipoKey = 'formando';
+                    else if (rawTipo.includes('inst') || rawTipo.includes('serv')) tipoKey = 'instituido';
+
+                    if (edad >= 6 && edad <= 11) {
+                        tiposEnRangos['6-11'][tipoKey]++;
+                    } else if (edad >= 12 && edad <= 24) {
+                        tiposEnRangos['12-24'][tipoKey]++;
+                    }
+                }
+            });
+
+            charts.edades = new Chart(document.getElementById('chart-edades'), {
+                type: 'bar',
+                data: {
+                    labels: ['6 - 11 años', '12 - 24 años'],
+                    datasets: [
+                        {
+                            label: 'Candidato',
+                            data: [tiposEnRangos['6-11'].candidato, tiposEnRangos['12-24'].candidato],
+                            backgroundColor: '#F59E0B', // Amber
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Formando',
+                            data: [tiposEnRangos['6-11'].formando, tiposEnRangos['12-24'].formando],
+                            backgroundColor: '#10B981', // Emerald
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Instituído',
+                            data: [tiposEnRangos['6-11'].instituido, tiposEnRangos['12-24'].instituido],
+                            backgroundColor: '#6366F1', // Indigo
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' }
+                    },
+                    scales: { 
+                        y: { 
+                            beginAtZero: true, 
+                            ticks: { stepSize: 1 } 
+                        } 
+                    }
+                }
+            });
+
+            // 4. TURNOS
+            const turnos = {};
+            data.forEach(d => {
+                const t = d.Horario_estudo || 'No definido';
+                t.toString().split(';').forEach(subT => {
+                    const finalT = subT.trim();
+                    if(finalT) {
+                        turnos[finalT] = (turnos[finalT] || 0) + 1;
+                    }
+                });
+            });
+
+            charts.horarios = new Chart(document.getElementById('chart-horarios'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['Exercendo', 'Formando-se'],
-                    datasets: [{ data: [servers.filter(s=>s.estado==='Exercendo').length, servers.filter(s=>s.estado==='Formando-se').length], backgroundColor: ['#059669', '#f59e0b'] }]
+                    labels: Object.keys(turnos),
+                    datasets: [{
+                        data: Object.values(turnos),
+                        backgroundColor: ['#8B5CF6', '#F59E0B', '#10B981', '#EC4899']
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, cutout: '70%' }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right' }
+                    }
+                }
             });
         }
 
-        function filterData() {
-            const searchVal = document.getElementById('searchInput').value.toLowerCase().trim();
-            const capelaFilterVal = document.getElementById('filterCapela').value;
-            const estadoFilterVal = document.getElementById('filterEstado').value;
-
-            const filtered = servers.filter(s => {
-                const matchesSearch = s.nome.toLowerCase().includes(searchVal) || (s.pais && s.pais.toLowerCase().includes(searchVal));
-                const matchesCapela = !capelaFilterVal || s.capela === capelaFilterVal;
-                const matchesEstado = !estadoFilterVal || s.estado === estadoFilterVal;
-                return matchesSearch && matchesCapela && matchesEstado;
-            });
-            renderTable(filtered);
+        // Helper para lanzar modal de confirmación personalizada
+        function showConfirm(title, message, onConfirm) {
+            const modal = document.getElementById('confirm-modal');
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-message').textContent = message;
+            
+            const btnSubmit = document.getElementById('btn-confirm-submit');
+            const btnCancel = document.getElementById('btn-confirm-cancel');
+            
+            const newSubmit = btnSubmit.cloneNode(true);
+            const newCancel = btnCancel.cloneNode(true);
+            btnSubmit.parentNode.replaceChild(newSubmit, btnSubmit);
+            btnCancel.parentNode.replaceChild(newCancel, btnCancel);
+            
+            newSubmit.onclick = () => {
+                modal.classList.add('hidden');
+                onConfirm();
+            };
+            newCancel.onclick = () => {
+                modal.classList.add('hidden');
+            };
+            
+            modal.classList.remove('hidden');
         }
 
+        // Renderizado del directorio
         function renderTable(data) {
-            const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = '';
-            document.getElementById('displayed-count').textContent = data.length;
-            document.getElementById('total-count').textContent = servers.length;
-
-            // Show or hide actions header column based on role
-            const actionHeader = document.querySelector('.dynamic-action-header');
-            if (currentRole === 'admin') {
-                actionHeader.classList.remove('hidden');
-            } else {
-                actionHeader.classList.add('hidden');
-            }
+            const tableBody = document.getElementById('table-body');
+            const emptyState = document.getElementById('empty-state');
+            tableBody.innerHTML = '';
 
             if (data.length === 0) {
-                document.getElementById('no-results-msg').classList.remove('hidden');
-                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-10 text-center text-slate-400">Nenhum servidor encontrado.</td></tr>`;
+                emptyState.classList.remove('hidden');
                 return;
+            } else {
+                emptyState.classList.add('hidden');
             }
-            document.getElementById('no-results-msg').classList.add('hidden');
 
-            data.forEach((server) => {
-                const globalIndex = servers.indexOf(server);
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50/80 transition-all";
+            data.forEach(server => {
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-50 transition-colors";
 
-                const badgeClass = server.estado === 'Exercendo' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
+                const initials = server.Nome ? server.Nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() : 'SR';
                 
-                // Hide or show row management tools
-                const actionsCell = currentRole === 'admin' ? `
-                    <td class="px-6 py-4 text-right space-x-1">
-                        <button onclick="openEditModal(${globalIndex})" class="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
-                        <button onclick="deleteServer(${globalIndex})" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded-lg transition"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
-                    </td>
-                ` : `<td class="hidden"></td>`;
-
-                tr.innerHTML = `
-                    <td class="px-6 py-4 font-semibold text-slate-900">${server.nome}</td>
-                    <td class="px-6 py-4 text-slate-600">${server.capela || '-'}</td>
-                    <td class="px-6 py-4"><span class="font-medium">${server.dia || 'Sem escala'}</span> <span class="text-xs text-slate-400 block">${server.hora || ''}</span></td>
-                    <td class="px-6 py-4">
-                        <span class="text-slate-700 block text-xs font-medium">${server.pais || '-'}</span>
-                        <button onclick="openContactModal('${server.nome}', '${server.pais}', '${server.contato}')" class="text-xs font-bold text-indigo-600 hover:underline">Ver contato</button>
-                    </td>
-                    <td class="px-6 py-4"><span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${badgeClass}">${server.estado}</span></td>
-                    ${actionsCell}
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function clearFilters() {
-            document.getElementById('searchInput').value = ''; document.getElementById('filterCapela').value = ''; document.getElementById('filterEstado').value = '';
-            filterData();
-        }
-
-        function openAddModal() {
-            if (currentRole !== 'admin') return;
-            document.getElementById('modalTitle').textContent = "Novo Servidor"; document.getElementById('editIndex').value = "";
-            document.getElementById('serverForm').reset(); document.getElementById('serverModal').classList.remove('hidden');
-        }
-
-        function openEditModal(index) {
-            if (currentRole !== 'admin') return;
-            const server = servers[index];
-            document.getElementById('modalTitle').textContent = "Editar Servidor"; document.getElementById('editIndex').value = index;
-            document.getElementById('formNome').value = server.nome || ''; document.getElementById('formCapela').value = server.capela || '';
-            document.getElementById('formEstado').value = server.estado || 'Exercendo'; document.getElementById('formDia').value = server.dia || '';
-            document.getElementById('formHora').value = server.hora || ''; document.getElementById('formPais').value = server.pais || '';
-            document.getElementById('formContato').value = server.contato || '';
-            document.getElementById('serverModal').classList.remove('hidden');
-        }
-
-        function closeModal() { document.getElementById('serverModal').classList.add('hidden'); }
-
-        function handleFormSubmit(event) {
-            event.preventDefault();
-            if (currentRole !== 'admin') return;
-            const index = document.getElementById('editIndex').value;
-            const payload = {
-                nome: document.getElementById('formNome').value.trim(), capela: document.getElementById('formCapela').value,
-                estado: document.getElementById('formEstado').value, dia: document.getElementById('formDia').value,
-                hora: document.getElementById('formHora').value.trim(), pais: document.getElementById('formPais').value.trim(), contato: document.getElementById('formContato').value.trim()
-            };
-            if (index === "") { servers.push(payload); showToast("Servidor registrado!"); } 
-            else { servers[parseInt(index)] = payload; showToast("Dados atualizados!"); }
-            closeModal(); updateDashboard();
-        }
-
-        function deleteServer(index) {
-            if (currentRole !== 'admin') return;
-            if (confirm(`Remover "${servers[index].nome}"?`)) { servers.splice(index, 1); showToast("Registro removido."); updateDashboard(); }
-        }
-
-        function openContactModal(nome, pais, contato) {
-            document.getElementById('contactModalServidor').textContent = nome;
-            document.getElementById('contactModalPais').textContent = pais || "Não informado";
-            document.getElementById('contactModalTelefone').textContent = contato || "Sem número";
-            document.getElementById('contactModal').classList.remove('hidden');
-        }
-        function closeContactModal() { document.getElementById('contactModal').classList.add('hidden'); }
-
-        function copyContactText() {
-            const text = document.getElementById('contactModalTelefone').textContent;
-            const el = document.createElement('textarea'); el.value = text; document.body.appendChild(el); el.select();
-            document.execCommand('copy'); document.body.removeChild(el); showToast("Contato copiado!");
-        }
-
-        function showToast(msg) {
-            const toast = document.getElementById('toast'); document.getElementById('toastMsg').textContent = msg;
-            toast.classList.remove('hidden'); setTimeout(() => toast.classList.add('hidden'), 3000);
-        }
-
-        function setupCSVReader() {
-            document.getElementById('csvFileInput')?.addEventListener('change', function(e) {
-                const file = e.target.files[0]; if (!file || currentRole !== 'admin') return;
-                const reader = new FileReader();
-                reader.onload = function(evt) { parseCSVData(evt.target.result); };
-                reader.readAsText(file, 'UTF-8');
-            });
-        }
-
-        function parseCSVData(text) {
-            try {
-                const lines = text.split('\n').map(line => line.split(','));
-                let headerIndex = lines.findIndex(line => line.some(col => col.toLowerCase().includes('servidores do altar')));
-                if (headerIndex === -1) { alert('CSV inválido.'); return; }
-
-                const imported = [];
-                for (let i = headerIndex + 1; i < lines.length; i++) {
-                    const line = lines[i]; if (line.length < 2 || !line[0]) continue;
-                    imported.push({
-                        nome: line[0].replace(/"/g, '').trim(), capela: line[1] ? line[1].replace(/"/g, '').trim() : '',
-                        dia: line[2] ? line[2].trim() : '', hora: line[3] ? line[3].trim() : '',
-                        pais: line[4] ? line[4].trim() : '', contato: line[5] ? line[5].trim() : '',
-                        estado: line[6] && line[6].toLowerCase().includes('formando') ? 'Formando-se' : 'Exercendo'
-                    });
+                const isActivo = cleanStr(server.Estado) === 'ativo';
+                const statusColor = isActivo ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800';
+                const statusText = isActivo ? 'Ativo' : 'Inativo';
+                
+                // Mapeo de colores para Tipos
+                let typeColor = 'bg-slate-100 text-slate-800';
+                const roleType = cleanStr(server.Tipo);
+                if (roleType.includes('cand')) {
+                    typeColor = 'bg-amber-100 text-amber-800';
+                } else if (roleType.includes('form')) {
+                    typeColor = 'bg-emerald-100 text-emerald-800';
+                } else if (roleType.includes('inst') || roleType.includes('serv')) {
+                    typeColor = 'bg-indigo-100 text-indigo-800';
                 }
-                if (imported.length > 0) { servers = imported; showToast("Dados importados!"); updateDashboard(); }
-            } catch (err) { alert('Erro ao ler arquivo.'); }
+
+                let displayTipo = server.Tipo || 'Candidato';
+                if (cleanStr(displayTipo).includes('serv')) {
+                    displayTipo = 'Instituído';
+                }
+
+                const isFeminino = ['femenino', 'feminino', 'f'].includes(cleanStr(server.Sexo));
+                const genderColor = isFeminino ? 'bg-pink-100 text-pink-800' : 'bg-blue-100 text-blue-800';
+                const genderText = isFeminino ? 'Feminino' : 'Masculino';
+                
+                const tieneAlergia = ['sim', 'si', 's'].includes(cleanStr(server.Possui_alergia_doenca));
+                const alertClass = tieneAlergia 
+                    ? 'bg-rose-50 border-l-4 border-rose-500 font-medium text-rose-700' 
+                    : 'text-slate-500';
+
+                const batizadoIcon = ['sim', 'si', 's'].includes(cleanStr(server.Batizado)) ? '🟢' : '⚪';
+                const eucaristiaIcon = ['sim', 'si', 's'].includes(cleanStr(server.Primeira_eucaristia)) ? '🟢' : '⚪';
+                const crismaIcon = ['sim', 'si', 's'].includes(cleanStr(server.Crismado)) ? '🟢' : '⚪';
+
+                const wpCandidate = server.Whatsapp_candidato ? generateWpLink(server.Whatsapp_candidato, `Olá ${server.Nome}, tudo bem? Aqui é da coordenação...`) : null;
+                const wpParentName = (server.Nome_mae || server.Nome_pai || 'Responsável').trim();
+                const wpParentNum = server.Whatsapp_mae || server.Whatsapp_pai || server.Whatsapp_tutor_guardiao;
+                const wpParent = wpParentNum ? generateWpLink(wpParentNum, `Olá ${wpParentName}, tudo bem? Gostaria de falar sobre o coroinha ${server.Nome}...`) : null;
+
+                // Controles de Administrador
+                let adminControlsHtml = '';
+                if (isAdmin) {
+                    adminControlsHtml = `
+                        <div class="flex gap-1.5 justify-center">
+                            <button onclick="editServer('${server.id}')" class="p-1 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[11px] font-bold transition-all">Editar</button>
+                            <button onclick="deleteServer('${server.id}', '${server.Nome.replace(/'/g, "\\'")}')" class="p-1 px-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition-all">Borrar</button>
+                        </div>
+                    `;
+                } else {
+                    adminControlsHtml = `
+                        <div class="flex flex-col gap-1.5">
+                            ${wpCandidate ? `<a href="${wpCandidate}" target="_blank" class="text-center text-[11px] text-emerald-600 hover:text-emerald-800 font-semibold bg-emerald-50 px-2 py-1 rounded-md">💬 Candidato</a>` : ''}
+                            ${wpParent ? `<a href="${wpParent}" target="_blank" class="text-center text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2 py-1 rounded-md">📞 Tutor</a>` : '<span class="text-slate-400 text-center">Sin números</span>'}
+                        </div>
+                    `;
+                }
+
+                row.innerHTML = `
+                    <td class="py-4 px-6">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 bg-slate-200 text-slate-700 rounded-full flex items-center justify-center font-bold text-xs">
+                                ${initials}
+                            </div>
+                            <div>
+                                <div class="font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
+                                    ${server.Nome}
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full ${statusColor}">${statusText}</span>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full font-bold ${typeColor}">${displayTipo}</span>
+                                </div>
+                                <div class="text-xs text-slate-400 font-mono mt-0.5">${server.id}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-4 px-6">
+                        <div class="font-medium text-slate-700">${server.Idade !== undefined ? server.Idade : 0} años</div>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium ${genderColor}">${genderText}</span>
+                    </td>
+                    <td class="py-4 px-6">
+                        <div class="font-medium text-slate-800">${server.Capela || 'S/D'}</div>
+                        <div class="text-xs text-slate-400">${server.Bairro || 'Sin Barrio'}</div>
+                    </td>
+                    <td class="py-4 px-6">
+                        <div class="flex flex-col space-y-1 text-xs">
+                            <span class="flex items-center gap-1">${batizadoIcon} Bautismo</span>
+                            <span class="flex items-center gap-1">${eucaristiaIcon} Comunión</span>
+                            <span class="flex items-center gap-1">${crismaIcon} Crisma</span>
+                        </div>
+                    </td>
+                    <td class="py-4 px-6 text-xs max-w-xs ${alertClass}">
+                        ${tieneAlergia ? `🚨 <strong>Alergia/Enfermedad:</strong> ${server.Descricao_alergia_doenca || 'Sí, requiere precaución.'}` : 'Sin condiciones reportadas'}
+                    </td>
+                    <td class="py-4 px-6 text-xs font-semibold text-center">
+                        ${adminControlsHtml}
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
         }
 
-        function exportToCSV() {
-            let csv = "SERVIDORES DO ALTAR,ONDE VAI SERVIR?,DIA,HORA,PAIS / RESPONSÁVEIS,CONTATO,Estado\n";
-            servers.forEach(s => { csv += `"${s.nome}","${s.capela}","${s.dia}","${s.hora}","${s.pais}","${s.contato}","${s.estado}"\n`; });
-            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob); const link = document.createElement("a");
-            link.setAttribute("href", url); link.setAttribute("download", "Relação_Atualizada.csv");
-            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        // WhatsApp Link Helper
+        function generateWpLink(number, text) {
+            let cleanNum = number.toString().replace(/\D/g, '');
+            if (!cleanNum.startsWith('55') && cleanNum.length <= 11) {
+                cleanNum = '55' + cleanNum;
+            }
+            return `https://api.whatsapp.com/send?phone=${cleanNum}&text=${encodeURIComponent(text)}`;
+        }
+
+        // Configuración de eventos interactivos y filtros
+        function setupInteractiveEvents(data) {
+            const searchInput = document.getElementById('search-input');
+            const filterCapilla = document.getElementById('filter-capilla');
+            const filterEstado = document.getElementById('filter-estado');
+            const filterAlergias = document.getElementById('filter-alergias');
+            const filterTipo = document.getElementById('filter-tipo');
+
+            function applyFilters() {
+                const query = searchInput.value.toLowerCase();
+                const capillaVal = filterCapilla.value;
+                const estadoVal = filterEstado.value;
+                const alergiasVal = filterAlergias.value;
+                const tipoVal = filterTipo.value;
+
+                const filtered = data.filter(d => {
+                    const matchesSearch = d.Nome.toLowerCase().includes(query) || d.id.toLowerCase().includes(query);
+                    const matchesCapilla = capillaVal === 'all' || (d.Capela || '').trim() === capillaVal;
+                    const matchesEstado = estadoVal === 'all' || (d.Estado || '').trim() === estadoVal;
+                    
+                    const itemAlergia = ['sim', 'si', 's'].includes(cleanStr(d.Possui_alergia_doenca)) ? 'Sim' : 'Não';
+                    const matchesAlergias = alergiasVal === 'all' || itemAlergia === alergiasVal;
+                    
+                    const itemTipo = cleanStr(d.Tipo);
+                    const filterTipoClean = cleanStr(tipoVal);
+                    const matchesTipo = tipoVal === 'all' || itemTipo === filterTipoClean;
+
+                    return matchesSearch && matchesCapilla && matchesEstado && matchesAlergias && matchesTipo;
+                });
+
+                renderTable(filtered);
+            }
+
+            // Asignar listeners directamente para evitar solapamientos
+            searchInput.oninput = applyFilters;
+            filterCapilla.onchange = applyFilters;
+            filterEstado.onchange = applyFilters;
+            filterAlergias.onchange = applyFilters;
+            filterTipo.onchange = applyFilters;
+        }
+
+        // MODO ADMINISTRADOR: GESTIÓN DE ACCESO
+        const btnAdminToggle = document.getElementById('btn-admin-toggle');
+        const adminLoginModal = document.getElementById('admin-login-modal');
+        const btnLoginSubmit = document.getElementById('btn-login-submit');
+        const adminPasswordInput = document.getElementById('admin-password-input');
+        const adminInitKeyInput = document.getElementById('admin-init-key-input');
+        const loginError = document.getElementById('login-error');
+
+        btnAdminToggle.addEventListener('click', () => {
+            if (isAdmin) {
+                logoutAdmin();
+            } else {
+                adminPasswordInput.value = '';
+                if (adminInitKeyInput) adminInitKeyInput.value = '';
+                loginError.classList.add('hidden');
+                adminLoginModal.classList.remove('hidden');
+            }
+        });
+
+        // Inicio de sesión / configuración inicial con Clave de Invitación (Opción 3)
+        btnLoginSubmit.addEventListener('click', async () => {
+            const passwordVal = adminPasswordInput.value.trim();
+            if (!passwordVal) return;
+
+            if (!isConfiguredPassword) {
+                const initKeyVal = adminInitKeyInput.value.trim();
+                
+                // VALIDACIÓN CRÍTICA CONTRA LA CLAVE DE INVITACIÓN HARDCODEADA
+                if (initKeyVal !== INIT_SECRET_KEY) {
+                    loginError.textContent = "Clave de Invitación incorrecta. No tienes permiso para configurar el acceso.";
+                    loginError.classList.remove('hidden');
+                    return;
+                }
+
+                try {
+                    await setDoc(settingsDocRef, { password: passwordVal });
+                    isConfiguredPassword = true;
+                    correctPasswordHash = passwordVal;
+                    loginAdmin();
+                    // Limpieza visual inmediata de los campos iniciales
+                    document.getElementById('container-init-key').classList.add('hidden');
+                    document.getElementById('setup-instructions').classList.add('hidden');
+                } catch (e) {
+                    showError("Error configurando la contraseña: " + e.message);
+                }
+            } else {
+                if (passwordVal === correctPasswordHash) {
+                    loginAdmin();
+                } else {
+                    loginError.textContent = "Contraseña de acceso incorrecta.";
+                    loginError.classList.remove('hidden');
+                }
+            }
+        });
+
+        function loginAdmin() {
+            isAdmin = true;
+            adminLoginModal.classList.add('hidden');
+            document.getElementById('admin-banner').classList.remove('hidden');
+            document.getElementById('upload-section').classList.remove('hidden');
+            btnAdminToggle.classList.replace('bg-white/10', 'bg-emerald-600');
+            document.getElementById('admin-btn-text').textContent = "Admin Activo";
+            document.getElementById('admin-icon').textContent = "🔓";
+            updateUI(dataset); 
+        }
+
+        function logoutAdmin() {
+            isAdmin = false;
+            document.getElementById('admin-banner').classList.add('hidden');
+            document.getElementById('upload-section').classList.add('hidden');
+            btnAdminToggle.classList.replace('bg-emerald-600', 'bg-white/10');
+            document.getElementById('admin-btn-text').textContent = "Acceso Admin";
+            document.getElementById('admin-icon').textContent = "🔒";
+            updateUI(dataset);
+        }
+
+        document.getElementById('btn-logout').addEventListener('click', logoutAdmin);
+
+        // FORMULARIO MANUAL DE AGREGAR / EDITAR
+        const editServerModal = document.getElementById('edit-server-modal');
+        const serverForm = document.getElementById('server-form');
+
+        document.getElementById('btn-add-manual').addEventListener('click', () => {
+            document.getElementById('edit-modal-title').textContent = "Añadir Nuevo Servidor";
+            serverForm.reset();
+            const lastIdNum = dataset.reduce((max, cur) => {
+                const curId = cur.id || '';
+                const match = curId.toString().match(/\d+/);
+                return match ? Math.max(max, parseInt(match[0])) : max;
+            }, 0);
+            document.getElementById('form-id').value = `SRV-${String(lastIdNum + 1).padStart(4, '0')}`;
+            editServerModal.classList.remove('hidden');
+        });
+
+        // Guardar monaguillo en Firestore (Regla 1 de Firebase de Canvas)
+        serverForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!isAdmin) return;
+
+            const id = document.getElementById('form-id').value;
+            const payload = {
+                id: id,
+                Nome: document.getElementById('form-nome').value.trim(),
+                Data_nascimento: document.getElementById('form-data-nasc').value,
+                Idade: parseInt(document.getElementById('form-idade').value) || 0,
+                Sexo: document.getElementById('form-sexo').value,
+                Capela: document.getElementById('form-capela').value.trim(),
+                Tipo: document.getElementById('form-tipo').value,
+                Estado: document.getElementById('form-estado').value,
+                Horario_estudo: document.getElementById('form-horario-estudo').value,
+                Batizado: document.getElementById('form-batizado').checked ? 'Sim' : 'Não',
+                Primeira_eucaristia: document.getElementById('form-comunion').checked ? 'Sim' : 'Não',
+                Crismado: document.getElementById('form-crisma').checked ? 'Sim' : 'Não',
+                Possui_alergia_doenca: document.getElementById('form-tem-alergia').value,
+                Descricao_alergia_doenca: document.getElementById('form-desc-alergia').value.trim(),
+                Nome_mae: document.getElementById('form-nome-mae').value.trim(),
+                Whatsapp_mae: document.getElementById('form-wp-mae').value.trim(),
+                Nome_pai: document.getElementById('form-nome-pai').value.trim(),
+                Whatsapp_pai: document.getElementById('form-wp-pai').value.trim(),
+            };
+
+            try {
+                const serverDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'servers', id);
+                await setDoc(serverDocRef, payload, { merge: true });
+                editServerModal.classList.add('hidden');
+            } catch (err) {
+                showError("No se pudo guardar el registro: " + err.message);
+            }
+        });
+
+        // Funciones expuestas a nivel global para compatibilidad con handlers inline onclick
+        window.editServer = function(id) {
+            const server = dataset.find(d => d.id === id);
+            if (!server) return;
+
+            document.getElementById('edit-modal-title').textContent = `Editar Servidor: ${server.id}`;
+            document.getElementById('form-id').value = server.id;
+            document.getElementById('form-nome').value = server.Nome || '';
+            document.getElementById('form-data-nasc').value = server.Data_nascimento || '';
+            document.getElementById('form-idade').value = server.Idade !== undefined ? server.Idade : 0;
+            document.getElementById('form-sexo').value = server.Sexo || 'Masculino';
+            document.getElementById('form-capela').value = server.Capela || '';
+            document.getElementById('form-tipo').value = server.Tipo || 'Candidato';
+            document.getElementById('form-estado').value = server.Estado || 'Ativo';
+            document.getElementById('form-horario-estudo').value = server.Horario_estudo || '';
+            
+            document.getElementById('form-batizado').checked = ['sim', 'si', 's'].includes(cleanStr(server.Batizado));
+            document.getElementById('form-comunion').checked = ['sim', 'si', 's'].includes(cleanStr(server.Primeira_eucaristia));
+            document.getElementById('form-crisma').checked = ['sim', 'si', 's'].includes(cleanStr(server.Crismado));
+            
+            document.getElementById('form-tem-alergia').value = ['sim', 'si', 's'].includes(cleanStr(server.Possui_alergia_doenca)) ? 'Sim' : 'Não';
+            document.getElementById('form-desc-alergia').value = server.Descricao_alergia_doenca || '';
+            
+            document.getElementById('form-nome-mae').value = server.Nome_mae || '';
+            document.getElementById('form-wp-mae').value = server.Whatsapp_mae || '';
+            document.getElementById('form-nome-pai').value = server.Nome_pai || '';
+            document.getElementById('form-wp-pai').value = server.Whatsapp_pai || '';
+
+            editServerModal.classList.remove('hidden');
+        };
+
+        window.deleteServer = function(id, name) {
+            showConfirm(
+                "Eliminar Servidor",
+                `¿Estás completamente seguro de que deseas eliminar a "${name}" (${id}) de la base de datos de forma permanente?`,
+                async () => {
+                    try {
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'servers', id);
+                        await deleteDoc(docRef);
+                    } catch (err) {
+                        showError("No se pudo eliminar el registro: " + err.message);
+                    }
+                }
+            );
+        };
+
+        // CARGA MASIVA CSV (Conexión directa, única y robusta al input)
+        const fileInput = document.getElementById('csv-file-input');
+        fileInput.addEventListener('change', handleCsvUpload);
+
+        async function handleCsvUpload(e) {
+            if (!isAdmin) return;
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const text = evt.target.result;
+                const parsed = csvToObjects(text);
+                
+                if (parsed && parsed.length > 0) {
+                    showConfirm(
+                        "Sincronizar Base de Datos",
+                        `Se han detectado ${parsed.length} servidores válidos en tu archivo CSV. Esto actualizará e importará todos los registros a la base de datos de Firebase. ¿Deseas continuar?`,
+                        async () => {
+                            await uploadBatchToFirestore(parsed);
+                        }
+                    );
+                } else {
+                    showError("El formato del archivo CSV no pudo ser reconocido. Verifica que tenga una columna con el nombre 'Nome' u otras cabeceras correctas.");
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        async function uploadBatchToFirestore(items) {
+            const progressBar = document.getElementById('upload-progress');
+            const progressFill = document.getElementById('upload-progress-bar');
+            progressBar.classList.remove('hidden');
+            progressFill.style.width = '0%';
+
+            let index = 0;
+            const chunkSize = 150; // Procesado en lotes seguros
+            
+            try {
+                const cleanYesNo = (val) => {
+                    const cleanVal = (val || '').toString().trim().toLowerCase();
+                    return ['sim', 'sí', 'si', 's', 'true', '1', 'yes'].includes(cleanVal) ? 'Sim' : 'Não';
+                };
+
+                const cleanEstado = (val) => {
+                    const cleanVal = (val || '').toString().trim().toLowerCase();
+                    if (['inativo', 'inactivo', 'false', '0', 'n', 'não', 'nao'].includes(cleanVal)) {
+                        return 'Inativo';
+                    }
+                    return 'Ativo';
+                };
+
+                const cleanTipo = (val) => {
+                    const cleanVal = (val || '').toString().trim().toLowerCase();
+                    if (cleanVal.includes('cand')) return 'Candidato';
+                    if (cleanVal.includes('form')) return 'Formando';
+                    if (cleanVal.includes('inst') || cleanVal.includes('serv')) return 'Instituído';
+                    return 'Candidato';
+                };
+
+                const cleanSexo = (val) => {
+                    const cleanVal = (val || '').toString().trim().toLowerCase();
+                    if (['femenino', 'feminino', 'f', 'mulher', 'mujer'].includes(cleanVal)) {
+                        return 'Femenino';
+                    }
+                    return 'Masculino';
+                };
+
+                while (index < items.length) {
+                    const batch = writeBatch(db);
+                    const chunk = items.slice(index, index + chunkSize);
+                    
+                    chunk.forEach((item, innerIdx) => {
+                        const uniqueSeqNum = index + innerIdx + 1;
+                        let itemID = item.Id ? item.Id.toString().trim() : '';
+                        if (!itemID || itemID === '') {
+                            itemID = `SRV-${String(uniqueSeqNum).padStart(4, '0')}`;
+                        }
+
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'servers', itemID);
+                        
+                        const parsedAge = parseInt(item.Idade);
+                        const safeAge = isNaN(parsedAge) ? 0 : parsedAge;
+
+                        const payload = {
+                            id: itemID,
+                            Nome: (item.Nome || 'Sin Nombre').trim(),
+                            Data_nascimento: item.Data_nascimento || '',
+                            Idade: safeAge,
+                            Sexo: cleanSexo(item.Sexo),
+                            Capela: (item.Capela || 'Sin Definir').trim(),
+                            Tipo: cleanTipo(item.Tipo),
+                            Estado: cleanEstado(item.Estado),
+                            Horario_estudo: item.Horario_estudo || '',
+                            Batizado: cleanYesNo(item.Batizado),
+                            Primeira_eucaristia: cleanYesNo(item.Primeira_eucaristia),
+                            Crismado: cleanYesNo(item.Crismado),
+                            Possui_alergia_doenca: cleanYesNo(item.Possui_alergia_doenca),
+                            Descricao_alergia_doenca: (item.Descricao_alergia_doenca || '').trim(),
+                            Bairro: item.Bairro || '',
+                            Nome_mae: (item.Nome_mae || '').trim(),
+                            Whatsapp_mae: (item.Whatsapp_mae || '').trim(),
+                            Nome_pai: (item.Nome_pai || '').trim(),
+                            Whatsapp_pai: (item.Whatsapp_pai || '').trim(),
+                            Whatsapp_candidato: (item.Whatsapp_candidato || '').trim(),
+                            Nome_tutor_guardiao: (item.Nome_tutor_guardiao || '').trim(),
+                            Whatsapp_tutor_guardiao: (item.Whatsapp_tutor_guardiao || '').trim()
+                        };
+
+                        batch.set(docRef, payload, { merge: true });
+                    });
+
+                    await batch.commit();
+                    index += chunkSize;
+                    
+                    const progressVal = Math.min(100, Math.round((index / items.length) * 100));
+                    progressFill.style.width = `${progressVal}%`;
+                }
+
+                setTimeout(() => {
+                    progressBar.classList.add('hidden');
+                    const dropzoneText = document.querySelector('#upload-section h3');
+                    dropzoneText.innerHTML = `✅ ¡Sincronizado con éxito! ${items.length} servidores están disponibles en la nube de forma permanente.`;
+                    dropzoneText.className = "text-lg font-bold text-emerald-600";
+                    
+                    fileInput.value = "";
+                }, 1000);
+
+            } catch (err) {
+                console.error("Batch upload failed:", err);
+                showError("Ocurrió un error al subir los lotes a la base de datos: " + err.message);
+                progressBar.classList.add('hidden');
+                fileInput.value = "";
+            }
+        }
+
+        // LECTOR DE CSV ROBUSTO CON ASIGNACIÓN DE CLAVE TOLERANTE (MAPPING DE CAMPOS)
+        function csvToObjects(text) {
+            if (!text || !text.trim()) return null;
+
+            text = text.replace(/^\uFEFF/, '').replace(/^\uFFFE/, '').trim();
+
+            const lines = text.split(/\r?\n/);
+            if (lines.length < 2) return null;
+
+            const headerLine = lines[0];
+            const commaCount = (headerLine.match(/,/g) || []).length;
+            const semicolonCount = (headerLine.match(/;/g) || []).length;
+            const delimiter = semicolonCount > commaCount ? ';' : ',';
+
+            const rawHeaders = splitCsvLine(headerLine, delimiter);
+            const headers = rawHeaders.map(h => 
+                h.trim()
+                 .replace(/^"|"$/g, '')
+                 .replace(/[\u200B-\u200D\uFEFF]/g, '') 
+                 .replace(/\s+/g, ' ') 
+                 .replace(/[^\x20-\x7E]/g, '') 
+                 .trim()
+            );
+
+            function getVal(rowObj, keyAlternatives) {
+                for (const alt of keyAlternatives) {
+                    if (rowObj[alt] !== undefined) return rowObj[alt];
+                    
+                    const foundKey = Object.keys(rowObj).find(k => {
+                        const cleanK = k.toLowerCase().replace(/[^\w]/g, '').trim();
+                        const cleanAlt = alt.toLowerCase().replace(/[^\w]/g, '').trim();
+                        return cleanK === cleanAlt;
+                    });
+                    
+                    if (foundKey) return rowObj[foundKey];
+                }
+                return '';
+            }
+
+            const list = [];
+            for (let j = 1; j < lines.length; j++) {
+                const line = lines[j].trim();
+                if (!line) continue; 
+
+                const values = splitCsvLine(line, delimiter);
+                
+                const nonemptyValues = values.filter(v => v.trim() !== "");
+                if (nonemptyValues.length === 0) continue;
+
+                const tempObj = {};
+                headers.forEach((header, index) => {
+                    let val = values[index] !== undefined ? values[index].trim() : '';
+                    if (val.startsWith('"') && val.endsWith('"')) {
+                        val = val.substring(1, val.length - 1);
+                    }
+                    tempObj[header] = val;
+                });
+
+                const normalizedObj = {
+                    Id: getVal(tempObj, ['Id', 'id', 'ID', 'Identificador', 'Código', 'Codigo']).toString().trim(),
+                    Nome: getVal(tempObj, ['Nome', 'nome', 'NOME', 'Nome Completo', 'Nombre']).toString().trim(),
+                    Data_nascimento: getVal(tempObj, ['Data_nascimento', 'Data nascimento', 'Nascimento', 'Data_nasc', 'Fecha_nacimiento', 'Nasc']).toString().trim(),
+                    Idade: getVal(tempObj, ['Idade', 'idade', 'Edad']).toString().trim(),
+                    Sexo: getVal(tempObj, ['Sexo', 'sexo', 'Gênero', 'Genero']).toString().trim(),
+                    Capela: getVal(tempObj, ['Capela', 'capela', 'Capilla', 'Origem', 'Comunidade']).toString().trim(),
+                    Bairro: getVal(tempObj, ['Bairro', 'bairro', 'Barrio']).toString().trim(),
+                    Tipo: getVal(tempObj, ['Tipo', 'tipo', 'Tipo de Registro', 'Tipo_registro']).toString().trim(),
+                    Estado: getVal(tempObj, ['Estado', 'estado', 'Status', 'Situação', 'Ativo']).toString().trim(),
+                    Horario_estudo: getVal(tempObj, ['Horario_estudo', 'Horário de estudo', 'Horário de Estudo', 'Horario de estudio']).toString().trim(),
+                    Batizado: getVal(tempObj, ['Batizado', 'batizado', 'Bautizado']).toString().trim(),
+                    Primeira_eucaristia: getVal(tempObj, ['Primeira_eucaristia', 'Primeira eucaristia', '1ª Comunhão', 'Primera Comunión', 'Comunion']).toString().trim(),
+                    Crismado: getVal(tempObj, ['Crismado', 'crismado', 'Crisma', 'Confirmación']).toString().trim(),
+                    Possui_alergia_doenca: getVal(tempObj, ['Possui_alergia_doenca', 'Possui alergia', 'Alergia', 'Tem Alergia', 'Alergias', 'Enfermedad', 'Condición']).toString().trim(),
+                    Descricao_alergia_doenca: getVal(tempObj, ['Descricao_alergia_doenca', 'Descrição alergia', 'Descripción de alergia', 'Observacoes', 'Observações']).toString().trim(),
+                    Nome_mae: getVal(tempObj, ['Nome_mae', 'Nome da mãe', 'Mãe', 'Madre']).toString().trim(),
+                    Whatsapp_mae: getVal(tempObj, ['Whatsapp_mae', 'WhatsApp mãe', 'Wp mãe', 'Whatsapp da mãe']).toString().trim(),
+                    Nome_pai: getVal(tempObj, ['Nome_pai', 'Nome do pai', 'Pai', 'Padre']).toString().trim(),
+                    Whatsapp_pai: getVal(tempObj, ['Whatsapp_pai', 'WhatsApp pai', 'Wp pai', 'Whatsapp do pai']).toString().trim(),
+                    Whatsapp_candidato: getVal(tempObj, ['Whatsapp_candidato', 'WhatsApp candidato', 'Wp candidato']).toString().trim(),
+                    Nome_tutor_guardiao: getVal(tempObj, ['Nome_tutor_guardiao', 'Nome do tutor', 'Tutor']).toString().trim(),
+                    Whatsapp_tutor_guardiao: getVal(tempObj, ['Whatsapp_tutor_guardiao', 'WhatsApp tutor', 'Wp tutor']).toString().trim()
+                };
+
+                if (normalizedObj.Nome && normalizedObj.Nome.trim() !== '') {
+                    list.push(normalizedObj);
+                }
+            }
+            return list;
+        }
+
+        // Helper para dividir líneas respetando comillas dobles
+        function splitCsvLine(line, delimiter) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === delimiter && !inQuotes) {
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current);
+            return result;
+        }
+
+        // Mostrar errores personalizados en la interfaz de usuario en vez de alert()
+        function showError(message) {
+            const alertBox = document.getElementById('error-alert');
+            const alertText = document.getElementById('error-alert-text');
+            alertText.textContent = message;
+            alertBox.classList.remove('hidden');
+            alertBox.scrollIntoView({ behavior: 'smooth' });
         }
     </script>
 </body>
 </html>
-```
-
----
-
-### ¿Cómo funcionan las llaves de acceso en este nuevo código?
-
-He definido las contraseñas en las líneas **223 y 224** del código de JavaScript. Son las siguientes:
-
-| Tipo de Acceso | Contraseña Predeterminada | ¿Qué puede hacer? |
-| :--- | :--- | :--- |
-| **Acceso General (Lectura)** | `altar2026` | Ver gráficos, usar filtros, ver teléfonos y escalas. Ideal para catequistas o sacerdotes. |
-| **Acceso Admin (Tuyo)** | `arnaldo99` | Acceso completo. Desbloquea la barra verde de herramientas, permite importar Excel/CSV, añadir monaguillos, editar escalas y borrar registros. |
-
-### Cómo cambiar las contraseñas:
-Si deseas cambiarlas por otras de tu preferencia antes de subir el archivo al servidor, solo abre el archivo en cualquier editor de texto (como el Bloc de Notas), busca la palabra `CREDENTIALS` y reemplaza los textos correspondientes:
-
-```javascript
-const CREDENTIALS = {
-    readOnly: "tu_nueva_clave_de_lectura",
-    adminMaster: "tu_nueva_clave_de_administrador"
-};
