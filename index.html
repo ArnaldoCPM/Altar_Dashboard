@@ -585,14 +585,14 @@
         onAuthStateChanged(auth, async (u) => {
             if (u) {
                 user = u;
-                document.getElementById('db-status').innerHTML = `<span class="w-2 h-2 bg-emerald-500 rounded-full"></span> Conectado a la Nube`;
+                document.getElementById('db-status').innerHTML = `<span class="w-2 h-2 bg-emerald-500 rounded-full"></span> Conectado à nuvem`;
                 document.getElementById('db-status').className = "text-xs px-3 py-1.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1.5";
                 
                 checkAdminConfiguration();
                 subscribeToDatabase();
             } else {
                 user = null;
-                document.getElementById('db-status').innerHTML = `<span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span> Desconectado`;
+                document.getElementById('db-status').innerHTML = `<span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span> Desligado`;
             }
         });
 
@@ -621,7 +621,7 @@
                 }, 300);
 
             }, (error) => {
-                showError('Error cargando los datos de la base de datos de Firestore: ' + error.message);
+                showError('Erro ao carregar os dados da base de dados do Firestore: ' + error.message);
                 document.getElementById('loading-overlay').classList.add('hidden');
             });
         }
@@ -635,15 +635,15 @@
                     correctPasswordHash = docSnap.data().password;
                     document.getElementById('setup-instructions').classList.add('hidden');
                     document.getElementById('container-init-key').classList.add('hidden');
-                    document.getElementById('label-password').textContent = "Contraseña de Acceso";
+                    document.getElementById('label-password').textContent = "Palavra-passe de acesso";
                 } else {
                     isConfiguredPassword = false;
                     document.getElementById('setup-instructions').classList.remove('hidden');
                     document.getElementById('container-init-key').classList.remove('hidden');
-                    document.getElementById('label-password').textContent = "Nueva Contraseña que deseas crear";
+                    document.getElementById('label-password').textContent = "Nova palavra-passe que pretende criar";
                 }
             } catch (err) {
-                console.error("Error leyendo configuraciones de administrador: ", err);
+                console.error("Erro ao ler as configurações de administrador: ", err);
             }
         }
 
@@ -677,7 +677,7 @@
 
             const ages = data.map(d => parseInt(d.Idade)).filter(n => !isNaN(n));
             const avgAge = ages.length > 0 ? (ages.reduce((a,b) => a+b, 0) / ages.length).toFixed(1) : "0";
-            document.getElementById('kpi-edad').innerHTML = `${avgAge} <span class="text-xs font-normal text-slate-500">años</span>`;
+            document.getElementById('kpi-edad').innerHTML = `${avgAge} <span class="text-xs font-normal text-slate-500">anos</span>`;
 
             const allergies = data.filter(d => ['sim', 'si', 's'].includes(cleanStr(d.Possui_alergia_doenca))).length;
             document.getElementById('kpi-alergias').textContent = allergies;
@@ -685,7 +685,7 @@
 
         // Llenado de filtros dinámicos
         function populateFilters(data) {
-            const capillas = [...new Set(data.map(d => (d.Capela || 'Sin Definir').trim()))];
+            const capillas = [...new Set(data.map(d => (d.Capela || 'Sem definição').trim()))];
             const selectCapilla = document.getElementById('filter-capilla');
             const savedVal = selectCapilla.value;
             
@@ -711,7 +711,7 @@
             // 1. CAPILLAS
             const capillasCount = {};
             data.forEach(d => {
-                const c = (d.Capela || 'No informada').trim();
+                const c = (d.Capela || 'Não informada').trim();
                 capillasCount[c] = (capillasCount[c] || 0) + 1;
             });
 
@@ -742,16 +742,16 @@
             charts.sacramentos = new Chart(document.getElementById('chart-sacramentos'), {
                 type: 'bar',
                 data: {
-                    labels: ['Bautizado', '1ª Comunión', 'Confirmación'],
+                    labels: ['Batizado', '1ª Comunhão', 'Crisma'],
                     datasets: [
                         {
-                            label: 'Tiene Sacramento',
+                            label: 'Tem Sacramento',
                             data: [batizados, comunion, crisma],
                             backgroundColor: '#D4AF37', 
                             borderRadius: 8
                         },
                         {
-                            label: 'Pendiente',
+                            label: 'Em espera',
                             data: [data.length - batizados, data.length - comunion, data.length - crisma],
                             backgroundColor: '#E2E8F0', 
                             borderRadius: 8
@@ -790,7 +790,7 @@
             charts.edades = new Chart(document.getElementById('chart-edades'), {
                 type: 'bar',
                 data: {
-                    labels: ['6 - 11 años', '12 - 24 años'],
+                    labels: ['6 - 11 anos', '12 - 24 anos'],
                     datasets: [
                         {
                             label: 'Candidato',
@@ -830,7 +830,7 @@
             // 4. TURNOS
             const turnos = {};
             data.forEach(d => {
-                const t = d.Horario_estudo || 'No definido';
+                const t = d.Horario_estudo || 'Não definido';
                 t.toString().split(';').forEach(subT => {
                     const finalT = subT.trim();
                     if(finalT) {
@@ -975,7 +975,7 @@
                         </div>
                     </td>
                     <td class="py-4 px-6">
-                        <div class="font-medium text-slate-700">${server.Idade !== undefined ? server.Idade : 0} años</div>
+                        <div class="font-medium text-slate-700">${server.Idade !== undefined ? server.Idade : 0} anos</div>
                         <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium ${genderColor}">${genderText}</span>
                     </td>
                     <td class="py-4 px-6">
@@ -1079,7 +1079,7 @@
                 
                 // VALIDACIÓN CRÍTICA CONTRA LA CLAVE DE INVITACIÓN HARDCODEADA
                 if (initKeyVal !== INIT_SECRET_KEY) {
-                    loginError.textContent = "Clave de Invitación incorrecta. No tienes permiso para configurar el acceso.";
+                    loginError.textContent = "Código de convite incorreto. Não tem permissão para configurar o acesso.";
                     loginError.classList.remove('hidden');
                     return;
                 }
@@ -1099,7 +1099,7 @@
                 if (passwordVal === correctPasswordHash) {
                     loginAdmin();
                 } else {
-                    loginError.textContent = "Contraseña de acceso incorrecta.";
+                    loginError.textContent = "Palavra-passe incorreta.";
                     loginError.classList.remove('hidden');
                 }
             }
@@ -1111,7 +1111,7 @@
             document.getElementById('admin-banner').classList.remove('hidden');
             document.getElementById('upload-section').classList.remove('hidden');
             btnAdminToggle.classList.replace('bg-white/10', 'bg-emerald-600');
-            document.getElementById('admin-btn-text').textContent = "Admin Activo";
+            document.getElementById('admin-btn-text').textContent = "Administrador ativo";
             document.getElementById('admin-icon').textContent = "🔓";
             updateUI(dataset); 
         }
@@ -1121,7 +1121,7 @@
             document.getElementById('admin-banner').classList.add('hidden');
             document.getElementById('upload-section').classList.add('hidden');
             btnAdminToggle.classList.replace('bg-emerald-600', 'bg-white/10');
-            document.getElementById('admin-btn-text').textContent = "Acceso Admin";
+            document.getElementById('admin-btn-text').textContent = "Acesso Administrador";
             document.getElementById('admin-icon').textContent = "🔒";
             updateUI(dataset);
         }
@@ -1133,7 +1133,7 @@
         const serverForm = document.getElementById('server-form');
 
         document.getElementById('btn-add-manual').addEventListener('click', () => {
-            document.getElementById('edit-modal-title').textContent = "Añadir Nuevo Servidor";
+            document.getElementById('edit-modal-title').textContent = "Adicionar novo servidor";
             serverForm.reset();
             const lastIdNum = dataset.reduce((max, cur) => {
                 const curId = cur.id || '';
@@ -1214,13 +1214,13 @@
         window.deleteServer = function(id, name) {
             showConfirm(
                 "Eliminar Servidor",
-                `¿Estás completamente seguro de que deseas eliminar a "${name}" (${id}) de la base de datos de forma permanente?`,
+                `Tem a certeza absoluta de que deseja eliminar "${name}" (${id}) da base de dados de forma permanente?`,
                 async () => {
                     try {
                         const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'servers', id);
                         await deleteDoc(docRef);
                     } catch (err) {
-                        showError("No se pudo eliminar el registro: " + err.message);
+                        showError("Não foi possível eliminar o registo: " + err.message);
                     }
                 }
             );
@@ -1242,14 +1242,14 @@
                 
                 if (parsed && parsed.length > 0) {
                     showConfirm(
-                        "Sincronizar Base de Datos",
-                        `Se han detectado ${parsed.length} servidores válidos en tu archivo CSV. Esto actualizará e importará todos los registros a la base de datos de Firebase. ¿Deseas continuar?`,
+                        "Sincronizar a base de dados",
+                        `Foram detetados ${parsed.length} servidores válidos no seu ficheiro CSV. Isto irá atualizar e importar todos os registos para a base de dados do Firebase. Deseja continuar?`,
                         async () => {
                             await uploadBatchToFirestore(parsed);
                         }
                     );
                 } else {
-                    showError("El formato del archivo CSV no pudo ser reconocido. Verifica que tenga una columna con el nombre 'Nome' u otras cabeceras correctas.");
+                    showError("O formato do ficheiro CSV não foi reconhecido. Verifique se existe uma coluna com o nome «Nome» ou se os outros cabeçalhos estão corretos.");
                 }
             };
             reader.readAsText(file, 'UTF-8');
@@ -1348,7 +1348,7 @@
                 setTimeout(() => {
                     progressBar.classList.add('hidden');
                     const dropzoneText = document.querySelector('#upload-section h3');
-                    dropzoneText.innerHTML = `✅ ¡Sincronizado con éxito! ${items.length} servidores están disponibles en la nube de forma permanente.`;
+                    dropzoneText.innerHTML = `✅ Sincronizado com sucesso! ${items.length} servidores estão permanentemente disponíveis na nuvem.`;
                     dropzoneText.className = "text-lg font-bold text-emerald-600";
                     
                     fileInput.value = "";
@@ -1356,7 +1356,7 @@
 
             } catch (err) {
                 console.error("Batch upload failed:", err);
-                showError("Ocurrió un error al subir los lotes a la base de datos: " + err.message);
+                showError("Ocorreu um erro ao carregar os lotes na base de dados: " + err.message);
                 progressBar.classList.add('hidden');
                 fileInput.value = "";
             }
