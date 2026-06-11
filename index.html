@@ -244,7 +244,18 @@
                     </div>
                 </div>
 
-                <!-- Chart 3: Rango de edades por tipo de registro -->
+                <!-- Chart 3: Género Masculino / Femenino -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                    <h3 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-liturgical-red"></span>
+                        Distribuição por género
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="chart-genero"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 4: Rango de edades por tipo de registro -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
                     <h3 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
                         <span class="w-3 h-3 rounded-full bg-liturgical-green"></span>
@@ -256,15 +267,17 @@
                 </div>
 
                 <!-- Chart 4: Horarios de Estudio -->
+                <!--
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
                     <h3 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
                         <span class="w-3 h-3 rounded-full bg-liturgical-purple"></span>
-                        Horários de estudo (disponibilidade)
+                        Horários de estudo
                     </h3>
                     <div class="chart-container">
                         <canvas id="chart-horarios"></canvas>
                     </div>
                 </div>
+                -->
             </div>
 
             <!-- SEARCH, FILTERS & TABLE SECTION -->
@@ -343,32 +356,42 @@
                     <svg class="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0V9a2 2 0 00-2-2H6a2 2 0 00-2 2v4.5m12+3.5h.01M5.071 19.293a10 10 0 1114.142 0M12 11h.01"></path></svg>
                     <p class="text-slate-500 font-medium">Não foram encontrados servidores com os filtros selecionados</p>
                 </div>
+
+                <!-- Pagination Controls -->
+                <div id="pagination-container" class="hidden flex items-center justify-between py-4 px-6 border-t border-slate-100">
+                    <div class="text-xs text-slate-500 font-medium">
+                        Mostrando <span id="pagination-info"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="pagination-prev" onclick="previousPage()" class="p-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            ← Anterior
+                        </button>
+                        <div class="flex items-center gap-1" id="pagination-buttons"></div>
+                        <button id="pagination-next" onclick="nextPage()" class="p-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            Próxima →
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
 
-    <!-- ADMIN LOGIN MODAL -->
+    <!-- ADMIN LOGIN MODAL (Firebase Authentication Email/Password) -->
     <div id="admin-login-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="text-lg font-bold text-slate-800" id="login-modal-title">Acesso de administrador</h3>
+                <h3 class="text-lg font-bold text-slate-800">Acesso de administrador</h3>
                 <button onclick="document.getElementById('admin-login-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
             </div>
             
-            <div id="setup-instructions" class="hidden text-xs bg-amber-50 text-amber-800 p-3 rounded-xl border border-amber-200">
-                ⭐ <strong>Primeira configuração:</strong> Introduza o código de convite obrigatório para poder definir a palavra-passe principal de administração.
-            </div>
-
-            <!-- Entrada para Clave de Invitación / Inicialización (Opción 3) -->
-            <div id="container-init-key" class="hidden space-y-2">
-                <label class="text-xs font-semibold text-slate-500 block">Código de convite secreto *</label>
-                <input type="password" id="admin-init-key-input" placeholder="Introduce el código de seguridad inicial..." class="w-full px-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue" />
-            </div>
-
             <div class="space-y-2">
-                <label id="label-password" class="text-xs font-semibold text-slate-500 block">Palavra-passe de acesso</label>
+                <label class="text-xs font-semibold text-slate-500 block">Email do administrador</label>
+                <input type="email" id="admin-email-input" placeholder="admin@paroquia.com" class="w-full px-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue" />
+            </div>
+            <div class="space-y-2">
+                <label class="text-xs font-semibold text-slate-500 block">Palavra-passe</label>
                 <input type="password" id="admin-password-input" placeholder="Introduce la contraseña..." class="w-full px-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue" />
-                <p id="login-error" class="hidden text-xs text-rose-600 font-medium">Palavra-passe ou código de convite incorreto.</p>
+                <p id="login-error" class="hidden text-xs text-rose-600 font-medium">Credenciais incorretas. Verifique email e senha.</p>
             </div>
             <div class="flex gap-2 pt-2">
                 <button id="btn-login-cancel" onclick="document.getElementById('admin-login-modal').classList.add('hidden')" class="w-1/2 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200 transition-colors">Cancelar</button>
@@ -529,15 +552,15 @@
     <script type="module">
         // Importación de módulos oficiales de Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ==========================================
-        // CONFIGURACIÓN DE SEGURIDAD (OPCIÓN 3)
+        // CONFIGURACIÓN - FIREBASE AUTHENTICATION EMAIL/PASSWORD
         // ==========================================
-        // Esta clave secreta actúa como clave de invitación inicial. 
-        // Solo quien la conozca puede definir la contraseña de administración la primera vez.
-        const INIT_SECRET_KEY = "ALTAR2026"; 
+        // El acceso de administrador se maneja mediante Firebase Authentication (Email/Password).
+        // Crea un usuario administrador en Firebase Console (Authentication > Users) con el email que desees.
+        // No hay sistema de contraseña propio: toda la autenticación depende de Firebase Auth.
 
         // Configuración dinámica de Firebase
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
@@ -557,15 +580,18 @@
 
         // Rutas de Firestore (Cumpliendo la regla RULE 1 de Canvas)
         const serversColRef = collection(db, 'artifacts', appId, 'public', 'data', 'servers');
-        const settingsDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'adminConfig');
 
         // Estado global de la aplicación
         let dataset = [];
         let user = null;
         let isAdmin = false;
-        let isConfiguredPassword = false;
-        let correctPasswordHash = ""; 
+        const ADMIN_EMAIL = "seminariodeampere@gmail.com";
         let charts = {};
+
+        // Variables de paginación
+        let currentPage = 1;
+        const ITEMS_PER_PAGE = 12;
+        let totalFilteredItems = [];
 
         // Iniciar sesión (Regla 3 de Firebase de Canvas)
         const initAuth = async () => {
@@ -581,18 +607,34 @@
             }
         };
 
-        // Escuchar el estado de autenticación de Firebase
+        // Auth state listener - Determina acceso de administrador exclusivamente por Firebase Auth
         onAuthStateChanged(auth, async (u) => {
+
             if (u) {
+
                 user = u;
-                document.getElementById('db-status').innerHTML = `<span class="w-2 h-2 bg-emerald-500 rounded-full"></span> Conectado à nuvem`;
-                document.getElementById('db-status').className = "text-xs px-3 py-1.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1.5";
-                
-                checkAdminConfiguration();
+
+                // Verificar si es el administrador autorizado
+                isAdmin = (u.email === ADMIN_EMAIL);
+
+                document.getElementById('db-status').innerHTML =
+                    `<span class="w-2 h-2 bg-emerald-500 rounded-full"></span> Sincronizado`;
+
+                document.getElementById('db-status').className =
+                    "text-xs px-3 py-1.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1.5";
+
+                updateAdminUI();
+
                 subscribeToDatabase();
+
             } else {
+
                 user = null;
-                document.getElementById('db-status').innerHTML = `<span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span> Desligado`;
+                isAdmin = false;
+
+                // document.getElementById('db-status').innerHTML = `<span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span> Desligado`;
+
+                updateAdminUI();
             }
         });
 
@@ -626,28 +668,8 @@
             });
         }
 
-        // Comprobación de configuración inicial de administrador
-        async function checkAdminConfiguration() {
-            try {
-                const docSnap = await getDoc(settingsDocRef);
-                if (docSnap.exists()) {
-                    isConfiguredPassword = true;
-                    correctPasswordHash = docSnap.data().password;
-                    document.getElementById('setup-instructions').classList.add('hidden');
-                    document.getElementById('container-init-key').classList.add('hidden');
-                    document.getElementById('label-password').textContent = "Palavra-passe de acesso";
-                } else {
-                    isConfiguredPassword = false;
-                    document.getElementById('setup-instructions').classList.remove('hidden');
-                    document.getElementById('container-init-key').classList.remove('hidden');
-                    document.getElementById('label-password').textContent = "Nova palavra-passe que pretende criar";
-                }
-            } catch (err) {
-                console.error("Erro ao ler as configurações de administrador: ", err);
-            }
-        }
 
-        // Ejecutar autenticación al cargar
+        // EJECUCIÓN INICIAL: usar anonimamente (regla Canvas) y observar estado de auth
         initAuth();
 
         // Actualizar UI
@@ -705,8 +727,9 @@
         function renderCharts(data) {
             if (charts.capillas) charts.capillas.destroy();
             if (charts.sacramentos) charts.sacramentos.destroy();
+            if (charts.genero) charts.genero.destroy();
             if (charts.edades) charts.edades.destroy();
-            if (charts.horarios) charts.horarios.destroy();
+            // if (charts.horarios) charts.horarios.destroy();
 
             // 1. CAPILLAS
             const capillasCount = {};
@@ -762,6 +785,59 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+
+            // 3. GÉNERO MASCULINO / FEMENINO
+            const generoCounts = { Masculino: 0, Femenino: 0, 'Sin dato': 0 };
+            data.forEach(d => {
+                const sexo = cleanStr(d.Sexo);
+                if (['feminino', 'femenino', 'f'].includes(sexo)) {
+                    generoCounts.Femenino++;
+                } else if (['masculino', 'm'].includes(sexo)) {
+                    generoCounts.Masculino++;
+                } else {
+                    generoCounts['Sin dato']++;
+                }
+            });
+
+            const generoLabels = Object.keys(generoCounts).filter(key => generoCounts[key] > 0);
+            const generoValues = generoLabels.map(key => generoCounts[key]);
+            const generoColors = ['#2563EB', '#DB2777', '#94A3B8'];
+
+            charts.genero = new Chart(document.getElementById('chart-genero'), {
+                type: 'doughnut',
+                data: {
+                    labels: generoLabels,
+                    datasets: [{
+                        data: generoValues,
+                        backgroundColor: generoColors.slice(0, generoValues.length),
+                        hoverOffset: 18,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 16,
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const value = context.parsed || 0;
+                                    const total = context.chart.data.datasets[0].data.reduce((sum, item) => sum + item, 0);
+                                    const percent = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                                    return `${context.label}: ${value} (${percent}%)`;
+                                }
+                            }
+                        }
+                    }
                 }
             });
 
@@ -827,6 +903,7 @@
                 }
             });
 
+            /*
             // 4. TURNOS
             const turnos = {};
             data.forEach(d => {
@@ -856,6 +933,7 @@
                     }
                 }
             });
+            */
         }
 
         // Helper para lanzar modal de confirmación personalizada
@@ -883,20 +961,31 @@
             modal.classList.remove('hidden');
         }
 
-        // Renderizado del directorio
+        // Renderizado del directorio con paginación
         function renderTable(data) {
             const tableBody = document.getElementById('table-body');
             const emptyState = document.getElementById('empty-state');
+            const paginationContainer = document.getElementById('pagination-container');
             tableBody.innerHTML = '';
+
+            // Guardar datos filtrados para paginación
+            totalFilteredItems = data;
+            //currentPage = 1;
 
             if (data.length === 0) {
                 emptyState.classList.remove('hidden');
+                paginationContainer.classList.add('hidden');
                 return;
             } else {
                 emptyState.classList.add('hidden');
             }
 
-            data.forEach(server => {
+            // Calcular rango de items para la página actual
+            const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIdx = startIdx + ITEMS_PER_PAGE;
+            const pageData = data.slice(startIdx, endIdx);
+
+            pageData.forEach(server => {
                 const row = document.createElement('tr');
                 row.className = "hover:bg-slate-50 transition-colors";
 
@@ -936,16 +1025,23 @@
                 const crismaIcon = ['sim', 'si', 's'].includes(cleanStr(server.Crismado)) ? '🟢' : '⚪';
 
                 const wpCandidate = server.Whatsapp_candidato ? generateWpLink(server.Whatsapp_candidato, `Olá ${server.Nome}, tudo bem? Aqui é da coordenação...`) : null;
-                const wpParentName = (server.Nome_mae || server.Nome_pai || 'Responsável').trim();
-                const wpParentNum = server.Whatsapp_mae || server.Whatsapp_pai || server.Whatsapp_tutor_guardiao;
-                const wpParent = wpParentNum ? generateWpLink(wpParentNum, `Olá ${wpParentName}, tudo bem? Gostaria de falar sobre o coroinha ${server.Nome}...`) : null;
-                const parentLabel = server.Nome_mae
-                    ? `Mãe: ${server.Nome_mae}`
-                    : server.Nome_pai
-                        ? `Pai: ${server.Nome_pai}`
-                        : server.Nome_tutor_guardiao
-                            ? `Tutor: ${server.Nome_tutor_guardiao}`
-                            : 'Responsável';
+                const wpMother = server.Whatsapp_mae ? generateWpLink(server.Whatsapp_mae, `Olá ${server.Nome_mae || 'Mãe'}, tudo bem? Gostaria de falar sobre o coroinha ${server.Nome}...`) : null;
+                const wpFather = server.Whatsapp_pai ? generateWpLink(server.Whatsapp_pai, `Olá ${server.Nome_pai || 'Pai'}, tudo bem? Gostaria de falar sobre o coroinha ${server.Nome}...`) : null;
+                const wpTutor = server.Whatsapp_tutor_guardiao ? generateWpLink(server.Whatsapp_tutor_guardiao, `Olá ${server.Nome_tutor_guardiao || 'Tutor'}, tudo bem? Gostaria de falar sobre o coroinha ${server.Nome}...`) : null;
+
+                const contactLinks = [];
+                if (wpCandidate) {
+                    contactLinks.push(`<a href="${wpCandidate}" target="_blank" class="text-center text-[11px] text-emerald-600 hover:text-emerald-800 font-semibold bg-emerald-50 px-2 py-1 rounded-md">📲 Candidato</a>`);
+                }
+                if (wpMother) {
+                    contactLinks.push(`<a href="${wpMother}" target="_blank" class="text-center text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2 py-1 rounded-md">👩‍👧 Mãe${server.Nome_mae ? `: ${server.Nome_mae}` : ''}</a>`);
+                }
+                if (wpFather) {
+                    contactLinks.push(`<a href="${wpFather}" target="_blank" class="text-center text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2 py-1 rounded-md">👨‍👦 Pai${server.Nome_pai ? `: ${server.Nome_pai}` : ''}</a>`);
+                }
+                if (wpTutor) {
+                    contactLinks.push(`<a href="${wpTutor}" target="_blank" class="text-center text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2 py-1 rounded-md">🧑‍🏫 Tutor</a>`);
+                }
 
                 // Controles de Administrador
                 let adminControlsHtml = '';
@@ -959,8 +1055,7 @@
                 } else {
                     adminControlsHtml = `
                         <div class="flex flex-col gap-1.5">
-                            ${wpCandidate ? `<a href="${wpCandidate}" target="_blank" class="text-center text-[11px] text-emerald-600 hover:text-emerald-800 font-semibold bg-emerald-50 px-2 py-1 rounded-md">💬 Candidato</a>` : ''}
-                            ${wpParent ? `<a href="${wpParent}" target="_blank" class="text-center text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2 py-1 rounded-md">📞 ${parentLabel}</a>` : '<span class="text-slate-400 text-center">Sem números</span>'}
+                            ${contactLinks.length > 0 ? contactLinks.join('') : '<span class="text-slate-400 text-center">Sem números</span>'}
                         </div>
                     `;
                 }
@@ -1005,6 +1100,97 @@
                 `;
                 tableBody.appendChild(row);
             });
+
+            // Actualizar controles de paginación
+            updatePaginationControls(data.length);
+        }
+
+        // Función para actualizar controles de paginación
+        function updatePaginationControls(totalItems) {
+            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+            const paginationContainer = document.getElementById('pagination-container');
+            const paginationInfo = document.getElementById('pagination-info');
+            const paginationButtons = document.getElementById('pagination-buttons');
+            const prevBtn = document.getElementById('pagination-prev');
+            const nextBtn = document.getElementById('pagination-next');
+
+            if (totalItems === 0) {
+                paginationContainer.classList.add('hidden');
+                return;
+            }
+
+            paginationContainer.classList.remove('hidden');
+
+            // Información de página
+            const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1;
+            const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalItems);
+            paginationInfo.textContent = `${startItem}-${endItem} de ${totalItems}`;
+
+            // Botones anteriores/siguientes
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage === totalPages;
+
+            // Generar botones numéricos
+            paginationButtons.innerHTML = '';
+            const maxButtons = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+            let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+            if (endPage - startPage < maxButtons - 1) {
+                startPage = Math.max(1, endPage - maxButtons + 1);
+            }
+
+            if (startPage > 1) {
+                const btn = document.createElement('button');
+                btn.textContent = '1';
+                btn.onclick = () => window.goToPage(1);
+                btn.className = 'p-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all';
+                paginationButtons.appendChild(btn);
+                if (startPage > 2) {
+                    paginationButtons.appendChild(document.createTextNode('...'));
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                btn.onclick = () => window.goToPage(i);
+                btn.className = i === currentPage 
+                    ? 'p-1 px-2.5 bg-liturgical-blue text-white rounded-lg text-xs font-bold'
+                    : 'p-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all';
+                paginationButtons.appendChild(btn);
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    paginationButtons.appendChild(document.createTextNode('...'));
+                }
+                const btn = document.createElement('button');
+                btn.textContent = totalPages;
+                btn.onclick = () => window.goToPage(totalPages);
+                btn.className = 'p-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all';
+                paginationButtons.appendChild(btn);
+            }
+        }
+
+        // Funciones de navegación (expuestas globalmente)
+        window.goToPage = function(pageNum) {
+            currentPage = pageNum;
+            renderTable(totalFilteredItems);
+        }
+
+        window.nextPage = function() {
+            const totalPages = Math.ceil(totalFilteredItems.length / ITEMS_PER_PAGE);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderTable(totalFilteredItems);
+            }
+        }
+
+        window.previousPage = function() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderTable(totalFilteredItems);
+            }
         }
 
         // WhatsApp Link Helper
@@ -1046,6 +1232,7 @@
                     return matchesSearch && matchesCapilla && matchesEstado && matchesAlergias && matchesTipo;
                 });
 
+                currentPage = 1;
                 renderTable(filtered);
             }
 
@@ -1057,83 +1244,82 @@
             filterTipo.onchange = applyFilters;
         }
 
-        // MODO ADMINISTRADOR: GESTIÓN DE ACCESO
+        // MODO ADMINISTRADOR: Autenticación mediante Firebase Authentication Email/Password
         const btnAdminToggle = document.getElementById('btn-admin-toggle');
         const adminLoginModal = document.getElementById('admin-login-modal');
         const btnLoginSubmit = document.getElementById('btn-login-submit');
+        const adminEmailInput = document.getElementById('admin-email-input');
         const adminPasswordInput = document.getElementById('admin-password-input');
-        const adminInitKeyInput = document.getElementById('admin-init-key-input');
         const loginError = document.getElementById('login-error');
+
+        // Función para actualizar UI de administrador según estado isAdmin
+        function updateAdminUI() {
+            if (isAdmin) {
+                document.getElementById('admin-banner').classList.remove('hidden');
+                document.getElementById('upload-section').classList.remove('hidden');
+                btnAdminToggle.classList.replace('bg-white/10', 'bg-emerald-600');
+                document.getElementById('admin-btn-text').textContent = "Administrador ativo";
+                document.getElementById('admin-icon').textContent = "🔓";
+            } else {
+                document.getElementById('admin-banner').classList.add('hidden');
+                document.getElementById('upload-section').classList.add('hidden');
+                btnAdminToggle.classList.replace('bg-emerald-600', 'bg-white/10');
+                document.getElementById('admin-btn-text').textContent = "Acesso Administrador";
+                document.getElementById('admin-icon').textContent = "🔒";
+            }
+            updateUI(dataset);
+        }
 
         btnAdminToggle.addEventListener('click', () => {
             if (isAdmin) {
-                logoutAdmin();
+                performLogout();
             } else {
+                adminEmailInput.value = '';
                 adminPasswordInput.value = '';
-                if (adminInitKeyInput) adminInitKeyInput.value = '';
                 loginError.classList.add('hidden');
                 adminLoginModal.classList.remove('hidden');
             }
         });
 
-        // Inicio de sesión / configuración inicial con Clave de Invitación (Opción 3)
+        document.getElementById('btn-logout').addEventListener('click', performLogout);
+
+        // LOGIN CON FIREBASE AUTHENTICATION (Email/Password)
         btnLoginSubmit.addEventListener('click', async () => {
-            const passwordVal = adminPasswordInput.value.trim();
-            if (!passwordVal) return;
+            const email = adminEmailInput.value.trim();
+            const password = adminPasswordInput.value.trim();
+            if (!email || !password) {
+                loginError.textContent = "Introduce o email e a palavra-passe.";
+                loginError.classList.remove('hidden');
+                return;
+            }
 
-            if (!isConfiguredPassword) {
-                const initKeyVal = adminInitKeyInput.value.trim();
-                
-                // VALIDACIÓN CRÍTICA CONTRA LA CLAVE DE INVITACIÓN HARDCODEADA
-                if (initKeyVal !== INIT_SECRET_KEY) {
-                    loginError.textContent = "Código de convite incorreto. Não tem permissão para configurar o acesso.";
-                    loginError.classList.remove('hidden');
-                    return;
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                // Firebase maneja el estado; onAuthStateChanged activará modo admin automáticamente
+                adminLoginModal.classList.add('hidden');
+                loginError.classList.add('hidden');
+            } catch (err) {
+                let msg = "Credenciais incorretas.";
+                if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+                    msg = "Email ou palavra-passe inválidos. Verifique e tente novamente.";
+                } else if (err.code === 'auth/too-many-requests') {
+                    msg = "Muitas tentativas. Aguarde alguns instantes e tente novamente.";
                 }
-
-                try {
-                    await setDoc(settingsDocRef, { password: passwordVal });
-                    isConfiguredPassword = true;
-                    correctPasswordHash = passwordVal;
-                    loginAdmin();
-                    // Limpieza visual inmediata de los campos iniciales
-                    document.getElementById('container-init-key').classList.add('hidden');
-                    document.getElementById('setup-instructions').classList.add('hidden');
-                } catch (e) {
-                    showError("Error configurando la contraseña: " + e.message);
-                }
-            } else {
-                if (passwordVal === correctPasswordHash) {
-                    loginAdmin();
-                } else {
-                    loginError.textContent = "Palavra-passe incorreta.";
-                    loginError.classList.remove('hidden');
-                }
+                loginError.textContent = msg;
+                loginError.classList.remove('hidden');
             }
         });
 
-        function loginAdmin() {
-            isAdmin = true;
-            adminLoginModal.classList.add('hidden');
-            document.getElementById('admin-banner').classList.remove('hidden');
-            document.getElementById('upload-section').classList.remove('hidden');
-            btnAdminToggle.classList.replace('bg-white/10', 'bg-emerald-600');
-            document.getElementById('admin-btn-text').textContent = "Administrador ativo";
-            document.getElementById('admin-icon').textContent = "🔓";
-            updateUI(dataset); 
+        // LOGOUT: cerrar sesión en Firebase Authentication
+        async function performLogout() {
+            try {
+                await signOut(auth);
+                isAdmin = false;
+                updateAdminUI();
+            } catch (err) {
+                showError("Não foi possível encerrar a sessão: " + err.message);
+            }
         }
-
-        function logoutAdmin() {
-            isAdmin = false;
-            document.getElementById('admin-banner').classList.add('hidden');
-            document.getElementById('upload-section').classList.add('hidden');
-            btnAdminToggle.classList.replace('bg-emerald-600', 'bg-white/10');
-            document.getElementById('admin-btn-text').textContent = "Acesso Administrador";
-            document.getElementById('admin-icon').textContent = "🔒";
-            updateUI(dataset);
-        }
-
-        document.getElementById('btn-logout').addEventListener('click', logoutAdmin);
 
         // FORMULARIO MANUAL DE AGREGAR / EDITAR
         const editServerModal = document.getElementById('edit-server-modal');
@@ -1319,11 +1505,11 @@
 
                         const payload = {
                             id: itemID,
-                            Nome: (item.Nome || 'Sin Nombre').trim(),
+                            Nome: (item.Nome || 'Sem Nome').trim(),
                             Data_nascimento: item.Data_nascimento || '',
                             Idade: safeAge,
                             Sexo: cleanSexo(item.Sexo),
-                            Capela: (item.Capela || 'Sin Definir').trim(),
+                            Capela: (item.Capela || 'Sem Capela').trim(),
                             Tipo: cleanTipo(item.Tipo),
                             Estado: cleanEstado(item.Estado),
                             Horario_estudo: item.Horario_estudo || '',
