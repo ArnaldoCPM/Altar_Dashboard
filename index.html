@@ -540,33 +540,9 @@
 
     <!-- FIREBASE SERVICES SCRIPTS AND LOGIC (ONLY ONE SCRIPT BLOCK FOR SAFETY) -->
     <script type="module">
-        // Importación de módulos oficiales de Firebase
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { app, auth, db, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword, signOut, onAuthStateChanged, collection, doc, setDoc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./js/firebase.js";
 
-        // ==========================================
-        // CONFIGURACIÓN - FIREBASE AUTHENTICATION EMAIL/PASSWORD
-        // ==========================================
-        // El acceso de administrador se maneja mediante Firebase Authentication (Email/Password).
-        // Crea un usuario administrador en Firebase Console (Authentication > Users) con el email que desees.
-        // No hay sistema de contraseña propio: toda la autenticación depende de Firebase Auth.
-
-        // Configuración dinámica de Firebase
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyBhWhXdwjqDaG5oPLN-l-Ts7EVHF6-wkuI",
-            authDomain: "dashboard-servidores.firebaseapp.com",
-            projectId: "dashboard-servidores",
-            storageBucket: "dashboard-servidores.firebasestorage.app",
-            messagingSenderId: "991942921277",
-            appId: "1:991942921277:web:a44ac020b4881195bdae54"
-        };
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-        // Inicializar Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
 
         // Rutas de Firestore (Cumpliendo la regla RULE 1 de Canvas)
         const serversColRef = collection(db, 'artifacts', appId, 'public', 'data', 'servers');
