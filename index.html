@@ -540,7 +540,8 @@
 
     <!-- FIREBASE SERVICES SCRIPTS AND LOGIC (ONLY ONE SCRIPT BLOCK FOR SAFETY) -->
     <script type="module">
-        import { app, auth, db, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword, signOut, onAuthStateChanged, collection, doc, setDoc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./js/firebase.js";
+        import { app, db, collection, doc, setDoc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./js/firebase.js";
+        import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout as performFirebaseLogout } from "./js/auth.js";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
@@ -559,22 +560,8 @@
         const ITEMS_PER_PAGE = 12;
         let totalFilteredItems = [];
 
-        // Iniciar sesión (Regla 3 de Firebase de Canvas)
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (err) {
-                showError('Error de autenticación con Firebase. Verifique sus claves.');
-                document.getElementById('loading-overlay').classList.add('hidden');
-            }
-        };
-
         // Auth state listener - Determina acceso de administrador exclusivamente por Firebase Auth
-        onAuthStateChanged(auth, async (u) => {
+        setupAuthStateListener(async (u) => {
 
             if (u) {
 
@@ -636,7 +623,10 @@
 
 
         // EJECUCIÓN INICIAL: usar anonimamente (regla Canvas) y observar estado de auth
-        initAuth();
+        initAuth((err) => {
+            showError('Error de autenticación con Firebase. Verifique sus claves.');
+            document.getElementById('loading-overlay').classList.add('hidden');
+        });
 
         // Actualizar UI
         function updateUI(data) {
@@ -1260,7 +1250,7 @@
             }
 
             try {
-                await signInWithEmailAndPassword(auth, email, password);
+                await loginWithEmailPassword(email, password);
                 // Firebase maneja el estado; onAuthStateChanged activará modo admin automáticamente
                 adminLoginModal.classList.add('hidden');
                 loginError.classList.add('hidden');
@@ -1278,13 +1268,11 @@
 
         // LOGOUT: cerrar sesión en Firebase Authentication
         async function performLogout() {
-            try {
-                await signOut(auth);
-                isAdmin = false;
-                updateAdminUI();
-            } catch (err) {
+            await performFirebaseLogout((err) => {
                 showError("Não foi possível encerrar a sessão: " + err.message);
-            }
+            });
+            isAdmin = false;
+            updateAdminUI();
         }
 
         // FORMULARIO MANUAL DE AGREGAR / EDITAR
