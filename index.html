@@ -542,6 +542,7 @@
     <script type="module">
         import { app, db, collection, doc, setDoc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./js/firebase.js";
         import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout as performFirebaseLogout } from "./js/auth.js";
+        import { cleanStr, generateWpLink } from "./js/utils.js";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
@@ -636,9 +637,6 @@
             renderTable(data);
             setupInteractiveEvents(data);
         }
-
-        // Helper para normalizar comparaciones de texto en portugués sin importar acentos
-        const cleanStr = (s) => (s || '').toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
         // KPIs
         function updateKPIs(data) {
@@ -1147,15 +1145,6 @@
                 currentPage--;
                 renderTable(totalFilteredItems);
             }
-        }
-
-        // WhatsApp Link Helper
-        function generateWpLink(number, text) {
-            let cleanNum = number.toString().replace(/\D/g, '');
-            if (!cleanNum.startsWith('55') && cleanNum.length <= 11) {
-                cleanNum = '55' + cleanNum;
-            }
-            return `https://api.whatsapp.com/send?phone=${cleanNum}&text=${encodeURIComponent(text)}`;
         }
 
         // Configuración de eventos interactivos y filtros
