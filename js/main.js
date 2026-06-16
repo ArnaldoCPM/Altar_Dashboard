@@ -3,7 +3,7 @@ import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout
 import { resolveUserProfile } from "./data/users.js";
 import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
-import { setCurrentUser, setCurrentProfile, clearSession } from "./session.js";
+import { setCurrentUser, setCurrentProfile, setCurrentRole, clearSession } from "./session.js";
 import "./permissions.js";
 import "./data/chapels.js";
 import "./data/servers.js";
@@ -58,6 +58,8 @@ setupAuthStateListener(async (u) => {
         const profile = await profilePromise;
         if (user?.uid === authUid) {
             setCurrentProfile(profile);
+            // El rol se almacena ahora para ser aprovechado en fases futuras del sistema.
+            setCurrentRole(profile?.role ?? null);
         }
 
     } else {

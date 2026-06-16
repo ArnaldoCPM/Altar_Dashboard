@@ -1,5 +1,6 @@
 let currentUser = null;
 let currentProfile = null;
+// Este rol se utilizará en futuras fases para la autorización basada en perfiles.
 let currentRole = null;
 let currentChapelId = null;
 
