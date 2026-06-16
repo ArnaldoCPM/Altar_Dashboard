@@ -3,6 +3,7 @@ import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout
 import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
 import "./permissions.js";
+import "./data/chapels.js";
 import "./data/users.js";
 
 // import { renderTable } from "./table.js";
