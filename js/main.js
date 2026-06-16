@@ -3,11 +3,10 @@ import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout
 import { resolveUserProfile } from "./data/users.js";
 import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
-import { setCurrentUser, clearSession } from "./session.js";
+import { setCurrentUser, setCurrentProfile, clearSession } from "./session.js";
 import "./permissions.js";
 import "./data/chapels.js";
 import "./data/servers.js";
-void resolveUserProfile;
 
 // import { renderTable } from "./table.js";
 // import { renderCharts } from "./charts.js";
@@ -39,7 +38,9 @@ setupAuthStateListener(async (u) => {
     if (u) {
 
         user = u;
+        const profile = resolveUserProfile(user);
         setCurrentUser(user);
+        setCurrentProfile(profile);
 
         // Verificar si es el administrador autorizado
         isAdmin = (u.email === ADMIN_EMAIL);

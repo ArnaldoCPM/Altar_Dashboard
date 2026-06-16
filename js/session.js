@@ -1,4 +1,5 @@
 let currentUser = null;
+let currentProfile = null;
 let currentRole = null;
 let currentChapelId = null;
 
@@ -8,6 +9,14 @@ function setCurrentUser(user) {
 
 function getCurrentUser() {
   return currentUser;
+}
+
+function setCurrentProfile(profile) {
+  currentProfile = profile;
+}
+
+function getCurrentProfile() {
+  return currentProfile;
 }
 
 function setCurrentRole(role) {
@@ -28,6 +37,7 @@ function getCurrentChapelId() {
 
 function clearSession() {
   currentUser = null;
+  currentProfile = null;
   currentRole = null;
   currentChapelId = null;
 }
@@ -35,6 +45,8 @@ function clearSession() {
 export {
   setCurrentUser,
   getCurrentUser,
+  setCurrentProfile,
+  getCurrentProfile,
   setCurrentRole,
   getCurrentRole,
   setCurrentChapelId,
