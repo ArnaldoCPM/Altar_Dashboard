@@ -58,11 +58,28 @@ async function getAllUsers() {
   throw new Error("Not implemented");
 }
 
+/**
+ * Resuelve un perfil de usuario base a partir del usuario autenticado actual.
+ * @param {Object|null|undefined} user Usuario autenticado recibido desde Firebase Authentication.
+ * @returns {Object} Perfil placeholder esperado con `uid`, `email`, `displayName`, `role`, `chapelId` y `active`.
+ */
+function resolveUserProfile(user) {
+  return {
+    uid: user?.uid ?? null,
+    email: user?.email ?? null,
+    displayName: user?.displayName ?? null,
+    role: null,
+    chapelId: null,
+    active: true
+  };
+}
+
 export {
   getUserByUid,
   getUserByEmail,
   createUser,
   updateUser,
   disableUser,
-  getAllUsers
+  getAllUsers,
+  resolveUserProfile
 };

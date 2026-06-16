@@ -1,12 +1,13 @@
 import { app, db, collection, doc, setDoc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./firebase.js";
 import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout as performFirebaseLogout } from "./auth.js";
+import { resolveUserProfile } from "./data/users.js";
 import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
 import { setCurrentUser, clearSession } from "./session.js";
 import "./permissions.js";
 import "./data/chapels.js";
 import "./data/servers.js";
-import "./data/users.js";
+void resolveUserProfile;
 
 // import { renderTable } from "./table.js";
 // import { renderCharts } from "./charts.js";
