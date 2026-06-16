@@ -1,3 +1,6 @@
+import { db } from "../firebase.js";
+import { collection, getDocs, limit, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
 /**
  * Obtiene un usuario por su UID.
  * @param {string} uid UID de Firebase Authentication del usuario.
@@ -14,8 +17,24 @@ async function getUserByUid(uid) {
  * @returns {Promise<Object|null>} Documento de usuario esperado o `null` cuando no exista.
  */
 async function getUserByEmail(email) {
-  void email;
-  throw new Error("Not implemented");
+  if (!email) {
+    return null;
+  }
+
+  const usersRef = collection(db, "users");
+  const usersQuery = query(usersRef, where("email", "==", email), limit(1));
+  const snapshot = await getDocs(usersQuery);
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const userDoc = snapshot.docs[0];
+
+  return {
+    id: userDoc.id,
+    ...userDoc.data()
+  };
 }
 
 /**
