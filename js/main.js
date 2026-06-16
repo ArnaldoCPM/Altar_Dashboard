@@ -38,9 +38,9 @@ setupAuthStateListener(async (u) => {
     if (u) {
 
         user = u;
-        const profile = resolveUserProfile(user);
+        const authUid = u.uid;
+        const profilePromise = resolveUserProfile(user);
         setCurrentUser(user);
-        setCurrentProfile(profile);
 
         // Verificar si es el administrador autorizado
         isAdmin = (u.email === ADMIN_EMAIL);
@@ -54,6 +54,11 @@ setupAuthStateListener(async (u) => {
         updateAdminUI();
 
         subscribeToDatabase();
+
+        const profile = await profilePromise;
+        if (user?.uid === authUid) {
+            setCurrentProfile(profile);
+        }
 
     } else {
 

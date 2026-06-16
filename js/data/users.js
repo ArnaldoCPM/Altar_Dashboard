@@ -80,10 +80,14 @@ async function getAllUsers() {
 /**
  * Resuelve un perfil de usuario base a partir del usuario autenticado actual.
  * @param {Object|null|undefined} user Usuario autenticado recibido desde Firebase Authentication.
- * @returns {Object} Perfil placeholder esperado con `uid`, `email`, `displayName`, `role`, `chapelId` y `active`.
+ * @returns {Promise<Object|null>} Perfil real si existe en Firestore, perfil placeholder si no existe o `null` si no hay usuario.
  */
-function resolveUserProfile(user) {
-  return {
+async function resolveUserProfile(user) {
+  if (!user) {
+    return null;
+  }
+
+  const placeholderProfile = {
     uid: user?.uid ?? null,
     email: user?.email ?? null,
     displayName: user?.displayName ?? null,
@@ -91,6 +95,14 @@ function resolveUserProfile(user) {
     chapelId: null,
     active: true
   };
+
+  const firestoreProfile = await getUserByEmail(user.email);
+
+  if (firestoreProfile) {
+    return firestoreProfile;
+  }
+
+  return placeholderProfile;
 }
 
 export {
