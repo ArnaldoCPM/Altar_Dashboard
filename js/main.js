@@ -2,6 +2,7 @@ import { app, db, collection, doc, setDoc, getDoc, onSnapshot, deleteDoc, writeB
 import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout as performFirebaseLogout } from "./auth.js";
 import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
+import "./permissions.js";
 
 // import { renderTable } from "./table.js";
 // import { renderCharts } from "./charts.js";
