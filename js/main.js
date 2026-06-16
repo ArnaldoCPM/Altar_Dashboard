@@ -2,8 +2,8 @@ import { app, db, collection, doc, setDoc, getDoc, onSnapshot, deleteDoc, writeB
 import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout as performFirebaseLogout } from "./auth.js";
 import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
+import { setCurrentUser, clearSession } from "./session.js";
 import "./permissions.js";
-import "./session.js";
 import "./data/chapels.js";
 import "./data/servers.js";
 import "./data/users.js";
@@ -38,6 +38,7 @@ setupAuthStateListener(async (u) => {
     if (u) {
 
         user = u;
+        setCurrentUser(user);
 
         // Verificar si es el administrador autorizado
         isAdmin = (u.email === ADMIN_EMAIL);
@@ -55,6 +56,7 @@ setupAuthStateListener(async (u) => {
     } else {
 
         user = null;
+        clearSession();
         isAdmin = false;
 
         // document.getElementById('db-status').innerHTML = `<span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span> Desligado`;
