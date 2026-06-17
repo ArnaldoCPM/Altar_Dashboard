@@ -854,7 +854,11 @@ const fileInput = document.getElementById('csv-file-input');
 fileInput.addEventListener('change', handleCsvUpload);
 
 async function handleCsvUpload(e) {
-    if (!isAdmin) return;
+    const currentRole = getCurrentRole();
+
+    if (currentRole !== "admin") {
+        return;
+    }
     const file = e.target.files[0];
     if (!file) return;
 
