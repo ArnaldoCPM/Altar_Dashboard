@@ -805,6 +805,11 @@ serverForm.addEventListener('submit', async (e) => {
 
 // Funciones expuestas a nivel global para compatibilidad con handlers inline onclick
 window.editServer = function(id) {
+    const currentRole = getCurrentRole();
+    if (currentRole !== "admin") {
+        return;
+    }
+
     const server = dataset.find(d => d.id === id);
     if (!server) return;
 
@@ -835,6 +840,11 @@ window.editServer = function(id) {
 };
 
 window.deleteServer = function(id, name) {
+    const currentRole = getCurrentRole();
+    if (currentRole !== "admin") {
+        return;
+    }
+
     showConfirm(
         "Eliminar Servidor",
         `Tem a certeza absoluta de que deseja eliminar "${name}" (${id}) da base de dados de forma permanente?`,
