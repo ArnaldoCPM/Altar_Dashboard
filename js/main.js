@@ -462,8 +462,12 @@ function renderTable(data) {
         }
 
         // Controles de Administrador
+        const currentRole = getCurrentRole();
+        const isRoleAdmin = currentRole === "admin";
+
         let adminControlsHtml = '';
-        if (isAdmin) {
+
+        if (isRoleAdmin) {
             adminControlsHtml = `
                 <div class="flex gap-1.5 justify-center">
                     <button onclick="editServer('${server.id}')" class="p-1 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[11px] font-bold transition-all">Editar</button>
