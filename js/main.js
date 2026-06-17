@@ -766,7 +766,11 @@ document.getElementById('btn-add-manual').addEventListener('click', () => {
 // Guardar monaguillo en Firestore (Regla 1 de Firebase de Canvas)
 serverForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!isAdmin) return;
+    const currentRole = getCurrentRole();
+
+    if (currentRole !== "admin") {
+        return;
+}
 
     const id = document.getElementById('form-id').value;
     const payload = {
