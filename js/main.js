@@ -3,7 +3,7 @@ import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout
 import { resolveUserProfile } from "./data/users.js";
 import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
-import { setCurrentUser, setCurrentProfile, setCurrentRole, clearSession } from "./session.js";
+import { setCurrentUser, setCurrentProfile, setCurrentRole, getCurrentRole, clearSession } from "./session.js";
 import "./permissions.js";
 import "./data/chapels.js";
 import "./data/servers.js";
@@ -51,7 +51,7 @@ setupAuthStateListener(async (u) => {
         document.getElementById('db-status').className =
             "text-xs px-3 py-1.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1.5";
 
-        updateAdminUI();
+        //updateAdminUI();
 
         subscribeToDatabase();
 
@@ -60,6 +60,9 @@ setupAuthStateListener(async (u) => {
             setCurrentProfile(profile);
             // El rol se almacena ahora para ser aprovechado en fases futuras del sistema.
             setCurrentRole(profile?.role ?? null);
+            updateAdminUI();
+            console.log("SGSA Profile:", profile);
+            console.log("SGSA Role:", profile?.role ?? null);
         }
 
     } else {
@@ -660,19 +663,34 @@ const loginError = document.getElementById('login-error');
 
 // Función para actualizar UI de administrador según estado isAdmin
 function updateAdminUI() {
-    if (isAdmin) {
+
+    const currentRole = getCurrentRole();
+    const isRoleAdmin = currentRole === "admin";
+
+    if (isRoleAdmin) {
         document.getElementById('admin-banner').classList.remove('hidden');
         document.getElementById('upload-section').classList.remove('hidden');
+
         btnAdminToggle.classList.replace('bg-white/10', 'bg-emerald-600');
-        document.getElementById('admin-btn-text').textContent = "Administrador ativo";
+
+        document.getElementById('admin-btn-text').textContent =
+            "Administrador ativo";
+
         document.getElementById('admin-icon').textContent = "🔓";
+
     } else {
+
         document.getElementById('admin-banner').classList.add('hidden');
         document.getElementById('upload-section').classList.add('hidden');
+
         btnAdminToggle.classList.replace('bg-emerald-600', 'bg-white/10');
-        document.getElementById('admin-btn-text').textContent = "Acesso Administrador";
+
+        document.getElementById('admin-btn-text').textContent =
+            "Acesso Administrador";
+
         document.getElementById('admin-icon').textContent = "🔒";
     }
+
     updateUI(dataset);
 }
 
