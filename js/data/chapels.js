@@ -1,9 +1,41 @@
+import { db } from "../firebase.js";
+
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
 /**
  * Lista todas las capillas registradas en el sistema.
  * @returns {Promise<Array>} Colección esperada de documentos de capillas.
  */
-async function getAllChapters() {
-  throw new Error("Not implemented");
+async function getAllChapels() {
+  const snapshot = await getDocs(collection(db, "chapels"));
+
+  return snapshot.docs.map(docItem => ({
+    id: docItem.id,
+    ...docItem.data()
+  }));
+}
+
+async function getActiveChapels() {
+  const chapelsRef = collection(db, "chapels");
+
+  const chapelsQuery = query(
+    chapelsRef,
+    where("active", "==", true)
+  );
+
+  const snapshot = await getDocs(chapelsQuery);
+
+  return snapshot.docs.map(docItem => ({
+    id: docItem.id,
+    ...docItem.data()
+  }));
 }
 
 /**
@@ -12,8 +44,23 @@ async function getAllChapters() {
  * @returns {Promise<Object|null>} Documento de capilla esperado o `null` cuando no exista.
  */
 async function getChapelById(chapelId) {
-  void chapelId;
-  throw new Error("Not implemented");
+
+  if (!chapelId) {
+    return null;
+  }
+
+  const snapshot = await getDoc(
+    doc(db, "chapels", chapelId)
+  );
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  return {
+    id: snapshot.id,
+    ...snapshot.data()
+  };
 }
 
 /**
@@ -49,7 +96,8 @@ async function disableChapel(chapelId) {
 }
 
 export {
-  getAllChapters,
+  getAllChapels,
+  getActiveChapels,
   getChapelById,
   createChapel,
   updateChapel,
