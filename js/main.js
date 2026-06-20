@@ -5,7 +5,7 @@ import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
 import { setCurrentUser, setCurrentProfile, setCurrentRole, getCurrentRole, clearSession } from "./session.js";
 import "./permissions.js";
-import "./data/chapels.js";
+import { getActiveChapels } from "./data/chapels.js";
 import "./data/servers.js";
 
 // import { renderTable } from "./table.js";
@@ -31,6 +31,81 @@ let charts = {};
 let currentPage = 1;
 const ITEMS_PER_PAGE = 12;
 let totalFilteredItems = [];
+
+//temporal
+function auditChapels() {
+
+    const validChapels = [
+        "Matriz",
+        "Nossa Senhora Aparecida",
+        "Nossa Senhora das Graças",
+        "Nossa Senhora das Mercês",
+        "Nossa Senhora de Fátima",
+        "Santa Mônica",
+        "Santa Paulina",
+        "São Francisco",
+        "XVI de Novembro"
+    ];
+
+    const problems = [];
+
+    dataset.forEach(server => {
+
+        const chapel = (server.Capela || "").trim();
+
+        if (!chapel) {
+
+            problems.push({
+                id: server.id,
+                nome: server.Nome,
+                problema: "Capela vazia"
+            });
+
+            return;
+        }
+
+        if (!validChapels.includes(chapel)) {
+
+            problems.push({
+                id: server.id,
+                nome: server.Nome,
+                capela: chapel,
+                problema: "Capela não encontrada"
+            });
+        }
+
+    });
+
+    console.table(problems);
+
+    console.log(
+        "Total de problemas encontrados:",
+        problems.length
+    );
+}
+
+async function loadChapelsIntoForm() {
+
+    const select = document.getElementById('form-capela');
+
+    if (!select) return;
+
+    const chapels = await getActiveChapels();
+
+    select.innerHTML = '';
+
+    chapels
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach(chapel => {
+
+            const option = document.createElement('option');
+
+            option.value = chapel.name;
+            option.textContent = chapel.name;
+
+            select.appendChild(option);
+        });
+}
 
 // Auth state listener - Determina acceso de administrador exclusivamente por Firebase Auth
 setupAuthStateListener(async (u) => {
@@ -60,9 +135,15 @@ setupAuthStateListener(async (u) => {
             setCurrentProfile(profile);
             // El rol se almacena ahora para ser aprovechado en fases futuras del sistema.
             setCurrentRole(profile?.role ?? null);
+            await loadChapelsIntoForm();
             updateAdminUI();
+            
+            //temporal
+            const chapels = await getActiveChapels();
+
             console.log("SGSA Profile:", profile);
             console.log("SGSA Role:", profile?.role ?? null);
+            //console.log("SGSA Chapels:", chapels);
         }
 
     } else {
@@ -93,7 +174,15 @@ function subscribeToDatabase() {
         });
         
         dataset = loadedData;
+        //Temporal
+        const capillasUnicas = [...new Set(
+            dataset
+                .map(s => (s.Capela || "").trim())
+        )];
+
+        console.table(capillasUnicas);
         updateUI(dataset);
+        auditChapels();
         
         // Ocultar pantalla de carga inicial
         document.getElementById('loading-overlay').classList.add('opacity-0');
@@ -117,28 +206,46 @@ initAuth((err) => {
 // Actualizar UI
 function updateUI(data) {
     updateKPIs(data);
-    populateFilters(data);
     renderCharts(data);
     renderTable(data);
     setupInteractiveEvents(data);
 }
 
 // Llenado de filtros dinámicos
-function populateFilters(data) {
-    const capillas = [...new Set(data.map(d => (d.Capela || 'Sem definição').trim()))];
+async function populateFilters() {
+
     const selectCapilla = document.getElementById('filter-capilla');
     const savedVal = selectCapilla.value;
-    
-    selectCapilla.innerHTML = '<option value="all">Todas</option>';
-    capillas.forEach(cap => {
-        if (cap.trim() !== "") {
+
+    try {
+
+        const chapels = await getActiveChapels();
+
+        selectCapilla.innerHTML =
+            '<option value="all">Todas</option>';
+
+        chapels.forEach(chapel => {
+
             const opt = document.createElement('option');
-            opt.value = cap;
-            opt.textContent = cap;
+
+            opt.value = chapel.id;
+            opt.textContent = chapel.name;
+
             selectCapilla.appendChild(opt);
-        }
-    });
-    selectCapilla.value = savedVal || "all";
+        });
+
+        selectCapilla.value = savedVal || "all";
+
+    } catch (error) {
+
+        console.error(
+            "Erro ao carregar capelas:",
+            error
+        );
+
+        selectCapilla.innerHTML =
+            '<option value="all">Todas</option>';
+    }
 }
 
 // Generar Gráficos Estadísticos con ChartJS
