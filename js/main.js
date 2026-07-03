@@ -1,12 +1,12 @@
-import { app, db, collection, doc, setDoc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./firebase.js";
+import { app, db, collection, doc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./firebase.js";
 import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout as performFirebaseLogout } from "./auth.js";
 import { resolveUserProfile } from "./data/users.js";
+import { createServer } from "./data/servers.js";
 import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
 import { setCurrentUser, setCurrentProfile, setCurrentRole, getCurrentRole, clearSession } from "./session.js";
 import "./permissions.js";
 import { getActiveChapels } from "./data/chapels.js";
-import "./data/servers.js";
 
 // import { renderTable } from "./table.js";
 // import { renderCharts } from "./charts.js";
@@ -902,8 +902,7 @@ serverForm.addEventListener('submit', async (e) => {
     };
 
     try {
-        const serverDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'servers', id);
-        await setDoc(serverDocRef, payload, { merge: true });
+        await createServer(payload);
         editServerModal.classList.add('hidden');
     } catch (err) {
         showError("No se pudo guardar el registro: " + err.message);
