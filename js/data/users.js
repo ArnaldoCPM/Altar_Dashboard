@@ -74,7 +74,13 @@ async function disableUser(uid) {
  * @returns {Promise<Array>} Colección esperada de documentos de usuario.
  */
 async function getAllUsers() {
-  throw new Error("Not implemented");
+  const usersRef = collection(db, "users");
+  const snapshot = await getDocs(usersRef);
+
+  return snapshot.docs.map(docItem => ({
+    id: docItem.id,
+    ...docItem.data()
+  }));
 }
 
 /**
