@@ -1,3 +1,7 @@
+import { db, doc, setDoc } from "../firebase.js";
+
+const appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+
 /**
  * Lista todos los servidores del altar registrados en el sistema.
  * @returns {Promise<Array>} Colección esperada de documentos de servidores.
@@ -22,8 +26,26 @@ async function getServerById(serverId) {
  * @returns {Promise<Object|null>} Servidor creado o metadatos esperados de la operación.
  */
 async function createServer(serverData) {
-  void serverData;
-  throw new Error("Not implemented");
+  if (!serverData?.id) {
+    throw new Error("createServer requires serverData.id");
+  }
+
+  const serverDocRef = doc(
+    db,
+    "artifacts",
+    appId,
+    "public",
+    "data",
+    "servers",
+    serverData.id
+  );
+
+  await setDoc(serverDocRef, serverData, { merge: true });
+
+  return {
+    id: serverData.id,
+    ...serverData
+  };
 }
 
 /**
