@@ -1,5 +1,5 @@
 import { db } from "../firebase.js";
-import { collection, getDocs, limit, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, doc, getDocs, limit, query, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /**
  * Obtiene un usuario por su UID.
@@ -43,8 +43,18 @@ async function getUserByEmail(email) {
  * @returns {Promise<Object|null>} Usuario creado o metadatos de creación esperados.
  */
 async function createUser(userData) {
-  void userData;
-  throw new Error("Not implemented");
+  if (!userData?.id) {
+    throw new Error("createUser requires userData.id");
+  }
+
+  const userDocRef = doc(db, "users", userData.id);
+
+  await setDoc(userDocRef, userData, { merge: true });
+
+  return {
+    id: userData.id,
+    ...userData
+  };
 }
 
 /**
@@ -53,10 +63,15 @@ async function createUser(userData) {
  * @param {Object} userData Campos del usuario a modificar.
  * @returns {Promise<Object|null>} Usuario actualizado o resultado esperado de la operación.
  */
-async function updateUser(uid, userData) {
-  void uid;
-  void userData;
-  throw new Error("Not implemented");
+async function updateUser(userId, userData) {
+  const userDocRef = doc(db, "users", userId);
+
+  await updateDoc(userDocRef, userData);
+
+  return {
+    id: userId,
+    ...userData
+  };
 }
 
 /**
@@ -64,9 +79,21 @@ async function updateUser(uid, userData) {
  * @param {string} uid UID del usuario que se desea desactivar.
  * @returns {Promise<Object|null>} Usuario desactivado o resultado esperado de la operación.
  */
-async function disableUser(uid) {
-  void uid;
-  throw new Error("Not implemented");
+async function disableUser(userId) {
+  const updatedAt = new Date().toISOString();
+  const payload = {
+    active: false,
+    updatedAt
+  };
+
+  const userDocRef = doc(db, "users", userId);
+
+  await updateDoc(userDocRef, payload);
+
+  return {
+    id: userId,
+    ...payload
+  };
 }
 
 /**
