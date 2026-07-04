@@ -94,6 +94,9 @@
                 <button id="btn-add-manual" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all">
                     + Adicionar Servidor
                 </button>
+                <button id="btn-manage-users" class="bg-liturgical-blue hover:bg-liturgical-blue/90 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all">
+                    Gerenciar Usuários
+                </button>
                 <button id="btn-logout" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl transition-all">
                     Sair do Admin
                 </button>
@@ -516,6 +519,93 @@
                 <div class="flex gap-2 pt-2 justify-end">
                     <button type="button" onclick="document.getElementById('edit-server-modal').classList.add('hidden')" class="px-5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors">Cancelar</button>
                     <button type="submit" class="px-6 py-2 bg-liturgical-blue text-white font-bold rounded-xl hover:bg-liturgical-blue/90 transition-colors">Guardar alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- USERS MANAGEMENT MODAL -->
+    <div id="users-management-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-3xl p-6 max-w-5xl w-full shadow-2xl border border-slate-100 space-y-4 my-8">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-800">Gerenciar Usuários</h3>
+                <button type="button" class="bg-liturgical-blue hover:bg-liturgical-blue/90 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors w-full sm:w-auto">
+                    + Novo Usuário
+                </button>
+            </div>
+
+            <div class="border border-slate-100 rounded-2xl overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-500 text-xs font-semibold uppercase tracking-wider">
+                                <th class="py-4 px-6">Nome</th>
+                                <th class="py-4 px-6">Email</th>
+                                <th class="py-4 px-6">Perfil</th>
+                                <th class="py-4 px-6">Capela</th>
+                                <th class="py-4 px-6">Status</th>
+                                <th class="py-4 px-6">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body" class="divide-y divide-slate-100 text-sm text-slate-600"></tbody>
+                    </table>
+                </div>
+                <div class="px-6 py-10 text-center text-sm text-slate-500">
+                    Nenhum usuário carregado.
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button id="btn-close-users-modal" type="button" class="px-5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors">
+                    Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- USER EDIT MODAL -->
+    <div id="user-edit-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl border border-slate-100 space-y-4 my-8">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-800">Editar Usuário</h3>
+                <button type="button" onclick="document.getElementById('user-edit-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 font-bold">×</button>
+            </div>
+            <form id="user-edit-form" class="space-y-4 text-sm">
+                <input type="hidden" id="form-user-id" />
+                <div>
+                    <label class="font-semibold text-slate-500 block mb-1">Nome</label>
+                    <input type="text" id="form-user-display-name" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg" />
+                </div>
+                <div>
+                    <label class="font-semibold text-slate-500 block mb-1">Email</label>
+                    <input type="email" id="form-user-email" readonly class="w-full p-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-500" />
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="font-semibold text-slate-500 block mb-1">Perfil</label>
+                        <select id="form-user-role" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                            <option value="admin">admin</option>
+                            <option value="coordinator">coordinator</option>
+                            <option value="viewer">viewer</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="font-semibold text-slate-500 block mb-1">Capela</label>
+                        <select id="form-user-chapel" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                            <option value="">Selecione uma capela</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="font-semibold text-slate-500 block mb-1">Ativo</label>
+                    <select id="form-user-active" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                        <option value="true">Ativo</option>
+                        <option value="false">Inativo</option>
+                    </select>
+                </div>
+                <div class="flex gap-2 pt-2 justify-end">
+                    <button type="button" id="btn-cancel-user-edit" class="px-5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors">Cancelar</button>
+                    <button type="submit" id="btn-save-user-edit" class="px-6 py-2 bg-liturgical-blue text-white font-bold rounded-xl hover:bg-liturgical-blue/90 transition-colors">Salvar</button>
                 </div>
             </form>
         </div>

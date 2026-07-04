@@ -1,6 +1,6 @@
 import { app, db, collection, doc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./firebase.js";
 import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout as performFirebaseLogout } from "./auth.js";
-import { resolveUserProfile } from "./data/users.js";
+import { getAllUsers, resolveUserProfile, updateUser } from "./data/users.js";
 import { createServer } from "./data/servers.js";
 import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
@@ -857,6 +857,70 @@ async function performLogout() {
 // FORMULARIO MANUAL DE AGREGAR / EDITAR
 const editServerModal = document.getElementById('edit-server-modal');
 const serverForm = document.getElementById('server-form');
+const usersManagementModal = document.getElementById('users-management-modal');
+const usersTableBody = document.getElementById('users-table-body');
+const userEditModal = document.getElementById('user-edit-modal');
+const userEditForm = document.getElementById('user-edit-form');
+const userIdInput = document.getElementById('form-user-id');
+const userDisplayNameInput = document.getElementById('form-user-display-name');
+const userEmailInput = document.getElementById('form-user-email');
+const userRoleInput = document.getElementById('form-user-role');
+const userChapelInput = document.getElementById('form-user-chapel');
+const userActiveInput = document.getElementById('form-user-active');
+let loadedUsers = [];
+const emptyUsersRowMarkup = `
+    <tr>
+        <td colspan="6" class="px-6 py-10 text-center text-sm text-slate-500">Nenhum usuário cadastrado.</td>
+    </tr>
+`;
+
+async function loadUsersTable() {
+    loadedUsers = await getAllUsers();
+
+    usersTableBody.innerHTML = '';
+
+    if (!loadedUsers.length) {
+        usersTableBody.innerHTML = emptyUsersRowMarkup;
+        return;
+    }
+
+    loadedUsers.forEach((userItem) => {
+        const row = document.createElement('tr');
+        const isActive = userItem.active !== false;
+
+        row.className = "border-b border-slate-100 text-sm text-slate-600";
+        row.innerHTML = `
+            <td class="py-4 px-6">${userItem.displayName || ''}</td>
+            <td class="py-4 px-6">${userItem.email || ''}</td>
+            <td class="py-4 px-6">${userItem.role || ''}</td>
+            <td class="py-4 px-6">${userItem.chapelId || '—'}</td>
+            <td class="py-4 px-6">${isActive ? '🟢 Ativo' : '⚪ Inativo'}</td>
+            <td class="py-4 px-6">
+                <button type="button" onclick="editUser('${userItem.id}')" class="text-xs font-bold text-liturgical-blue hover:text-liturgical-blue/80 transition-colors">
+                    Editar
+                </button>
+            </td>
+        `;
+
+        usersTableBody.appendChild(row);
+    });
+}
+
+window.editUser = function(userId) {
+    const userItem = loadedUsers.find((item) => item.id === userId);
+
+    if (!userItem) {
+        return;
+    }
+
+    userDisplayNameInput.value = userItem.displayName || '';
+    userEmailInput.value = userItem.email || '';
+    userIdInput.value = userItem.id || '';
+    userRoleInput.value = userItem.role || 'viewer';
+    userChapelInput.value = userItem.chapelId || '';
+    userActiveInput.value = userItem.active !== false ? 'true' : 'false';
+    userEditModal.classList.remove('hidden');
+};
 
 document.getElementById('btn-add-manual').addEventListener('click', () => {
     document.getElementById('edit-modal-title').textContent = "Adicionar novo servidor";
@@ -868,6 +932,34 @@ document.getElementById('btn-add-manual').addEventListener('click', () => {
     }, 0);
     document.getElementById('form-id').value = `SRV-${String(lastIdNum + 1).padStart(4, '0')}`;
     editServerModal.classList.remove('hidden');
+});
+
+document.getElementById('btn-manage-users').addEventListener('click', async () => {
+    usersManagementModal.classList.remove('hidden');
+    await loadUsersTable();
+});
+
+document.getElementById('btn-close-users-modal').addEventListener('click', () => {
+    usersManagementModal.classList.add('hidden');
+});
+
+document.getElementById('btn-cancel-user-edit').addEventListener('click', () => {
+    userEditModal.classList.add('hidden');
+});
+
+userEditForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const userId = userIdInput.value;
+    const userData = {
+        displayName: userDisplayNameInput.value.trim(),
+        role: userRoleInput.value,
+        chapelId: userChapelInput.value.trim(),
+        active: userActiveInput.value === 'true'
+    };
+
+    await updateUser(userId, userData);
+    userEditModal.classList.add('hidden');
+    await loadUsersTable();
 });
 
 // Guardar monaguillo en Firestore (Regla 1 de Firebase de Canvas)
