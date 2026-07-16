@@ -1,6 +1,6 @@
 import { app, db, collection, doc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./firebase.js";
 import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout as performFirebaseLogout } from "./auth.js";
-import { getAllUsers, resolveUserProfile, updateUser } from "./data/users.js";
+import { getAllUsers, getUserByEmail, getUserByUid, linkUserUid, updateUser } from "./data/users.js";
 import { createServer } from "./data/servers.js";
 import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
@@ -107,6 +107,38 @@ async function loadChapelsIntoForm() {
         });
 }
 
+async function resolveAuthenticatedProfile(authUser) {
+    let profile = await getUserByUid(authUser.uid);
+
+    if (profile) {
+        return profile;
+    }
+
+    const firestoreProfileByEmail = await getUserByEmail(authUser.email);
+
+    if (!firestoreProfileByEmail) {
+        return {
+            uid: authUser?.uid ?? null,
+            email: authUser?.email ?? null,
+            displayName: authUser?.displayName ?? null,
+            role: null,
+            chapelId: null,
+            active: true
+        };
+    }
+
+    if (firestoreProfileByEmail.uid === null || firestoreProfileByEmail.uid === "") {
+        await linkUserUid(authUser.email, authUser.uid);
+        profile = await getUserByUid(authUser.uid);
+
+        if (profile) {
+            return profile;
+        }
+    }
+
+    return firestoreProfileByEmail;
+}
+
 // Auth state listener - Determina acceso de administrador exclusivamente por Firebase Auth
 setupAuthStateListener(async (u) => {
 
@@ -114,7 +146,7 @@ setupAuthStateListener(async (u) => {
 
         user = u;
         const authUid = u.uid;
-        const profilePromise = resolveUserProfile(user);
+        const profilePromise = resolveAuthenticatedProfile(user);
         setCurrentUser(user);
 
         // Verificar si es el administrador autorizado
