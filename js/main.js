@@ -874,6 +874,16 @@ const emptyUsersRowMarkup = `
     </tr>
 `;
 
+function syncUserChapelFieldState() {
+    const isAdminRole = userRoleInput.value === 'admin';
+
+    userChapelInput.disabled = isAdminRole;
+
+    if (isAdminRole) {
+        userChapelInput.value = '';
+    }
+}
+
 async function loadUsersTable() {
     loadedUsers = await getAllUsers();
 
@@ -919,6 +929,7 @@ window.editUser = function(userId) {
     userRoleInput.value = userItem.role || 'viewer';
     userChapelInput.value = userItem.chapelId || '';
     userActiveInput.value = userItem.active !== false ? 'true' : 'false';
+    syncUserChapelFieldState();
     userEditModal.classList.remove('hidden');
 };
 
@@ -947,13 +958,25 @@ document.getElementById('btn-cancel-user-edit').addEventListener('click', () => 
     userEditModal.classList.add('hidden');
 });
 
+userRoleInput.addEventListener('change', () => {
+    syncUserChapelFieldState();
+});
+
 userEditForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const userId = userIdInput.value;
+    const role = userRoleInput.value;
+    const chapelId = userChapelInput.value.trim();
+
+    if ((role === 'coordinator' || role === 'viewer') && !chapelId) {
+        showError("Selecione uma capela.");
+        return;
+    }
+
     const userData = {
         displayName: userDisplayNameInput.value.trim(),
-        role: userRoleInput.value,
-        chapelId: userChapelInput.value.trim(),
+        role,
+        chapelId: role === 'admin' ? null : chapelId,
         active: userActiveInput.value === 'true'
     };
 

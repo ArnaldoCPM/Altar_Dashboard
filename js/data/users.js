@@ -1,5 +1,5 @@
 import { db } from "../firebase.js";
-import { collection, doc, getDocs, limit, query, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, doc, getDocs, limit, query, serverTimestamp, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /**
  * Obtiene un usuario por su UID.
@@ -48,12 +48,20 @@ async function createUser(userData) {
   }
 
   const userDocRef = doc(db, "users", userData.id);
+  const payload = {
+    uid: userData.uid ?? null,
+    status: userData.status ?? "pending",
+    active: userData.active ?? true,
+    createdAt: userData.createdAt ?? serverTimestamp(),
+    ...userData,
+    updatedAt: serverTimestamp()
+  };
 
-  await setDoc(userDocRef, userData, { merge: true });
+  await setDoc(userDocRef, payload, { merge: true });
 
   return {
     id: userData.id,
-    ...userData
+    ...payload
   };
 }
 
@@ -65,12 +73,16 @@ async function createUser(userData) {
  */
 async function updateUser(userId, userData) {
   const userDocRef = doc(db, "users", userId);
+  const payload = {
+    ...userData,
+    updatedAt: serverTimestamp()
+  };
 
-  await updateDoc(userDocRef, userData);
+  await updateDoc(userDocRef, payload);
 
   return {
     id: userId,
-    ...userData
+    ...payload
   };
 }
 
@@ -80,10 +92,10 @@ async function updateUser(userId, userData) {
  * @returns {Promise<Object|null>} Usuario desactivado o resultado esperado de la operación.
  */
 async function disableUser(userId) {
-  const updatedAt = new Date().toISOString();
   const payload = {
     active: false,
-    updatedAt
+    status: "disabled",
+    updatedAt: serverTimestamp()
   };
 
   const userDocRef = doc(db, "users", userId);
