@@ -1,6 +1,6 @@
 import { app, db, collection, doc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./firebase.js";
 import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout as performFirebaseLogout } from "./auth.js";
-import { getAllUsers, getUserByEmail, getUserByUid, linkUserUid, updateUser, createUser } from "./data/users.js";
+import { getAllUsers, resolveUserProfile, updateUser, createUser } from "./data/users.js";
 import { createServer } from "./data/servers.js";
 import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
@@ -115,38 +115,6 @@ async function loadChapelsIntoForm() {
         });
 }
 
-async function resolveAuthenticatedProfile(authUser) {
-    let profile = await getUserByUid(authUser.uid);
-
-    if (profile) {
-        return profile;
-    }
-
-    const firestoreProfileByEmail = await getUserByEmail(authUser.email);
-
-    if (!firestoreProfileByEmail) {
-        return {
-            uid: authUser?.uid ?? null,
-            email: authUser?.email ?? null,
-            displayName: authUser?.displayName ?? null,
-            role: null,
-            chapelId: null,
-            active: true
-        };
-    }
-
-    if (firestoreProfileByEmail.uid === null || firestoreProfileByEmail.uid === "") {
-        await linkUserUid(authUser.email, authUser.uid);
-        profile = await getUserByUid(authUser.uid);
-
-        if (profile) {
-            return profile;
-        }
-    }
-
-    return firestoreProfileByEmail;
-}
-
 // Auth state listener - Determina acceso de administrador exclusivamente por Firebase Auth
 setupAuthStateListener(async (u) => {
 
@@ -154,7 +122,6 @@ setupAuthStateListener(async (u) => {
 
         user = u;
         const authUid = u.uid;
-        const profilePromise = resolveAuthenticatedProfile(user);
         setCurrentUser(user);
 
         document.getElementById('db-status').innerHTML =
@@ -163,17 +130,14 @@ setupAuthStateListener(async (u) => {
         document.getElementById('db-status').className =
             "text-xs px-3 py-1.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1.5";
 
-        //updateAdminUI();
-
-        subscribeToDatabase();
-
-        const profile = await profilePromise;
+        const profile = await resolveUserProfile(user);
         if (user?.uid === authUid) {
             setCurrentProfile(profile);
             setCurrentUserRole(resolveRoleFromLegacyAdminEmail(u.email, profile?.role ?? ROLES.GUEST));
             await loadChapelsIntoForm();
             await populateFilters();
             updateAdminUI();
+            subscribeToDatabase();
         }
 
     } else {
