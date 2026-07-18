@@ -188,18 +188,37 @@ async function resolveUserProfile(user) {
     uid: user?.uid ?? null,
     email: user?.email ?? null,
     displayName: user?.displayName ?? null,
-    role: null,
+    role: "guest",
     chapelId: null,
-    active: true
+    active: false
   };
 
-  const firestoreProfile = await getUserByEmail(user.email);
+  let firestoreProfile = await getUserByUid(user.uid);
 
   if (firestoreProfile) {
     return firestoreProfile;
   }
 
-  return placeholderProfile;
+  firestoreProfile = await getUserByEmail(user.email);
+
+  if (!firestoreProfile) {
+    return placeholderProfile;
+  }
+
+  if (firestoreProfile.uid === null || firestoreProfile.uid === "") {
+    await linkUserUid(user.email, user.uid);
+
+    const linkedProfile = await getUserByUid(user.uid);
+
+    if (linkedProfile) {
+      return linkedProfile;
+    }
+  }
+
+  // Si el usuario ya tenía UID o la vinculación no alteró la lectura por UID,
+  // devolvemos el perfil definitivo encontrado por email.
+  return firestoreProfile;
+
 }
 
 export {
