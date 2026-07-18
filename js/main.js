@@ -6,7 +6,6 @@ import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
 import { setCurrentUser, setCurrentProfile, clearSession } from "./session.js";
 import {
-    ROLES,
     setCurrentUserRole,
     canEdit,
     canDelete,
@@ -133,7 +132,7 @@ setupAuthStateListener(async (u) => {
         const profile = await resolveUserProfile(user);
         if (user?.uid === authUid) {
             setCurrentProfile(profile);
-            setCurrentUserRole(resolveRoleFromLegacyAdminEmail(u.email, profile?.role ?? ROLES.GUEST));
+            setCurrentUserRole(resolveRoleFromLegacyAdminEmail(u.email, profile?.role));
             await loadChapelsIntoForm();
             await populateFilters();
             updateAdminUI();
