@@ -1,6 +1,6 @@
 import { app, db, collection, doc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./firebase.js";
 import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout as performFirebaseLogout } from "./auth.js";
-import { getAllUsers, getUserByEmail, getUserByUid, linkUserUid, updateUser } from "./data/users.js";
+import { getAllUsers, getUserByEmail, getUserByUid, linkUserUid, updateUser, createUser } from "./data/users.js";
 import { createServer } from "./data/servers.js";
 import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
@@ -168,14 +168,8 @@ setupAuthStateListener(async (u) => {
             // El rol se almacena ahora para ser aprovechado en fases futuras del sistema.
             setCurrentRole(profile?.role ?? null);
             await loadChapelsIntoForm();
+            await populateFilters();
             updateAdminUI();
-            
-            //temporal
-            const chapels = await getActiveChapels();
-
-            console.log("SGSA Profile:", profile);
-            console.log("SGSA Role:", profile?.role ?? null);
-            //console.log("SGSA Chapels:", chapels);
         }
 
     } else {
@@ -765,13 +759,18 @@ function setupInteractiveEvents(data) {
     function applyFilters() {
         const query = searchInput.value.toLowerCase();
         const capillaVal = filterCapilla.value;
+        // Adaptación temporal hasta la migración completa a chapelId en M7.
+        const selectedChapelName =
+            capillaVal === 'all'
+                ? 'all'
+                : filterCapilla.options[filterCapilla.selectedIndex]?.textContent?.trim() || '';
         const estadoVal = filterEstado.value;
         const alergiasVal = filterAlergias.value;
         const tipoVal = filterTipo.value;
 
         const filtered = data.filter(d => {
             const matchesSearch = d.Nome.toLowerCase().includes(query) || d.id.toLowerCase().includes(query);
-            const matchesCapilla = capillaVal === 'all' || (d.Capela || '').trim() === capillaVal;
+            const matchesCapilla = selectedChapelName === 'all' || (d.Capela || '').trim() === selectedChapelName;
             const matchesEstado = estadoVal === 'all' || (d.Estado || '').trim() === estadoVal;
             
             const itemAlergia = ['sim', 'si', 's'].includes(cleanStr(d.Possui_alergia_doenca)) ? 'Sim' : 'Não';
@@ -892,6 +891,7 @@ const serverForm = document.getElementById('server-form');
 const usersManagementModal = document.getElementById('users-management-modal');
 const usersTableBody = document.getElementById('users-table-body');
 const userEditModal = document.getElementById('user-edit-modal');
+const userEditModalTitle = document.getElementById('user-edit-modal-title');
 const userEditForm = document.getElementById('user-edit-form');
 const userIdInput = document.getElementById('form-user-id');
 const userDisplayNameInput = document.getElementById('form-user-display-name');
@@ -900,6 +900,8 @@ const userRoleInput = document.getElementById('form-user-role');
 const userChapelInput = document.getElementById('form-user-chapel');
 const userActiveInput = document.getElementById('form-user-active');
 let loadedUsers = [];
+let userFormMode = "edit";
+let cachedUserChapels = null;
 const emptyUsersRowMarkup = `
     <tr>
         <td colspan="6" class="px-6 py-10 text-center text-sm text-slate-500">Nenhum usuário cadastrado.</td>
@@ -914,6 +916,28 @@ function syncUserChapelFieldState() {
     if (isAdminRole) {
         userChapelInput.value = '';
     }
+}
+
+async function loadChapelsIntoUserForm(selectedChapel = '') {
+    if (!cachedUserChapels) {
+        cachedUserChapels = await getActiveChapels();
+    }
+
+    userChapelInput.innerHTML = '';
+
+    cachedUserChapels
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach(chapel => {
+            const option = document.createElement('option');
+
+            option.value = chapel.id;
+            option.textContent = chapel.name;
+
+            userChapelInput.appendChild(option);
+        });
+
+    userChapelInput.value = selectedChapel || '';
 }
 
 async function loadUsersTable() {
@@ -948,18 +972,21 @@ async function loadUsersTable() {
     });
 }
 
-window.editUser = function(userId) {
+window.editUser = async function(userId) {
     const userItem = loadedUsers.find((item) => item.id === userId);
 
     if (!userItem) {
         return;
     }
 
+    userFormMode = "edit";
+    userEditModalTitle.textContent = "Editar Usuário";
     userDisplayNameInput.value = userItem.displayName || '';
     userEmailInput.value = userItem.email || '';
     userIdInput.value = userItem.id || '';
+    userEmailInput.readOnly = true;
     userRoleInput.value = userItem.role || 'viewer';
-    userChapelInput.value = userItem.chapelId || '';
+    await loadChapelsIntoUserForm(userItem.chapelId || '');
     userActiveInput.value = userItem.active !== false ? 'true' : 'false';
     syncUserChapelFieldState();
     userEditModal.classList.remove('hidden');
@@ -986,6 +1013,20 @@ document.getElementById('btn-close-users-modal').addEventListener('click', () =>
     usersManagementModal.classList.add('hidden');
 });
 
+document.getElementById('btn-new-user').addEventListener('click', async () => {
+    userFormMode = "create";
+    userEditModalTitle.textContent = "Registrar Usuário";
+    userDisplayNameInput.value = '';
+    userEmailInput.value = '';
+    userIdInput.value = '';
+    userEmailInput.readOnly = false;
+    userRoleInput.value = 'viewer';
+    await loadChapelsIntoUserForm('');
+    userActiveInput.value = 'true';
+    syncUserChapelFieldState();
+    userEditModal.classList.remove('hidden');
+});
+
 document.getElementById('btn-cancel-user-edit').addEventListener('click', () => {
     userEditModal.classList.add('hidden');
 });
@@ -997,6 +1038,7 @@ userRoleInput.addEventListener('change', () => {
 userEditForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const userId = userIdInput.value;
+    const email = userEmailInput.value.trim();
     const role = userRoleInput.value;
     const chapelId = userChapelInput.value.trim();
 
@@ -1012,7 +1054,16 @@ userEditForm.addEventListener('submit', async (e) => {
         active: userActiveInput.value === 'true'
     };
 
-    await updateUser(userId, userData);
+    if (userFormMode === "create") {
+        await createUser({
+            id: email,
+            email,
+            ...userData
+        });
+    } else {
+        await updateUser(userId, userData);
+    }
+
     userEditModal.classList.add('hidden');
     await loadUsersTable();
 });

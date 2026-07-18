@@ -23,6 +23,7 @@ async function getAllChapels() {
 }
 
 async function getActiveChapels() {
+  console.log("Loading chapels...");
   const chapelsRef = collection(db, "chapels");
 
   const chapelsQuery = query(

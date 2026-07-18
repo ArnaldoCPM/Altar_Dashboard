@@ -13,7 +13,9 @@ async function getUserByUid(uid) {
 
   const usersRef = collection(db, "users");
   const usersQuery = query(usersRef, where("uid", "==", uid), limit(1));
+  console.log("DB:", db);
   const snapshot = await getDocs(usersQuery);
+
 
   if (snapshot.empty) {
     return null;
