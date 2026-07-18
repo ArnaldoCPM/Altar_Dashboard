@@ -4,7 +4,14 @@ import { getAllUsers, resolveUserProfile, updateUser, createUser } from "./data/
 import { createServer } from "./data/servers.js";
 import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
-import { setCurrentUser, setCurrentProfile, clearSession } from "./session.js";
+import {
+    setCurrentUser,
+    setCurrentProfile,
+    setCurrentChapelId,
+    getCurrentChapelId,
+    getCurrentProfile,
+    clearSession
+} from "./session.js";
 import {
     setCurrentUserRole,
     canEdit,
@@ -15,6 +22,7 @@ import {
     canAccessAdminMode,
     resetPermissions
 } from "./permissions.js";
+import { filterAuthorizedServers, canAccessServer } from "./authorization.js";
 import { getActiveChapels } from "./data/chapels.js";
 
 // import { renderTable } from "./table.js";
@@ -91,13 +99,13 @@ function auditChapels() {
     );
 }
 
-async function loadChapelsIntoForm() {
+async function loadChapelsIntoForm(chapelsList = null) {
 
     const select = document.getElementById('form-capela');
 
     if (!select) return;
 
-    const chapels = await getActiveChapels();
+    const chapels = chapelsList || await getActiveChapels();
 
     select.innerHTML = '';
 
@@ -112,6 +120,43 @@ async function loadChapelsIntoForm() {
 
             select.appendChild(option);
         });
+}
+
+function resolveSessionChapelName(profile, chapels) {
+
+    if (!profile?.chapelId || !Array.isArray(chapels)) {
+        return null;
+    }
+
+    const matchedChapel =
+        chapels.find(chapel => chapel.id === profile.chapelId);
+
+    return matchedChapel?.name ?? null;
+}
+
+function getAuthorizedWriteScope() {
+
+    const currentProfile = getCurrentProfile();
+
+    return {
+        chapelId: getCurrentChapelId(),
+        chapelName: currentProfile?.chapelName ?? null
+    };
+}
+
+function applyAuthorizedServerScope(serverData, existingServer = null) {
+
+    if (canAccessAdminMode()) {
+        return serverData;
+    }
+
+    const { chapelId, chapelName } = getAuthorizedWriteScope();
+
+    return {
+        ...serverData,
+        chapelId: chapelId ?? existingServer?.chapelId ?? null,
+        Capela: chapelName ?? existingServer?.Capela ?? serverData.Capela
+    };
 }
 
 // Auth state listener - Determina acceso de administrador exclusivamente por Firebase Auth
@@ -132,11 +177,17 @@ setupAuthStateListener(async (u) => {
         const profile = await resolveUserProfile(user);
         if (user?.uid === authUid) {
             setCurrentProfile(profile);
+            setCurrentChapelId(profile?.chapelId ?? null);
             setCurrentUserRole(resolveRoleFromLegacyAdminEmail(u.email, profile?.role));
-            await loadChapelsIntoForm();
-            await populateFilters();
+            const chapels = await getActiveChapels();
+            setCurrentProfile({
+                ...profile,
+                chapelName: resolveSessionChapelName(profile, chapels)
+            });
+            await loadChapelsIntoForm(chapels);
+            await populateFilters(chapels, dataset);
             updateAdminUI();
-            subscribeToDatabase();
+            subscribeToDatabase(chapels);
         }
 
     } else {
@@ -144,6 +195,7 @@ setupAuthStateListener(async (u) => {
         user = null;
         clearSession();
         resetPermissions();
+        dataset = filterAuthorizedServers(dataset);
 
         // document.getElementById('db-status').innerHTML = `<span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span> Desligado`;
 
@@ -152,10 +204,10 @@ setupAuthStateListener(async (u) => {
 });
 
 // Suscribirse a los datos de Firestore en tiempo real (Regla 2 y snapshot error)
-function subscribeToDatabase() {
+function subscribeToDatabase(chapels = null) {
     if (!user) return;
 
-    onSnapshot(serversColRef, (snapshot) => {
+    onSnapshot(serversColRef, async (snapshot) => {
         const loadedData = [];
         snapshot.forEach((doc) => {
             const data = doc.data();
@@ -165,8 +217,8 @@ function subscribeToDatabase() {
                 ...data 
             });
         });
-        
-        dataset = loadedData;
+
+        dataset = filterAuthorizedServers(loadedData);
         //Temporal
         const capillasUnicas = [...new Set(
             dataset
@@ -174,6 +226,7 @@ function subscribeToDatabase() {
         )];
 
         console.table(capillasUnicas);
+        await populateFilters(chapels, dataset);
         updateUI(dataset);
         auditChapels();
         
@@ -205,19 +258,27 @@ function updateUI(data) {
 }
 
 // Llenado de filtros dinámicos
-async function populateFilters() {
+async function populateFilters(chapelsList = null, authorizedData = dataset) {
 
     const selectCapilla = document.getElementById('filter-capilla');
     const savedVal = selectCapilla.value;
 
     try {
 
-        const chapels = await getActiveChapels();
+        const chapels = chapelsList || await getActiveChapels();
+        const visibleChapelNames = new Set(
+            (authorizedData || [])
+                .map(item => (item.Capela || "").trim())
+                .filter(Boolean)
+        );
 
         selectCapilla.innerHTML =
             '<option value="all">Todas</option>';
 
         chapels.forEach(chapel => {
+            if (visibleChapelNames.size > 0 && !visibleChapelNames.has(chapel.name)) {
+                return;
+            }
 
             const opt = document.createElement('option');
 
@@ -1058,7 +1119,13 @@ serverForm.addEventListener('submit', async (e) => {
     }
 
     const id = document.getElementById('form-id').value;
-    const payload = {
+    const existingServer = dataset.find(item => item.id === id) || null;
+
+    if (existingServer && !canAccessServer(existingServer)) {
+        return;
+    }
+
+    const payload = applyAuthorizedServerScope({
         id: id,
         Nome: document.getElementById('form-nome').value.trim(),
         Data_nascimento: document.getElementById('form-data-nasc').value,
@@ -1077,7 +1144,7 @@ serverForm.addEventListener('submit', async (e) => {
         Whatsapp_mae: document.getElementById('form-wp-mae').value.trim(),
         Nome_pai: document.getElementById('form-nome-pai').value.trim(),
         Whatsapp_pai: document.getElementById('form-wp-pai').value.trim(),
-    };
+    }, existingServer);
 
     try {
         await createServer(payload);
@@ -1094,7 +1161,7 @@ window.editServer = function(id) {
     }
 
     const server = dataset.find(d => d.id === id);
-    if (!server) return;
+    if (!server || !canAccessServer(server)) return;
 
     document.getElementById('edit-modal-title').textContent = `Editar Servidor: ${server.id}`;
     document.getElementById('form-id').value = server.id;
@@ -1124,6 +1191,12 @@ window.editServer = function(id) {
 
 window.deleteServer = function(id, name) {
     if (!canDelete()) {
+        return;
+    }
+
+    const server = dataset.find(d => d.id === id);
+
+    if (!server || !canAccessServer(server)) {
         return;
     }
 
@@ -1227,7 +1300,7 @@ async function uploadBatchToFirestore(items) {
                 const parsedAge = parseInt(item.Idade);
                 const safeAge = isNaN(parsedAge) ? 0 : parsedAge;
 
-                const payload = {
+                const payload = applyAuthorizedServerScope({
                     id: itemID,
                     Nome: (item.Nome || 'Sem Nome').trim(),
                     Data_nascimento: item.Data_nascimento || '',
@@ -1250,7 +1323,7 @@ async function uploadBatchToFirestore(items) {
                     Whatsapp_candidato: (item.Whatsapp_candidato || '').trim(),
                     Nome_tutor_guardiao: (item.Nome_tutor_guardiao || '').trim(),
                     Whatsapp_tutor_guardiao: (item.Whatsapp_tutor_guardiao || '').trim()
-                };
+                });
 
                 batch.set(docRef, payload, { merge: true });
             });
