@@ -1,44 +1,135 @@
 const ROLES = {
-  ADMIN: "admin",
+  GUEST: "guest",
+  VIEWER: "viewer",
   COORDINATOR: "coordinator",
-  VIEWER: "viewer"
+  ADMIN: "admin"
 };
 
-function isAdmin(role) {
-  return role === ROLES.ADMIN;
+const ADMIN_EMAIL = "seminariodeampere@gmail.com";
+
+const ROLE_CAPABILITIES = {
+  [ROLES.GUEST]: {
+    view: false,
+    edit: false,
+    delete: false,
+    export: false,
+    manageUsers: false
+  },
+  [ROLES.VIEWER]: {
+    view: true,
+    edit: false,
+    delete: false,
+    export: false,
+    manageUsers: false
+  },
+  [ROLES.COORDINATOR]: {
+    view: true,
+    edit: true,
+    delete: true,
+    export: true,
+    manageUsers: false
+  },
+  [ROLES.ADMIN]: {
+    view: true,
+    edit: true,
+    delete: true,
+    export: true,
+    manageUsers: true
+  }
+};
+
+let currentUserRole = ROLES.GUEST;
+
+function normalizeRole(role) {
+  if (!role || typeof role !== "string") {
+    return ROLES.GUEST;
+  }
+
+  return Object.values(ROLES).includes(role) ? role : ROLES.GUEST;
 }
 
-function isCoordinator(role) {
-  return role === ROLES.COORDINATOR;
+function setCurrentUserRole(role) {
+  currentUserRole = normalizeRole(role);
+  return currentUserRole;
 }
 
-function isViewer(role) {
-  return role === ROLES.VIEWER;
+function getCurrentUserRole() {
+  return currentUserRole;
 }
 
-function canCreateServer(role) {
-  return isAdmin(role) || isCoordinator(role);
+function getRoleCapabilities(role = currentUserRole) {
+  const normalizedRole = normalizeRole(role);
+  return ROLE_CAPABILITIES[normalizedRole];
 }
 
-function canEditServer(role) {
-  return isAdmin(role) || isCoordinator(role);
+function hasCapability(capability, role = currentUserRole) {
+  return Boolean(getRoleCapabilities(role)?.[capability]);
 }
 
-function canDeleteServer(role) {
-  return isAdmin(role) || isCoordinator(role);
+function canView(role = currentUserRole) {
+  return hasCapability("view", role);
 }
 
-function canManageUsers(role) {
+function canEdit(role = currentUserRole) {
+  return hasCapability("edit", role);
+}
+
+function canDelete(role = currentUserRole) {
+  return hasCapability("delete", role);
+}
+
+function canExport(role = currentUserRole) {
+  return hasCapability("export", role);
+}
+
+function canManageUsers(role = currentUserRole) {
+  return hasCapability("manageUsers", role);
+}
+
+function resolveRoleFromLegacyAdminEmail(email, fallbackRole = ROLES.GUEST) {
+  if (email === ADMIN_EMAIL) {
+    return ROLES.ADMIN;
+  }
+
+  return normalizeRole(fallbackRole);
+}
+
+function isAdmin(role = currentUserRole) {
+  return normalizeRole(role) === ROLES.ADMIN;
+}
+
+function canAccessAdminMode(role = currentUserRole) {
   return isAdmin(role);
 }
 
+function isCoordinator(role = currentUserRole) {
+  return normalizeRole(role) === ROLES.COORDINATOR;
+}
+
+function isViewer(role = currentUserRole) {
+  return normalizeRole(role) === ROLES.VIEWER;
+}
+
+function resetPermissions() {
+  currentUserRole = ROLES.GUEST;
+}
+
 export {
+  ADMIN_EMAIL,
   ROLES,
+  currentUserRole,
+  setCurrentUserRole,
+  getCurrentUserRole,
+  getRoleCapabilities,
+  canView,
+  canEdit,
+  canDelete,
+  canExport,
+  canManageUsers,
+  resolveRoleFromLegacyAdminEmail,
+  canAccessAdminMode,
   isAdmin,
   isCoordinator,
   isViewer,
-  canCreateServer,
-  canEditServer,
-  canDeleteServer,
-  canManageUsers
+  resetPermissions
 };

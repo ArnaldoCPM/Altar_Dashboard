@@ -4,8 +4,18 @@ import { getAllUsers, getUserByEmail, getUserByUid, linkUserUid, updateUser, cre
 import { createServer } from "./data/servers.js";
 import { cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
-import { setCurrentUser, setCurrentProfile, setCurrentRole, getCurrentRole, clearSession } from "./session.js";
-import "./permissions.js";
+import { setCurrentUser, setCurrentProfile, clearSession } from "./session.js";
+import {
+    ROLES,
+    setCurrentUserRole,
+    canEdit,
+    canDelete,
+    canExport,
+    canManageUsers,
+    resolveRoleFromLegacyAdminEmail,
+    canAccessAdminMode,
+    resetPermissions
+} from "./permissions.js";
 import { getActiveChapels } from "./data/chapels.js";
 
 // import { renderTable } from "./table.js";
@@ -23,8 +33,6 @@ const serversColRef = collection(db, 'artifacts', appId, 'public', 'data', 'serv
 // Estado global de la aplicación
 let dataset = [];
 let user = null;
-let isAdmin = false;
-const ADMIN_EMAIL = "seminariodeampere@gmail.com";
 let charts = {};
 
 // Variables de paginación
@@ -149,9 +157,6 @@ setupAuthStateListener(async (u) => {
         const profilePromise = resolveAuthenticatedProfile(user);
         setCurrentUser(user);
 
-        // Verificar si es el administrador autorizado
-        isAdmin = (u.email === ADMIN_EMAIL);
-
         document.getElementById('db-status').innerHTML =
             `<span class="w-2 h-2 bg-emerald-500 rounded-full"></span> Sincronizado`;
 
@@ -165,8 +170,7 @@ setupAuthStateListener(async (u) => {
         const profile = await profilePromise;
         if (user?.uid === authUid) {
             setCurrentProfile(profile);
-            // El rol se almacena ahora para ser aprovechado en fases futuras del sistema.
-            setCurrentRole(profile?.role ?? null);
+            setCurrentUserRole(resolveRoleFromLegacyAdminEmail(u.email, profile?.role ?? ROLES.GUEST));
             await loadChapelsIntoForm();
             await populateFilters();
             updateAdminUI();
@@ -176,7 +180,7 @@ setupAuthStateListener(async (u) => {
 
         user = null;
         clearSession();
-        isAdmin = false;
+        resetPermissions();
 
         // document.getElementById('db-status').innerHTML = `<span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span> Desligado`;
 
@@ -595,12 +599,9 @@ function renderTable(data) {
         }
 
         // Controles de Administrador
-        const currentRole = getCurrentRole();
-        const isRoleAdmin = currentRole === "admin";
-
         let adminControlsHtml = '';
 
-        if (isRoleAdmin) {
+        if (canEdit()) {
             adminControlsHtml = `
                 <div class="flex gap-1.5 justify-center">
                     <button onclick="editServer('${server.id}')" class="p-1 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[11px] font-bold transition-all">Editar</button>
@@ -806,10 +807,7 @@ const loginError = document.getElementById('login-error');
 // Función para actualizar UI de administrador según estado isAdmin
 function updateAdminUI() {
 
-    const currentRole = getCurrentRole();
-    const isRoleAdmin = currentRole === "admin";
-
-    if (isRoleAdmin) {
+    if (canAccessAdminMode()) {
         document.getElementById('admin-banner').classList.remove('hidden');
         document.getElementById('upload-section').classList.remove('hidden');
 
@@ -837,7 +835,7 @@ function updateAdminUI() {
 }
 
 btnAdminToggle.addEventListener('click', () => {
-    if (isAdmin) {
+    if (canAccessAdminMode()) {
         performLogout();
     } else {
         adminEmailInput.value = '';
@@ -881,7 +879,7 @@ async function performLogout() {
     await performFirebaseLogout((err) => {
         showError("Não foi possível encerrar a sessão: " + err.message);
     });
-    isAdmin = false;
+    resetPermissions();
     updateAdminUI();
 }
 
@@ -909,11 +907,11 @@ const emptyUsersRowMarkup = `
 `;
 
 function syncUserChapelFieldState() {
-    const isAdminRole = userRoleInput.value === 'admin';
+    const userRoleRequiresNoChapel = userRoleInput.value === 'admin';
 
-    userChapelInput.disabled = isAdminRole;
+    userChapelInput.disabled = userRoleRequiresNoChapel;
 
-    if (isAdminRole) {
+    if (userRoleRequiresNoChapel) {
         userChapelInput.value = '';
     }
 }
@@ -941,6 +939,11 @@ async function loadChapelsIntoUserForm(selectedChapel = '') {
 }
 
 async function loadUsersTable() {
+    if (!canManageUsers()) {
+        usersTableBody.innerHTML = emptyUsersRowMarkup;
+        return;
+    }
+
     loadedUsers = await getAllUsers();
 
     usersTableBody.innerHTML = '';
@@ -973,6 +976,10 @@ async function loadUsersTable() {
 }
 
 window.editUser = async function(userId) {
+    if (!canManageUsers()) {
+        return;
+    }
+
     const userItem = loadedUsers.find((item) => item.id === userId);
 
     if (!userItem) {
@@ -1005,6 +1012,10 @@ document.getElementById('btn-add-manual').addEventListener('click', () => {
 });
 
 document.getElementById('btn-manage-users').addEventListener('click', async () => {
+    if (!canManageUsers()) {
+        return;
+    }
+
     usersManagementModal.classList.remove('hidden');
     await loadUsersTable();
 });
@@ -1014,6 +1025,10 @@ document.getElementById('btn-close-users-modal').addEventListener('click', () =>
 });
 
 document.getElementById('btn-new-user').addEventListener('click', async () => {
+    if (!canManageUsers()) {
+        return;
+    }
+
     userFormMode = "create";
     userEditModalTitle.textContent = "Registrar Usuário";
     userDisplayNameInput.value = '';
@@ -1037,6 +1052,10 @@ userRoleInput.addEventListener('change', () => {
 
 userEditForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!canManageUsers()) {
+        return;
+    }
+
     const userId = userIdInput.value;
     const email = userEmailInput.value.trim();
     const role = userRoleInput.value;
@@ -1071,11 +1090,9 @@ userEditForm.addEventListener('submit', async (e) => {
 // Guardar monaguillo en Firestore (Regla 1 de Firebase de Canvas)
 serverForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const currentRole = getCurrentRole();
-
-    if (currentRole !== "admin") {
+    if (!canEdit()) {
         return;
-}
+    }
 
     const id = document.getElementById('form-id').value;
     const payload = {
@@ -1109,8 +1126,7 @@ serverForm.addEventListener('submit', async (e) => {
 
 // Funciones expuestas a nivel global para compatibilidad con handlers inline onclick
 window.editServer = function(id) {
-    const currentRole = getCurrentRole();
-    if (currentRole !== "admin") {
+    if (!canEdit()) {
         return;
     }
 
@@ -1144,8 +1160,7 @@ window.editServer = function(id) {
 };
 
 window.deleteServer = function(id, name) {
-    const currentRole = getCurrentRole();
-    if (currentRole !== "admin") {
+    if (!canDelete()) {
         return;
     }
 
@@ -1168,9 +1183,7 @@ const fileInput = document.getElementById('csv-file-input');
 fileInput.addEventListener('change', handleCsvUpload);
 
 async function handleCsvUpload(e) {
-    const currentRole = getCurrentRole();
-
-    if (currentRole !== "admin") {
+    if (!canExport()) {
         return;
     }
     const file = e.target.files[0];
