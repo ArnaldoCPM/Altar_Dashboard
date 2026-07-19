@@ -1,0 +1,152 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * Indica si la petición proviene de un usuario autenticado.
+     */
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Obtiene el documento de usuario actual desde users/{uid}.
+     * Toda la autorización depende de este documento, no del email.
+     */
+    function currentUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    /**
+     * Indica si el usuario autenticado está activo.
+     * Los usuarios inactivos no pueden acceder a colecciones protegidas.
+     */
+    function isActive() {
+      return signedIn() && currentUser().active == true;
+    }
+
+    /**
+     * Devuelve el rol del usuario autenticado.
+     */
+    function role() {
+      return currentUser().role;
+    }
+
+    /**
+     * Devuelve la capilla asociada al usuario autenticado.
+     */
+    function chapelId() {
+      return currentUser().chapelId;
+    }
+
+    /**
+     * Indica si el usuario autenticado es administrador.
+     */
+    function isAdmin() {
+      return isActive() && role() == "admin";
+    }
+
+    /**
+     * Indica si el usuario autenticado es coordinador.
+     */
+    function isCoordinator() {
+      return isActive() && role() == "coordinator";
+    }
+
+    /**
+     * Indica si el usuario autenticado es visualizador.
+     */
+    function isViewer() {
+      return isActive() && role() == "viewer";
+    }
+
+    /**
+     * Verifica si un recurso pertenece a la misma capilla que el usuario actual.
+     */
+    function sameChapel(resourceData) {
+      return resourceData.chapelId == chapelId();
+    }
+
+    /**
+     * Colección operativa de servidores del altar.
+     * La lectura queda abierta a cualquier usuario autenticado y activo.
+     * La escritura queda restringida por rol y capilla.
+     */
+    match /artifacts/{appId}/public/data/servers/{serverId} {
+      /**
+       * Read:
+       * - cualquier usuario autenticado y activo
+       */
+      allow get, list: if isActive();
+
+      /**
+       * Create:
+       * - admin
+       * - coordinator únicamente cuando el chapelId del documento coincide
+       *   con el chapelId del usuario autenticado
+       */
+      allow create: if isAdmin()
+        || (isCoordinator() && sameChapel(request.resource.data));
+
+      /**
+       * Update:
+       * - admin
+       * - coordinator únicamente cuando el documento actual y el documento
+       *   resultante permanecen dentro de su misma capilla
+       */
+      allow update: if isAdmin()
+        || (
+          isCoordinator()
+          && sameChapel(resource.data)
+          && sameChapel(request.resource.data)
+        );
+
+      /**
+       * Delete:
+       * - únicamente admin
+       */
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * Colección de usuarios del sistema.
+     * El modelo objetivo usa users/{uid} como fuente de verdad.
+     */
+    match /users/{userId} {
+      /**
+       * Read:
+       * - admin puede leer todos
+       * - el resto solo puede leer su propio documento
+       * - siempre requiere usuario autenticado y activo
+       */
+      allow get, list: if isAdmin()
+        || (isActive() && userId == request.auth.uid);
+
+      /**
+       * Write:
+       * - únicamente admin
+       */
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * Catálogo de capillas.
+     * Cualquier usuario autenticado y activo puede leerlo.
+     * Solo admin puede modificarlo.
+     */
+    match /chapels/{chapelIdDoc} {
+      /**
+       * Read:
+       * - cualquier usuario autenticado y activo
+       */
+      allow get, list: if isActive();
+
+      /**
+       * Write:
+       * - únicamente admin
+       */
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}

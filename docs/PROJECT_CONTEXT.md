@@ -316,3 +316,19 @@ La autorización por `chapelId` se aplica exclusivamente a las operaciones de cr
 ### Motivación
 
 El SGSA incorpora casos de uso pastorales (cursos, encuentros, listas de presencia y actividades intercapillas) que requieren consultar servidores de toda la parroquia sin otorgar permisos de modificación fuera del ámbito propio del usuario.
+
+## M8-T4B — Firestore Security Rules
+
+Se implementaron reglas de seguridad alineadas con el modelo de autorización del SGSA.
+
+### Principios
+
+- La autorización ya no depende del email del usuario.
+- El documento `users/{uid}` define el rol, el estado (`active`) y el `chapelId`.
+- Las operaciones de escritura sobre `servers` respetan el ámbito de la capilla.
+- Solo los administradores pueden eliminar servidores.
+- Todos los usuarios autenticados y activos pueden consultar la colección de servidores.
+
+### Defensa en profundidad
+
+El cliente continúa validando permisos mediante `permissions.js` y `authorization.js`, mientras que Firestore aplica las mismas restricciones en el servidor para impedir accesos o modificaciones no autorizadas.
