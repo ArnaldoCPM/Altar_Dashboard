@@ -253,3 +253,37 @@ Se realizó una auditoría completa del dashboard para garantizar que todos los 
 ### Decisión arquitectónica
 
 La autorización se aplica una única vez al conjunto de datos mediante `authorization.js`. Todos los componentes de la interfaz consumen ese dataset autorizado, evitando duplicar lógica de seguridad y garantizando un comportamiento consistente para todos los roles.
+
+## M8-MIG-T2 — Migración de chapelId
+
+Se ejecutó una migración automática sobre la colección de servidores para incorporar el campo `chapelId` a todos los documentos existentes.
+
+### Cambios realizados
+
+- Se reutilizó el script `scripts/migrate_chapel_ids.js`.
+- La migración utiliza `writeBatch()` para actualizar únicamente el campo `chapelId`.
+- No se modificó ningún otro dato de los documentos.
+- La auditoría posterior confirmó que todos los servidores disponen de `chapelId`.
+
+### Decisión arquitectónica
+
+`chapelId` pasa a ser el identificador canónico para la autorización y futuras consultas. El campo heredado `Capela` permanece temporalmente por compatibilidad y como dato descriptivo, pero deja de ser la base para la lógica de autorización.
+
+## M8-MIG-T3 — Consolidación de `chapelId`
+
+Se consolidó `chapelId` como identificador canónico para todas las decisiones de autorización del sistema.
+
+### Cambios realizados
+
+- La autorización utiliza exclusivamente `chapelId`.
+- Se eliminó la dependencia del campo heredado `Capela` para validar el ámbito de acceso.
+- `Capela` permanece únicamente como dato descriptivo y de compatibilidad temporal.
+
+### Decisión arquitectónica
+
+El sistema distingue entre:
+
+- **Identificadores canónicos** (`chapelId`), utilizados para autorización y consultas.
+- **Datos descriptivos** (`Capela`), utilizados únicamente para la presentación y la compatibilidad con procesos heredados.
+
+Esta separación simplifica el modelo de autorización y prepara el proyecto para implementar consultas filtradas y Firestore Security Rules.

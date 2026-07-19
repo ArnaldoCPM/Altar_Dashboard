@@ -41,6 +41,7 @@ const serversColRef = collection(db, 'artifacts', appId, 'public', 'data', 'serv
 let dataset = [];
 let user = null;
 let charts = {};
+let cachedActiveChapels = [];
 
 // Variables de paginación
 let currentPage = 1;
@@ -106,6 +107,7 @@ async function loadChapelsIntoForm(chapelsList = null) {
     if (!select) return;
 
     const chapels = chapelsList || await getActiveChapels();
+    cachedActiveChapels = chapels;
 
     select.innerHTML = '';
 
@@ -134,6 +136,21 @@ function resolveSessionChapelName(profile, chapels) {
     return matchedChapel?.name ?? null;
 }
 
+function resolveChapelIdFromName(chapelName, chapelsList = cachedActiveChapels) {
+
+    const normalizedChapelName = (chapelName || "").trim().toLowerCase();
+
+    if (!normalizedChapelName || !Array.isArray(chapelsList)) {
+        return null;
+    }
+
+    const matchedChapel = chapelsList.find((chapel) =>
+        (chapel.name || "").trim().toLowerCase() === normalizedChapelName
+    );
+
+    return matchedChapel?.id ?? null;
+}
+
 function getAuthorizedWriteScope() {
 
     const currentProfile = getCurrentProfile();
@@ -147,7 +164,14 @@ function getAuthorizedWriteScope() {
 function applyAuthorizedServerScope(serverData, existingServer = null) {
 
     if (canAccessAdminMode()) {
-        return serverData;
+        return {
+            ...serverData,
+            chapelId:
+                serverData.chapelId ??
+                resolveChapelIdFromName(serverData.Capela) ??
+                existingServer?.chapelId ??
+                null
+        };
     }
 
     const { chapelId, chapelName } = getAuthorizedWriteScope();

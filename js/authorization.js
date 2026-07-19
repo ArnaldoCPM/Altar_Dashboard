@@ -1,4 +1,4 @@
-import { getCurrentChapelId, getCurrentProfile } from "./session.js";
+import { getCurrentChapelId } from "./session.js";
 import { canAccessAdminMode, canView } from "./permissions.js";
 
 function normalizeScopeValue(value) {
@@ -6,16 +6,8 @@ function normalizeScopeValue(value) {
 }
 
 function getAuthorizedScope() {
-  const profile = getCurrentProfile() || {};
-
   return {
-    chapelId: normalizeScopeValue(profile.chapelId || getCurrentChapelId()),
-    chapelName: normalizeScopeValue(
-      profile.chapelName ||
-      profile.capelaName ||
-      profile.chapel ||
-      profile.capela
-    )
+    chapelId: normalizeScopeValue(getCurrentChapelId())
   };
 }
 
@@ -25,11 +17,6 @@ function getServerScope(server) {
       server?.chapelId ||
       server?.capela_id ||
       server?.capelaId
-    ),
-    chapelName: normalizeScopeValue(
-      server?.Capela ||
-      server?.capela ||
-      server?.chapelName
     )
   };
 }
@@ -50,21 +37,15 @@ function canAccessServer(server) {
   const authorizedScope = getAuthorizedScope();
   const serverScope = getServerScope(server);
 
-  if (!authorizedScope.chapelId && !authorizedScope.chapelName) {
+  if (!authorizedScope.chapelId) {
     return false;
   }
 
-  const matchesChapelId =
+  return Boolean(
     authorizedScope.chapelId &&
     serverScope.chapelId &&
-    authorizedScope.chapelId === serverScope.chapelId;
-
-  const matchesChapelName =
-    authorizedScope.chapelName &&
-    serverScope.chapelName &&
-    authorizedScope.chapelName === serverScope.chapelName;
-
-  return Boolean(matchesChapelId || matchesChapelName);
+    authorizedScope.chapelId === serverScope.chapelId
+  );
 }
 
 function filterAuthorizedServers(dataset) {
