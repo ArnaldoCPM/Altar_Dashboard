@@ -302,3 +302,17 @@ Se reemplazó la consulta global de servidores por consultas específicas según
 ### Decisión arquitectónica
 
 La restricción del ámbito de acceso comienza en la consulta a Firestore y no después de descargar los datos. Esto reduce el volumen de información transferida al cliente y prepara el sistema para la aplicación de Firestore Security Rules.
+
+## M8-T4A — Revisión del modelo de consultas
+
+Se revisó la estrategia de consultas a Firestore tras redefinir el modelo de autorización.
+
+### Decisión arquitectónica
+
+La visibilidad de los servidores deja de depender de la capilla. Todos los usuarios autenticados y activos pueden consultar la colección completa de servidores.
+
+La autorización por `chapelId` se aplica exclusivamente a las operaciones de creación, edición, activación/inactivación y eliminación mediante `authorization.js` y, posteriormente, mediante las Firestore Security Rules.
+
+### Motivación
+
+El SGSA incorpora casos de uso pastorales (cursos, encuentros, listas de presencia y actividades intercapillas) que requieren consultar servidores de toda la parroquia sin otorgar permisos de modificación fuera del ámbito propio del usuario.

@@ -22,7 +22,7 @@ import {
     canAccessAdminMode,
     resetPermissions
 } from "./permissions.js";
-import { filterAuthorizedServers, canAccessServer } from "./authorization.js";
+import { canAccessServer } from "./authorization.js";
 import { buildServersQuery } from "./serverQuery.js";
 import { getActiveChapels } from "./data/chapels.js";
 
@@ -217,8 +217,6 @@ setupAuthStateListener(async (u) => {
         user = null;
         clearSession();
         resetPermissions();
-        dataset = filterAuthorizedServers(dataset);
-
         // document.getElementById('db-status').innerHTML = `<span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span> Desligado`;
 
         updateAdminUI();
@@ -240,7 +238,7 @@ function subscribeToDatabase(chapels = null) {
             });
         });
 
-        dataset = filterAuthorizedServers(loadedData);
+        dataset = loadedData;
         //Temporal
         const capillasUnicas = [...new Set(
             dataset
