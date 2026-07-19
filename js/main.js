@@ -1,4 +1,4 @@
-import { app, db, collection, doc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./firebase.js";
+import { app, db, doc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./firebase.js";
 import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout as performFirebaseLogout } from "./auth.js";
 import { getAllUsers, resolveUserProfile, updateUser, createUser } from "./data/users.js";
 import { createServer } from "./data/servers.js";
@@ -23,6 +23,7 @@ import {
     resetPermissions
 } from "./permissions.js";
 import { filterAuthorizedServers, canAccessServer } from "./authorization.js";
+import { buildServersQuery } from "./serverQuery.js";
 import { getActiveChapels } from "./data/chapels.js";
 
 // import { renderTable } from "./table.js";
@@ -33,9 +34,6 @@ import { getActiveChapels } from "./data/chapels.js";
 // import { showConfirm } from "./modals.js";
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-// Rutas de Firestore (Cumpliendo la regla RULE 1 de Canvas)
-const serversColRef = collection(db, 'artifacts', appId, 'public', 'data', 'servers');
 
 // Estado global de la aplicación
 let dataset = [];
@@ -231,7 +229,7 @@ setupAuthStateListener(async (u) => {
 function subscribeToDatabase(chapels = null) {
     if (!user) return;
 
-    onSnapshot(serversColRef, async (snapshot) => {
+    onSnapshot(buildServersQuery(db), async (snapshot) => {
         const loadedData = [];
         snapshot.forEach((doc) => {
             const data = doc.data();

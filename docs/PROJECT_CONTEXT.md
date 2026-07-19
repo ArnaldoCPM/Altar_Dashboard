@@ -287,3 +287,18 @@ El sistema distingue entre:
 - **Datos descriptivos** (`Capela`), utilizados únicamente para la presentación y la compatibilidad con procesos heredados.
 
 Esta separación simplifica el modelo de autorización y prepara el proyecto para implementar consultas filtradas y Firestore Security Rules.
+
+## M8-T4A — Consultas Firestore por ámbito
+
+Se reemplazó la consulta global de servidores por consultas específicas según el rol del usuario.
+
+### Cambios realizados
+
+- Se creó `serverQuery.js` para encapsular la construcción de consultas.
+- Los administradores mantienen acceso a la colección completa.
+- Coordinadores y viewers consultan únicamente los documentos cuyo `chapelId` coincide con el de su sesión.
+- `authorization.js` permanece como segunda capa de validación (defensa en profundidad).
+
+### Decisión arquitectónica
+
+La restricción del ámbito de acceso comienza en la consulta a Firestore y no después de descargar los datos. Esto reduce el volumen de información transferida al cliente y prepara el sistema para la aplicación de Firestore Security Rules.
