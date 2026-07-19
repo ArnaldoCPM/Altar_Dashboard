@@ -1,10 +1,13 @@
 async function loadFirebaseSdk() {
-  const [{ initializeApp }, { getAuth, signInAnonymously }, { getFirestore, collection, getDocs }] =
-    await Promise.all([
-      import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"),
-      import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"),
-      import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js")
-    ]);
+  const [
+    { initializeApp },
+    { getAuth, signInAnonymously },
+    { getFirestore, collection, doc, getDocs, writeBatch }
+  ] = await Promise.all([
+    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"),
+    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"),
+    import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js")
+  ]);
 
   return {
     initializeApp,
@@ -12,7 +15,9 @@ async function loadFirebaseSdk() {
     signInAnonymously,
     getFirestore,
     collection,
-    getDocs
+    doc,
+    getDocs,
+    writeBatch
   };
 }
 
@@ -88,17 +93,21 @@ function createServerIssue(serverId, capelaValue, reason) {
   };
 }
 
-function auditServers(servers, chapelMap) {
+function getExistingChapelId(server) {
+  return server.chapelId || server.capela_id || server.capelaId || null;
+}
+
+function buildServerMigrationPlan(servers, chapelMap) {
   const issues = [];
+  const updates = [];
   let matchesFound = 0;
   let serversWithChapelId = 0;
-  let serversNeedingUpdate = 0;
 
   servers.forEach((server) => {
     const capelaValue = (server.Capela || "").toString().trim();
     const normalizedCapela = normalizeChapelName(capelaValue);
     const matchedChapelId = chapelMap.get(normalizedCapela) || null;
-    const existingChapelId = server.chapelId || server.capela_id || server.capelaId || null;
+    const existingChapelId = getExistingChapelId(server);
 
     if (existingChapelId) {
       serversWithChapelId += 1;
@@ -129,12 +138,22 @@ function auditServers(servers, chapelMap) {
     matchesFound += 1;
 
     if (!existingChapelId) {
-      serversNeedingUpdate += 1;
+      updates.push({
+        id: server.id,
+        currentChapelId: null,
+        targetChapelId: matchedChapelId,
+        Capela: capelaValue
+      });
       return;
     }
 
     if (existingChapelId !== matchedChapelId) {
-      serversNeedingUpdate += 1;
+      updates.push({
+        id: server.id,
+        currentChapelId: existingChapelId,
+        targetChapelId: matchedChapelId,
+        Capela: capelaValue
+      });
       issues.push(
         createServerIssue(
           server.id,
@@ -153,48 +172,13 @@ function auditServers(servers, chapelMap) {
       issue.motivo === "No existe coincidencia en la colección chapels"
     ).length,
     serversWithChapelId,
-    serversNeedingUpdate,
-    issues
+    serversNeedingUpdate: updates.length,
+    issues,
+    updates
   };
 }
 
-async function readCollection(getDocs, collection, db, pathSegments) {
-  const snapshot = await getDocs(collection(db, ...pathSegments));
-
-  return snapshot.docs.map((docItem) => ({
-    id: docItem.id,
-    ...docItem.data()
-  }));
-}
-
-async function runChapelIdAudit() {
-  const {
-    initializeApp,
-    getAuth,
-    signInAnonymously,
-    getFirestore,
-    collection,
-    getDocs
-  } = await loadFirebaseSdk();
-
-  const firebaseConfig = getFirebaseConfig();
-  const appId = getAuditAppId();
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-
-  if (!auth.currentUser) {
-    await signInAnonymously(auth);
-  }
-
-  const [chapels, servers] = await Promise.all([
-    readCollection(getDocs, collection, db, ["chapels"]),
-    readCollection(getDocs, collection, db, ["artifacts", appId, "public", "data", "servers"])
-  ]);
-
-  const { nameToChapelId, duplicateNames } = buildChapelMap(chapels);
-  const report = auditServers(servers, nameToChapelId);
-
+function printAuditResult({ appId, chapels, duplicateNames, report }) {
   console.group("Auditoría chapelId");
   console.info("appId:", appId);
   console.info("Capillas leídas:", chapels.length);
@@ -218,18 +202,207 @@ async function runChapelIdAudit() {
   } else {
     console.info("No se detectaron incidencias en la auditoría.");
   }
+}
+
+async function readCollection(getDocs, collection, db, pathSegments) {
+  const snapshot = await getDocs(collection(db, ...pathSegments));
+
+  return snapshot.docs.map((docItem) => ({
+    id: docItem.id,
+    ...docItem.data()
+  }));
+}
+
+async function initAuditContext() {
+  const {
+    initializeApp,
+    getAuth,
+    signInAnonymously,
+    getFirestore,
+    collection,
+    doc,
+    getDocs,
+    writeBatch
+  } = await loadFirebaseSdk();
+
+  const firebaseConfig = getFirebaseConfig();
+  const appId = getAuditAppId();
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  if (!auth.currentUser) {
+    await signInAnonymously(auth);
+  }
 
   return {
     appId,
+    db,
+    collection,
+    doc,
+    getDocs,
+    writeBatch
+  };
+}
+
+async function collectAuditData() {
+  const context = await initAuditContext();
+  const { appId, db, collection, getDocs } = context;
+
+  const [chapels, servers] = await Promise.all([
+    readCollection(getDocs, collection, db, ["chapels"]),
+    readCollection(getDocs, collection, db, ["artifacts", appId, "public", "data", "servers"])
+  ]);
+
+  const { nameToChapelId, duplicateNames } = buildChapelMap(chapels);
+  const report = buildServerMigrationPlan(servers, nameToChapelId);
+
+  return {
+    ...context,
     chapels,
     servers,
     duplicateNames,
+    chapelMap: nameToChapelId,
     report
   };
 }
 
+async function runChapelIdAudit() {
+  const result = await collectAuditData();
+
+  printAuditResult(result);
+
+  return {
+    appId: result.appId,
+    chapels: result.chapels,
+    servers: result.servers,
+    duplicateNames: result.duplicateNames,
+    report: result.report
+  };
+}
+
+async function commitMigrationBatches(db, doc, writeBatch, appId, updates) {
+  const errors = [];
+  const batchSize = 400;
+  let updatedCount = 0;
+
+  for (let index = 0; index < updates.length; index += batchSize) {
+    const chunk = updates.slice(index, index + batchSize);
+    const batch = writeBatch(db);
+
+    chunk.forEach((updateItem) => {
+      const serverDocRef = doc(
+        db,
+        "artifacts",
+        appId,
+        "public",
+        "data",
+        "servers",
+        updateItem.id
+      );
+
+      batch.update(serverDocRef, {
+        chapelId: updateItem.targetChapelId
+      });
+    });
+
+    try {
+      await batch.commit();
+      updatedCount += chunk.length;
+    } catch (error) {
+      chunk.forEach((updateItem) => {
+        errors.push({
+          id: updateItem.id,
+          Capela: updateItem.Capela,
+          motivo: error.message
+        });
+      });
+    }
+  }
+
+  return {
+    updatedCount,
+    errors
+  };
+}
+
+async function runChapelIdMigration(options = {}) {
+  if (!options || options.confirm !== true) {
+    console.warn(
+      "Migración no ejecutada. Usa runChapelIdMigration({ confirm: true }) para confirmar."
+    );
+
+    return {
+      executed: false,
+      reason: "confirmation_required"
+    };
+  }
+
+  const auditResult = await collectAuditData();
+  const { appId, db, doc, writeBatch, duplicateNames, report } = auditResult;
+
+  console.group("Migración chapelId");
+  console.info("appId:", appId);
+  console.info("Documentos candidatos a actualización:", report.updates.length);
+  console.groupEnd();
+
+  if (duplicateNames.length > 0) {
+    console.warn(
+      "Se detectaron nombres duplicados en chapels. La migración continuará solo con coincidencias unívocas."
+    );
+  }
+
+  if (report.updates.length === 0) {
+    console.info("No hay documentos para actualizar. Se ejecutará auditoría final.");
+    const finalAudit = await runChapelIdAudit();
+
+    return {
+      executed: true,
+      appId,
+      toUpdate: 0,
+      updatedCount: 0,
+      errors: [],
+      finalAudit
+    };
+  }
+
+  const migrationResult = await commitMigrationBatches(
+    db,
+    doc,
+    writeBatch,
+    appId,
+    report.updates
+  );
+
+  console.group("Resultado migración chapelId");
+  console.info("Documentos a actualizar:", report.updates.length);
+  console.info("Documentos actualizados:", migrationResult.updatedCount);
+  console.info("Errores:", migrationResult.errors.length);
+  console.groupEnd();
+
+  if (migrationResult.errors.length > 0) {
+    console.group("Errores de migración");
+    console.table(migrationResult.errors);
+    console.groupEnd();
+  }
+
+  const finalAudit = await runChapelIdAudit();
+
+  return {
+    executed: true,
+    appId,
+    toUpdate: report.updates.length,
+    updatedCount: migrationResult.updatedCount,
+    errors: migrationResult.errors,
+    finalAudit
+  };
+}
+
 globalThis.runChapelIdAudit = runChapelIdAudit;
+globalThis.runChapelIdMigration = runChapelIdMigration;
 
 if (typeof window !== "undefined") {
-  console.info("Script de auditoría cargado. Ejecuta runChapelIdAudit() para iniciar.");
+  console.info(
+    "Script de auditoría cargado. Ejecuta runChapelIdAudit() para auditar o runChapelIdMigration({ confirm: true }) para migrar."
+  );
 }
