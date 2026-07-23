@@ -11,6 +11,72 @@ service cloud.firestore {
     }
 
     /**
+     * Permite identificar el documento canónico y el documento legacy del
+     * usuario autenticado. Estos helpers aíslan el flujo temporal de
+     * migración y podrán reutilizarse cuando se incorpore authorizedUsers.
+     */
+    function hasAuthenticatedEmail() {
+      return signedIn() && request.auth.token.email != null;
+    }
+
+    function isOwnCanonicalUser(userId) {
+      return signedIn() && userId == request.auth.uid;
+    }
+
+    function isOwnLegacyUser(userId) {
+      return hasAuthenticatedEmail() && userId == request.auth.token.email;
+    }
+
+    function legacyUser() {
+      return get(
+        /databases/$(database)/documents/users/$(request.auth.token.email)
+      ).data;
+    }
+
+    function legacyUidMatchesCurrentUser() {
+      return legacyUser().uid == null
+        || legacyUser().uid == ""
+        || legacyUser().uid == request.auth.uid;
+    }
+
+    /**
+     * La creación propia solo está permitida al trasladar un perfil legacy.
+     * Todos los campos deben permanecer idénticos salvo uid.
+     */
+    function canMigrateOwnLegacyUser(userId) {
+      return isOwnCanonicalUser(userId)
+        && hasAuthenticatedEmail()
+        && exists(
+          /databases/$(database)/documents/users/$(request.auth.token.email)
+        )
+        && legacyUidMatchesCurrentUser()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.diff(legacyUser()).affectedKeys()
+          .hasOnly(["uid"]);
+    }
+
+    /**
+     * El legacy solo se elimina dentro de la misma operación atómica que crea
+     * el documento canónico. getAfter valida el estado final del batch.
+     */
+    function canDeleteOwnLegacyUser(userId) {
+      return isOwnLegacyUser(userId)
+        && legacyUidMatchesCurrentUser()
+        && !exists(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        )
+        && existsAfter(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        )
+        && getAfter(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.uid == request.auth.uid
+        && getAfter(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.diff(resource.data).affectedKeys().hasOnly(["uid"]);
+    }
+
+    /**
      * Obtiene el documento de usuario actual desde users/{uid}.
      * Toda la autorización depende de este documento, no del email.
      */
@@ -117,17 +183,22 @@ service cloud.firestore {
       /**
        * Read:
        * - admin puede leer todos
-       * - el resto solo puede leer su propio documento
-       * - siempre requiere usuario autenticado y activo
+       * - el usuario autenticado puede leer su canónico y su legacy temporal
        */
-      allow get, list: if isAdmin()
-        || (isActive() && userId == request.auth.uid);
+      allow get: if isOwnCanonicalUser(userId)
+        || isOwnLegacyUser(userId)
+        || isAdmin();
+      allow list: if isAdmin();
 
       /**
        * Write:
-       * - únicamente admin
+       * - admin conserva acceso total
+       * - el usuario solo puede crear su canónico desde su legacy y borrar
+       *   dicho legacy como parte del mismo traslado atómico
        */
-      allow create, update, delete: if isAdmin();
+      allow create: if isAdmin() || canMigrateOwnLegacyUser(userId);
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || canDeleteOwnLegacyUser(userId);
     }
 
     /**

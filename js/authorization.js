@@ -1,5 +1,10 @@
 import { getCurrentChapelId } from "./session.js";
-import { canAccessAdminMode, canView } from "./permissions.js";
+import {
+  canAccessAdminMode,
+  canDelete as canDeleteByRole,
+  canEdit as canEditByRole,
+  canView
+} from "./permissions.js";
 
 function normalizeScopeValue(value) {
   return (value || "").toString().trim().toLowerCase();
@@ -13,33 +18,13 @@ function getAuthorizedScope() {
 
 function getServerScope(server) {
   return {
-    chapelId: normalizeScopeValue(
-      server?.chapelId ||
-      server?.capela_id ||
-      server?.capelaId
-    )
+    chapelId: normalizeScopeValue(server?.chapelId)
   };
 }
 
-function canAccessServer(server) {
-  if (!server) {
-    return false;
-  }
-
-  if (canAccessAdminMode()) {
-    return true;
-  }
-
-  if (!canView()) {
-    return false;
-  }
-
+function belongsToCurrentChapel(server) {
   const authorizedScope = getAuthorizedScope();
   const serverScope = getServerScope(server);
-
-  if (!authorizedScope.chapelId) {
-    return false;
-  }
 
   return Boolean(
     authorizedScope.chapelId &&
@@ -48,23 +33,52 @@ function canAccessServer(server) {
   );
 }
 
-function filterAuthorizedServers(dataset) {
-  if (!Array.isArray(dataset)) {
-    return [];
+/**
+ * Todos los perfiles con permiso de lectura pueden consultar cualquier
+ * servidor de la parroquia. El Ã¡mbito de capilla solo limita escrituras.
+ */
+function canAccessServer(server) {
+  return Boolean(server) && canView();
+}
+
+function canEdit(server) {
+  if (!server || !canEditByRole()) {
+    return false;
   }
 
   if (canAccessAdminMode()) {
-    return dataset;
+    return true;
   }
 
-  if (!canView()) {
-    return [];
+  return belongsToCurrentChapel(server);
+}
+
+function canDelete(server) {
+  return Boolean(server) && canDeleteByRole() && canAccessAdminMode();
+}
+
+function canCreateServer(chapelId) {
+  if (!canEditByRole()) {
+    return false;
   }
 
-  return dataset.filter(canAccessServer);
+  return canAccessAdminMode()
+    || normalizeScopeValue(chapelId) === getAuthorizedScope().chapelId;
+}
+
+function canChangeChapel(server, nextChapelId) {
+  if (!canEdit(server)) {
+    return false;
+  }
+
+  return canAccessAdminMode()
+    || normalizeScopeValue(nextChapelId) === getServerScope(server).chapelId;
 }
 
 export {
-  filterAuthorizedServers,
-  canAccessServer
+  canAccessServer,
+  canEdit,
+  canDelete,
+  canCreateServer,
+  canChangeChapel
 };

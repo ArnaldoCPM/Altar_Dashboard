@@ -220,6 +220,25 @@ Se incorporó el caso de documentos legacy cuyo campo `uid` ya coincide con el U
 - Si existe `users/{email}` y su `uid` está vacío o coincide con el UID autenticado, se consolida mediante la misma transacción hacia `users/{uid}` y se elimina el documento legacy.
 - Si el `uid` legacy pertenece a otro usuario, el acceso se rechaza y se cierra la sesión.
 
+## M8-T1 – Integración inicial de Google Sign-In
+
+Se añadió autenticación mediante Google como alternativa temporal al acceso por Email/Password.
+
+- `auth.js` expone `loginWithGoogle()` usando `GoogleAuthProvider` y `signInWithPopup()`.
+- El login presenta el botón “Continuar com Google” junto al flujo existente de Email/Password.
+- Ambos métodos delegan la inicialización de la sesión en el mismo `onAuthStateChanged()`; no se duplica la resolución de perfil, permisos ni carga del dashboard.
+- El modelo `users/{uid}`, las reglas de Firestore y los permisos permanecen sin cambios.
+
+## M8-T2 – Reglas de migración users/{email} → users/{uid}
+
+Las reglas de Firestore se ajustaron para permitir exclusivamente la migración automática del perfil propio.
+
+- El administrador conserva acceso total a `users`.
+- Un usuario autenticado puede leer su documento canónico y, temporalmente, el documento legacy cuyo ID coincide con su email autenticado.
+- La creación de `users/{uid}` propia solo se permite si existe ese legacy, su UID está vacío o coincide con la sesión y el nuevo documento cambia únicamente `uid`.
+- La eliminación de `users/{email}` solo se permite en la misma transacción que crea el documento canónico equivalente, validada mediante `getAfter()`.
+- Las actualizaciones de perfiles continúan siendo exclusivas de administrador. La estructura deja aislados los helpers de identidad para incorporar `authorizedUsers` en una tarea futura.
+
 ## M7-T4 – Consolidación del sistema de permisos
 
 Se realizó una auditoría de `main.js` para garantizar que todas las decisiones de autorización utilicen exclusivamente la API pública de `permissions.js`.
@@ -236,24 +255,9 @@ Se realizó una auditoría de `main.js` para garantizar que todas las decisiones
 
 ## M8-T1 — Autorización por capilla
 
-Se introdujo un nuevo módulo `authorization.js` encargado de aplicar el ámbito de acceso del usuario autenticado sobre los datos de servidores.
+Se creó `authorization.js` para centralizar las decisiones de escritura por registro. La implementación inicial de filtrado de lectura fue reemplazada: el dataset no se filtra por `chapelId`.
 
-### Cambios realizados
-
-- Se creó `js/authorization.js`.
-- Se implementó `filterAuthorizedServers(dataset)`.
-- Se implementó `canAccessServer(server)`.
-- `main.js` utiliza el dataset autorizado antes de actualizar la interfaz.
-- La autorización mantiene compatibilidad temporal entre `chapelId` y el campo heredado `Capela`.
-
-### Decisión arquitectónica
-
-Se separa la autorización del sistema de permisos.
-
-- `permissions.js` define **qué acciones** puede realizar un usuario según su rol.
-- `authorization.js` define **sobre qué registros** puede actuar ese usuario según su ámbito (`chapelId`).
-
-Esta separación evita que la interfaz implemente lógica de seguridad y establece una única fuente de verdad para la autorización de registros.
+`permissions.js` define las capacidades por rol y `authorization.js` valida el ámbito de la operación sobre cada servidor.
 
 ## M8-T2 — Restricción de escritura por capilla
 
@@ -261,30 +265,27 @@ Se extendió el sistema de autorización para proteger todas las operaciones de 
 
 ### Cambios realizados
 
-- Las operaciones de edición requieren `canEdit()` y `canAccessServer(server)`.
-- Las operaciones de eliminación requieren `canDelete()` y `canAccessServer(server)`.
+- Las operaciones de edición requieren `canEdit(server)`.
+- Las operaciones de eliminación requieren `canDelete(server)`.
 - Los coordinadores crean registros asociados automáticamente a su propia capilla.
-- Se mantiene compatibilidad temporal con el campo heredado `Capela`.
+- `chapelId` es el único identificador usado para autorizar escrituras.
 
 ### Decisión arquitectónica
 
-La autorización de escritura reutiliza la misma lógica que la autorización de lectura. No se introducen reglas duplicadas: `permissions.js` determina las capacidades del usuario y `authorization.js` determina el ámbito de los registros sobre los que puede actuar.
+La lectura no depende de la capilla. `permissions.js` determina las capacidades del rol y `authorization.js` determina el ámbito de escritura sobre cada registro.
 
-## M8-T3 — Dashboard contextual
+## M8-T3 — Dashboard parroquial
 
-Se realizó una auditoría completa del dashboard para garantizar que todos los componentes visuales utilicen exclusivamente el dataset autorizado generado por `authorization.js`.
+Se realizó una auditoría completa del dashboard para garantizar que todos los componentes visuales utilicen el dataset completo de la parroquia.
 
 ### Cambios realizados
 
-- Se verificó que la tabla utiliza únicamente el dataset autorizado.
-- Se verificó que los KPIs utilizan únicamente el dataset autorizado.
-- Se verificó que los gráficos utilizan únicamente el dataset autorizado.
-- Se verificó que los filtros se generan únicamente con el dataset autorizado.
-- Se verificó que las exportaciones visibles respetan el ámbito de autorización del usuario.
+- La tabla, KPIs, gráficos, búsquedas y filtros utilizan el dataset completo.
+- La creación, edición, eliminación y cambio de capilla se autorizan antes de escribir.
 
 ### Decisión arquitectónica
 
-La autorización se aplica una única vez al conjunto de datos mediante `authorization.js`. Todos los componentes de la interfaz consumen ese dataset autorizado, evitando duplicar lógica de seguridad y garantizando un comportamiento consistente para todos los roles.
+La autorización no recorta la visibilidad. Cada acción de escritura consulta las funciones de `authorization.js`, evitando que la interfaz replique reglas por rol o capilla.
 
 ## M8-MIG-T2 — Migración de chapelId
 
@@ -320,21 +321,6 @@ El sistema distingue entre:
 
 Esta separación simplifica el modelo de autorización y prepara el proyecto para implementar consultas filtradas y Firestore Security Rules.
 
-## M8-T4A — Consultas Firestore por ámbito
-
-Se reemplazó la consulta global de servidores por consultas específicas según el rol del usuario.
-
-### Cambios realizados
-
-- Se creó `serverQuery.js` para encapsular la construcción de consultas.
-- Los administradores mantienen acceso a la colección completa.
-- Coordinadores y viewers consultan únicamente los documentos cuyo `chapelId` coincide con el de su sesión.
-- `authorization.js` permanece como segunda capa de validación (defensa en profundidad).
-
-### Decisión arquitectónica
-
-La restricción del ámbito de acceso comienza en la consulta a Firestore y no después de descargar los datos. Esto reduce el volumen de información transferida al cliente y prepara el sistema para la aplicación de Firestore Security Rules.
-
 ## M8-T4A — Revisión del modelo de consultas
 
 Se revisó la estrategia de consultas a Firestore tras redefinir el modelo de autorización.
@@ -364,3 +350,17 @@ Se implementaron reglas de seguridad alineadas con el modelo de autorización de
 ### Defensa en profundidad
 
 El cliente continúa validando permisos mediante `permissions.js` y `authorization.js`, mientras que Firestore aplica las mismas restricciones en el servidor para impedir accesos o modificaciones no autorizadas.
+
+## M8-T3A – Consolidación del modelo de autorización
+
+`users/{uid}` es la única fuente de verdad de autorización. El rol se obtiene exclusivamente de `profile.role`; no se utilizan emails especiales ni `resolveRoleFromLegacyAdminEmail()` para decidir permisos.
+
+Todos los usuarios activos (`admin`, `coordinator` y `viewer`) consultan el dataset completo de servidores, incluidos dashboard, gráficos, búsquedas y filtros. No se filtra el dataset por `chapelId`.
+
+`chapelId` limita solamente las operaciones de escritura:
+
+- **Admin:** puede crear, editar, eliminar y cambiar la capilla de cualquier servidor; también administra usuarios y capillas.
+- **Coordinator:** puede crear servidores de su capilla y editar solo servidores cuyo `server.chapelId` coincide con `profile.chapelId`. No puede eliminar ni cambiar `chapelId`.
+- **Viewer:** solo consulta datos; no puede modificar registros.
+
+`authorization.js` expone las decisiones por registro (`canEdit(server)`, `canDelete(server)`, `canCreateServer(chapelId)` y `canChangeChapel(server, chapelId)`). La interfaz las aplica en los controles y antes de cada escritura, mientras que las Firestore Security Rules mantienen la misma restricción en el servidor.

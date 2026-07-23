@@ -5,8 +5,6 @@ const ROLES = {
   ADMIN: "admin"
 };
 
-const ADMIN_EMAIL = "seminariodeampere@gmail.com";
-
 const ROLE_CAPABILITIES = {
   [ROLES.GUEST]: {
     view: false,
@@ -25,8 +23,8 @@ const ROLE_CAPABILITIES = {
   [ROLES.COORDINATOR]: {
     view: true,
     edit: true,
-    delete: true,
-    export: true,
+    delete: false,
+    export: false,
     manageUsers: false
   },
   [ROLES.ADMIN]: {
@@ -86,14 +84,6 @@ function canManageUsers(role = currentUserRole) {
   return hasCapability("manageUsers", role);
 }
 
-function resolveRoleFromLegacyAdminEmail(email, fallbackRole = ROLES.GUEST) {
-  if (email === ADMIN_EMAIL) {
-    return ROLES.ADMIN;
-  }
-
-  return normalizeRole(fallbackRole);
-}
-
 function isAdmin(role = currentUserRole) {
   return normalizeRole(role) === ROLES.ADMIN;
 }
@@ -115,7 +105,6 @@ function resetPermissions() {
 }
 
 export {
-  ADMIN_EMAIL,
   ROLES,
   currentUserRole,
   setCurrentUserRole,
@@ -126,7 +115,6 @@ export {
   canDelete,
   canExport,
   canManageUsers,
-  resolveRoleFromLegacyAdminEmail,
   canAccessAdminMode,
   isAdmin,
   isCoordinator,

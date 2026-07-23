@@ -1,5 +1,5 @@
 import { app, db, doc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./firebase.js";
-import { initAuth, setupAuthStateListener, loginWithEmailPassword, performLogout as performFirebaseLogout } from "./auth.js";
+import { initAuth, setupAuthStateListener, loginWithEmailPassword, loginWithGoogle, performLogout as performFirebaseLogout } from "./auth.js";
 import { getAllUsers, resolveUserProfile, updateUser, createUser } from "./data/users.js";
 import { createServer } from "./data/servers.js";
 import { cleanStr, generateWpLink } from "./utils.js";
@@ -14,15 +14,17 @@ import {
 } from "./session.js";
 import {
     setCurrentUserRole,
-    canEdit,
-    canDelete,
     canExport,
     canManageUsers,
-    resolveRoleFromLegacyAdminEmail,
     canAccessAdminMode,
     resetPermissions
 } from "./permissions.js";
-import { canAccessServer } from "./authorization.js";
+import {
+    canChangeChapel,
+    canCreateServer,
+    canDelete as canDeleteServer,
+    canEdit as canEditServer
+} from "./authorization.js";
 import { buildServersQuery } from "./serverQuery.js";
 import { getActiveChapels } from "./data/chapels.js";
 
@@ -230,7 +232,7 @@ setupAuthStateListener(async (u) => {
             console.log("2", profile);
             setCurrentProfile(profile);
             setCurrentChapelId(profile?.chapelId ?? null);
-            setCurrentUserRole(resolveRoleFromLegacyAdminEmail(u.email, profile?.role));
+            setCurrentUserRole(profile?.role);
             const chapels = await getActiveChapels();
             setCurrentProfile({
                 ...profile,
@@ -682,11 +684,14 @@ function renderTable(data) {
         // Controles de Administrador
         let adminControlsHtml = '';
 
-        if (canEdit()) {
+        const mayEditServer = canEditServer(server);
+        const mayDeleteServer = canDeleteServer(server);
+
+        if (mayEditServer || mayDeleteServer) {
             adminControlsHtml = `
                 <div class="flex gap-1.5 justify-center">
-                    <button onclick="editServer('${server.id}')" class="p-1 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[11px] font-bold transition-all">Editar</button>
-                    <button onclick="deleteServer('${server.id}', '${server.Nome.replace(/'/g, "\\'")}')" class="p-1 px-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition-all">Apagar</button>
+                    ${mayEditServer ? `<button onclick="editServer('${server.id}')" class="p-1 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[11px] font-bold transition-all">Editar</button>` : ''}
+                    ${mayDeleteServer ? `<button onclick="deleteServer('${server.id}', '${server.Nome.replace(/'/g, "\\'")}')" class="p-1 px-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition-all">Apagar</button>` : ''}
                 </div>
             `;
         } else {
@@ -881,12 +886,21 @@ function setupInteractiveEvents(data) {
 const btnAdminToggle = document.getElementById('btn-admin-toggle');
 const adminLoginModal = document.getElementById('admin-login-modal');
 const btnLoginSubmit = document.getElementById('btn-login-submit');
+const btnLoginGoogle = document.getElementById('btn-login-google');
 const adminEmailInput = document.getElementById('admin-email-input');
 const adminPasswordInput = document.getElementById('admin-password-input');
 const loginError = document.getElementById('login-error');
 
 // Función para actualizar UI de administrador según estado isAdmin
 function updateAdminUI(renderDashboard = true) {
+    document.getElementById('btn-add-manual').classList.toggle(
+        'hidden',
+        !canCreateServer(getCurrentChapelId())
+    );
+    document.getElementById('btn-manage-users').classList.toggle(
+        'hidden',
+        !canManageUsers()
+    );
 
     if (canAccessAdminMode()) {
         document.getElementById('admin-banner').classList.remove('hidden');
@@ -953,6 +967,21 @@ btnLoginSubmit.addEventListener('click', async () => {
             msg = "Muitas tentativas. Aguarde alguns instantes e tente novamente.";
         }
         loginError.textContent = msg;
+        loginError.classList.remove('hidden');
+    }
+});
+
+btnLoginGoogle.addEventListener('click', async () => {
+    try {
+        await loginWithGoogle();
+        loginError.classList.add('hidden');
+    } catch (error) {
+        console.error("Google Sign-In error:", error);
+        console.error("code:", error.code);
+        console.error("message:", error.message);
+        console.error("customData:", error.customData);
+        console.error("credential:", error.credential);
+        loginError.textContent = "Não foi possível iniciar sessão com Google. Tente novamente.";
         loginError.classList.remove('hidden');
     }
 });
@@ -1084,6 +1113,10 @@ window.editUser = async function(userId) {
 };
 
 document.getElementById('btn-add-manual').addEventListener('click', () => {
+    if (!canCreateServer(getCurrentChapelId())) {
+        return;
+    }
+
     document.getElementById('edit-modal-title').textContent = "Adicionar novo servidor";
     serverForm.reset();
     const lastIdNum = dataset.reduce((max, cur) => {
@@ -1092,6 +1125,13 @@ document.getElementById('btn-add-manual').addEventListener('click', () => {
         return match ? Math.max(max, parseInt(match[0])) : max;
     }, 0);
     document.getElementById('form-id').value = `SRV-${String(lastIdNum + 1).padStart(4, '0')}`;
+    const chapelInput = document.getElementById('form-capela');
+    if (canAccessAdminMode()) {
+        chapelInput.disabled = false;
+    } else {
+        chapelInput.value = getCurrentProfile()?.chapelName ?? '';
+        chapelInput.disabled = true;
+    }
     editServerModal.classList.remove('hidden');
 });
 
@@ -1174,14 +1214,12 @@ userEditForm.addEventListener('submit', async (e) => {
 // Guardar monaguillo en Firestore (Regla 1 de Firebase de Canvas)
 serverForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!canEdit()) {
-        return;
-    }
-
     const id = document.getElementById('form-id').value;
     const existingServer = dataset.find(item => item.id === id) || null;
 
-    if (existingServer && !canAccessServer(existingServer)) {
+    if (existingServer
+        ? !canEditServer(existingServer)
+        : !canCreateServer(getCurrentChapelId())) {
         return;
     }
 
@@ -1206,6 +1244,10 @@ serverForm.addEventListener('submit', async (e) => {
         Whatsapp_pai: document.getElementById('form-wp-pai').value.trim(),
     }, existingServer);
 
+    if (existingServer && !canChangeChapel(existingServer, payload.chapelId)) {
+        return;
+    }
+
     try {
         await createServer(payload);
         editServerModal.classList.add('hidden');
@@ -1216,12 +1258,8 @@ serverForm.addEventListener('submit', async (e) => {
 
 // Funciones expuestas a nivel global para compatibilidad con handlers inline onclick
 window.editServer = function(id) {
-    if (!canEdit()) {
-        return;
-    }
-
     const server = dataset.find(d => d.id === id);
-    if (!server || !canAccessServer(server)) return;
+    if (!canEditServer(server)) return;
 
     document.getElementById('edit-modal-title').textContent = `Editar Servidor: ${server.id}`;
     document.getElementById('form-id').value = server.id;
@@ -1230,6 +1268,7 @@ window.editServer = function(id) {
     document.getElementById('form-idade').value = server.Idade !== undefined ? server.Idade : 0;
     document.getElementById('form-sexo').value = server.Sexo || 'Masculino';
     document.getElementById('form-capela').value = server.Capela || '';
+    document.getElementById('form-capela').disabled = !canAccessAdminMode();
     document.getElementById('form-tipo').value = server.Tipo || 'Candidato';
     document.getElementById('form-estado').value = server.Estado || 'Ativo';
     document.getElementById('form-horario-estudo').value = server.Horario_estudo || '';
@@ -1250,13 +1289,9 @@ window.editServer = function(id) {
 };
 
 window.deleteServer = function(id, name) {
-    if (!canDelete()) {
-        return;
-    }
-
     const server = dataset.find(d => d.id === id);
 
-    if (!server || !canAccessServer(server)) {
+    if (!canDeleteServer(server)) {
         return;
     }
 

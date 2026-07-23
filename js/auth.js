@@ -1,4 +1,6 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "./firebase.js";
+import { auth, GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut } from "./firebase.js";
+
+const googleProvider = new GoogleAuthProvider();
 
 const initAuth = async (onError) => {
     try {
@@ -20,6 +22,10 @@ const loginWithEmailPassword = (email, password) => {
     return signInWithEmailAndPassword(auth, email, password);
 };
 
+const loginWithGoogle = () => {
+    return signInWithPopup(auth, googleProvider);
+};
+
 async function performLogout(onError) {
     try {
         await signOut(auth);
@@ -36,5 +42,6 @@ export {
     initAuth,
     setupAuthStateListener,
     loginWithEmailPassword,
+    loginWithGoogle,
     performLogout
 };
