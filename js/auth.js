@@ -1,12 +1,8 @@
-import { auth, onAuthStateChanged, signInAnonymously, signInWithCustomToken, signInWithEmailAndPassword, signOut } from "./firebase.js";
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "./firebase.js";
 
 const initAuth = async (onError) => {
     try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-            await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-            await signInAnonymously(auth);
-        }
+        return auth;
     } catch (err) {
         if (typeof onError === 'function') {
             onError(err);

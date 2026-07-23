@@ -1,7 +1,6 @@
 async function loadFirebaseSdk() {
   const [
     { initializeApp },
-    { getAuth, signInAnonymously },
     { getFirestore, collection, doc, getDocs, writeBatch }
   ] = await Promise.all([
     import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"),
@@ -11,8 +10,6 @@ async function loadFirebaseSdk() {
 
   return {
     initializeApp,
-    getAuth,
-    signInAnonymously,
     getFirestore,
     collection,
     doc,
@@ -216,8 +213,6 @@ async function readCollection(getDocs, collection, db, pathSegments) {
 async function initAuditContext() {
   const {
     initializeApp,
-    getAuth,
-    signInAnonymously,
     getFirestore,
     collection,
     doc,
@@ -228,12 +223,7 @@ async function initAuditContext() {
   const firebaseConfig = getFirebaseConfig();
   const appId = getAuditAppId();
   const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
   const db = getFirestore(app);
-
-  if (!auth.currentUser) {
-    await signInAnonymously(auth);
-  }
 
   return {
     appId,

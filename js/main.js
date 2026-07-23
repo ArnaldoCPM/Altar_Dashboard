@@ -40,6 +40,26 @@ let dataset = [];
 let user = null;
 let charts = {};
 let cachedActiveChapels = [];
+let unsubscribeFromServers = null;
+
+function stopServerSubscription() {
+    if (unsubscribeFromServers) {
+        unsubscribeFromServers();
+        unsubscribeFromServers = null;
+    }
+}
+
+function showLoginScreen() {
+    stopServerSubscription();
+    document.getElementById('app-content').classList.add('hidden');
+    document.getElementById('admin-login-modal').classList.remove('hidden');
+    document.getElementById('loading-overlay').classList.add('hidden');
+}
+
+function showAuthenticatedScreen() {
+    document.getElementById('app-content').classList.remove('hidden');
+    document.getElementById('admin-login-modal').classList.add('hidden');
+}
 
 // Variables de paginación
 let currentPage = 1;
@@ -195,9 +215,19 @@ setupAuthStateListener(async (u) => {
 
         document.getElementById('db-status').className =
             "text-xs px-3 py-1.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1.5";
-
+        
+        console.log("1");
+        console.log(user);
         const profile = await resolveUserProfile(user);
+        
         if (user?.uid === authUid) {
+            if (!profile) {
+                showLoginScreen();
+                return;
+            }
+
+            showAuthenticatedScreen();
+            console.log("2", profile);
             setCurrentProfile(profile);
             setCurrentChapelId(profile?.chapelId ?? null);
             setCurrentUserRole(resolveRoleFromLegacyAdminEmail(u.email, profile?.role));
@@ -206,10 +236,17 @@ setupAuthStateListener(async (u) => {
                 ...profile,
                 chapelName: resolveSessionChapelName(profile, chapels)
             });
+            
+            console.log("3");
             await loadChapelsIntoForm(chapels);
+            
+            console.log("4");
             await populateFilters(chapels, dataset);
             updateAdminUI();
+            
+            console.log("5");
             subscribeToDatabase(chapels);
+            console.log("6");
         }
 
     } else {
@@ -217,9 +254,8 @@ setupAuthStateListener(async (u) => {
         user = null;
         clearSession();
         resetPermissions();
-        // document.getElementById('db-status').innerHTML = `<span class="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span> Desligado`;
-
-        updateAdminUI();
+        showLoginScreen();
+        updateAdminUI(false);
     }
 });
 
@@ -227,7 +263,8 @@ setupAuthStateListener(async (u) => {
 function subscribeToDatabase(chapels = null) {
     if (!user) return;
 
-    onSnapshot(buildServersQuery(db), async (snapshot) => {
+    stopServerSubscription();
+    unsubscribeFromServers = onSnapshot(buildServersQuery(db), async (snapshot) => {
         const loadedData = [];
         snapshot.forEach((doc) => {
             const data = doc.data();
@@ -849,7 +886,7 @@ const adminPasswordInput = document.getElementById('admin-password-input');
 const loginError = document.getElementById('login-error');
 
 // Función para actualizar UI de administrador según estado isAdmin
-function updateAdminUI() {
+function updateAdminUI(renderDashboard = true) {
 
     if (canAccessAdminMode()) {
         document.getElementById('admin-banner').classList.remove('hidden');
@@ -875,7 +912,9 @@ function updateAdminUI() {
         document.getElementById('admin-icon').textContent = "🔒";
     }
 
-    updateUI(dataset);
+    if (renderDashboard) {
+        updateUI(dataset);
+    }
 }
 
 btnAdminToggle.addEventListener('click', () => {
@@ -924,7 +963,8 @@ async function performLogout() {
         showError("Não foi possível encerrar a sessão: " + err.message);
     });
     resetPermissions();
-    updateAdminUI();
+    showLoginScreen();
+    updateAdminUI(false);
 }
 
 // FORMULARIO MANUAL DE AGREGAR / EDITAR

@@ -1,5 +1,5 @@
-import { db } from "../firebase.js";
-import { collection, doc, getDocs, limit, query, serverTimestamp, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { auth, db, signOut } from "../firebase.js";
+import { collection, doc, getDoc, getDocs, limit, query, runTransaction, serverTimestamp, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /**
  * Obtiene un usuario por su UID.
@@ -11,17 +11,11 @@ async function getUserByUid(uid) {
     return null;
   }
 
-  const usersRef = collection(db, "users");
-  const usersQuery = query(usersRef, where("uid", "==", uid), limit(1));
-  console.log("DB:", db);
-  const snapshot = await getDocs(usersQuery);
+  const userDoc = await getDoc(doc(db, "users", uid));
 
-
-  if (snapshot.empty) {
+  if (!userDoc.exists()) {
     return null;
   }
-
-  const userDoc = snapshot.docs[0];
 
   return {
     id: userDoc.id,
@@ -147,77 +141,106 @@ async function getAllUsers() {
  * @returns {Promise<Object|null>} Usuario actualizado con el UID vinculado o `null` si no existe.
  */
 async function linkUserUid(email, uid) {
-  const firestoreUser = await getUserByEmail(email);
-
-  if (!firestoreUser) {
+  if (!email || !uid) {
     return null;
   }
 
-  if (firestoreUser.uid !== null && firestoreUser.uid !== "") {
-    throw new Error("User UID already linked.");
+  const legacyUserRef = doc(db, "users", email);
+  const canonicalUserRef = doc(db, "users", uid);
+
+  await runTransaction(db, async (transaction) => {
+    const canonicalSnapshot = await transaction.get(canonicalUserRef);
+
+    if (canonicalSnapshot.exists()) {
+      return;
+    }
+
+    const legacySnapshot = await transaction.get(legacyUserRef);
+
+    if (!legacySnapshot.exists()) {
+      return;
+    }
+
+    const legacyProfile = legacySnapshot.data();
+
+    if (
+      legacyProfile.uid !== null &&
+      legacyProfile.uid !== "" &&
+      legacyProfile.uid !== uid
+    ) {
+      return;
+    }
+
+    // Se conserva el perfil autorizado; el UID es el único campo modificado.
+    transaction.set(canonicalUserRef, {
+      ...legacyProfile,
+      uid
+    });
+    transaction.delete(legacyUserRef);
+  });
+
+  return getUserByUid(uid);
+}
+
+async function rejectUnauthorizedUser() {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Unable to sign out unauthorized user:", error);
   }
 
-  const payload = {
-    uid,
-    status: "active",
-    lastLogin: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  };
-
-  const userDocRef = doc(db, "users", firestoreUser.id);
-
-  await updateDoc(userDocRef, payload);
-
-  return {
-    ...firestoreUser,
-    ...payload
-  };
+  return null;
 }
 
 /**
  * Resuelve un perfil de usuario base a partir del usuario autenticado actual.
  * @param {Object|null|undefined} user Usuario autenticado recibido desde Firebase Authentication.
- * @returns {Promise<Object|null>} Perfil real si existe en Firestore, perfil placeholder si no existe o `null` si no hay usuario.
+ * @returns {Promise<Object|null>} Perfil real si existe en Firestore o `null` si no está autorizado.
  */
 async function resolveUserProfile(user) {
   if (!user) {
     return null;
   }
 
-  const placeholderProfile = {
-    uid: user?.uid ?? null,
-    email: user?.email ?? null,
-    displayName: user?.displayName ?? null,
-    role: "guest",
-    chapelId: null,
-    active: false
-  };
+  try {
+    const firestoreProfile = await getUserByUid(user.uid);
 
-  let firestoreProfile = await getUserByUid(user.uid);
-
-  if (firestoreProfile) {
-    return firestoreProfile;
-  }
-
-  firestoreProfile = await getUserByEmail(user.email);
-
-  if (!firestoreProfile) {
-    return placeholderProfile;
-  }
-
-  if (firestoreProfile.uid === null || firestoreProfile.uid === "") {
-    await linkUserUid(user.email, user.uid);
-
-    const linkedProfile = await getUserByUid(user.uid);
-
-    if (linkedProfile) {
-      return linkedProfile;
+    if (firestoreProfile) {
+      return firestoreProfile;
     }
-  }
 
-  // Si el usuario ya tenía UID o la vinculación no alteró la lectura por UID,
-  // devolvemos el perfil definitivo encontrado por email.
-  return firestoreProfile;
+    if (!user.email) {
+      return rejectUnauthorizedUser();
+    }
+
+    const legacySnapshot = await getDoc(doc(db, "users", user.email));
+
+    if (!legacySnapshot.exists()) {
+      return rejectUnauthorizedUser();
+    }
+
+    const legacyProfile = legacySnapshot.data();
+    const canMigrateLegacyProfile =
+      legacyProfile.uid === null ||
+      legacyProfile.uid === "" ||
+      legacyProfile.uid === user.uid;
+
+    if (canMigrateLegacyProfile) {
+      await linkUserUid(user.email, user.uid);
+
+      const linkedProfile = await getUserByUid(user.uid);
+
+      if (linkedProfile) {
+        return linkedProfile;
+      }
+    }
+
+    // El documento legacy pertenece a otro usuario o no pudo consolidarse.
+    return rejectUnauthorizedUser();
+  } catch (error) {
+    console.error("Unable to resolve authenticated user profile:", error);
+    return rejectUnauthorizedUser();
+  }
 
 }
 

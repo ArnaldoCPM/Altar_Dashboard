@@ -149,7 +149,7 @@ Se actualizó el flujo de resolución del perfil de usuario para utilizar el UID
 3. Si no existe, buscar por `email`.
 4. Si el usuario existe por email y aún no tiene un UID vinculado, asociar automáticamente el UID mediante `linkUserUid()`.
 5. Releer el documento actualizado y devolver el perfil definitivo.
-6. Si el usuario no existe en Firestore, devolver un perfil temporal con rol `guest` y sin permisos.
+6. Si el usuario no existe en Firestore, cerrar la sesión y devolver `null`.
 
 ### Decisión arquitectónica
 
@@ -188,7 +188,39 @@ permissions.js
 UI
 ```
 
-## M7-T4 — Consolidación del sistema de permisos
+## M7-T5A – Migración automática users/{email} → users/{uid}
+
+Se consolidó el UID de Firebase Authentication como identificador canónico de cada usuario en Firestore. El cambio elimina la dependencia operativa del email como ID de documento y alinea el perfil con la identidad autenticada.
+
+### Nuevo flujo
+
+1. `resolveUserProfile()` lee primero `users/{uid}`.
+2. Si no existe, comprueba temporalmente el documento legacy `users/{email}`.
+3. Cuando el documento legacy autorizado tiene `uid = null`, una transacción crea `users/{uid}` copiando todos sus campos, establece únicamente el UID y elimina `users/{email}` en la misma operación lógica.
+4. El perfil se vuelve a leer desde `users/{uid}` antes de iniciar la sesión.
+
+### Compatibilidad temporal y acceso
+
+- Los administradores continúan creando usuarios en `users/{email}` con `uid = null` hasta que se actualice el flujo de alta.
+- Un email autenticado que no tenga un documento previamente autorizado en Firestore se cierra mediante `signOut()` y la resolución devuelve `null`.
+- Se eliminó el perfil temporal `guest`: no se crean perfiles ni usuarios automáticamente durante el inicio de sesión.
+- La migración no modifica `email`, `displayName`, `role`, `chapelId`, `active`, `status`, `createdAt` ni `updatedAt`; solamente establece `uid` y cambia el ID del documento.
+
+### Estabilización del inicio autenticado
+
+- Se eliminó la autenticación anónima del inicio de la aplicación y de los scripts de migración.
+- Sin una sesión persistente, la aplicación muestra únicamente el login y no resuelve perfiles, carga datos ni mantiene listeners de Firestore.
+- Al cerrar sesión se cancela el listener activo de servidores y se vuelve a la pantalla de login.
+
+## M7-T5B – Corrección de la migración con UID ya vinculado
+
+Se incorporó el caso de documentos legacy cuyo campo `uid` ya coincide con el UID autenticado, pero cuyo documento canónico `users/{uid}` todavía no existe.
+
+- Si `users/{uid}` existe, se devuelve sin cambios.
+- Si existe `users/{email}` y su `uid` está vacío o coincide con el UID autenticado, se consolida mediante la misma transacción hacia `users/{uid}` y se elimina el documento legacy.
+- Si el `uid` legacy pertenece a otro usuario, el acceso se rechaza y se cierra la sesión.
+
+## M7-T4 – Consolidación del sistema de permisos
 
 Se realizó una auditoría de `main.js` para garantizar que todas las decisiones de autorización utilicen exclusivamente la API pública de `permissions.js`.
 
