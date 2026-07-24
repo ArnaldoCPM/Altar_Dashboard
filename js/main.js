@@ -681,23 +681,16 @@ function renderTable(data) {
             contactLinks.push(`<a href="${wpTutor}" target="_blank" class="text-center text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2 py-1 rounded-md">🧑‍🏫 Tutor</a>`);
         }
 
-        // Controles de Administrador
-        let adminControlsHtml = '';
+        let actionsHtml = '';
 
         const mayEditServer = canEditServer(server);
         const mayDeleteServer = canDeleteServer(server);
 
         if (mayEditServer || mayDeleteServer) {
-            adminControlsHtml = `
+            actionsHtml = `
                 <div class="flex gap-1.5 justify-center">
                     ${mayEditServer ? `<button onclick="editServer('${server.id}')" class="p-1 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[11px] font-bold transition-all">Editar</button>` : ''}
                     ${mayDeleteServer ? `<button onclick="deleteServer('${server.id}', '${server.Nome.replace(/'/g, "\\'")}')" class="p-1 px-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition-all">Apagar</button>` : ''}
-                </div>
-            `;
-        } else {
-            adminControlsHtml = `
-                <div class="flex flex-col gap-1.5">
-                    ${contactLinks.length > 0 ? contactLinks.join('') : '<span class="text-slate-400 text-center">Sem números</span>'}
                 </div>
             `;
         }
@@ -737,7 +730,12 @@ function renderTable(data) {
                 ${tieneAlergia ? `🚨 ${server.Descricao_alergia_doenca || 'Sim, é preciso ter cuidado.'}` : 'Sem condições relatadas'}
             </td>
             <td class="py-4 px-6 text-xs font-semibold text-center">
-                ${adminControlsHtml}
+                <div class="flex flex-col gap-1.5">
+                    ${contactLinks.length > 0 ? contactLinks.join('') : '<span class="text-slate-400 text-center">Sem números</span>'}
+                </div>
+            </td>
+            <td class="py-4 px-6 text-xs font-semibold text-center">
+                ${actionsHtml}
             </td>
         `;
         tableBody.appendChild(row);
@@ -882,8 +880,7 @@ function setupInteractiveEvents(data) {
     filterTipo.onchange = applyFilters;
 }
 
-// MODO ADMINISTRADOR: Autenticación mediante Firebase Authentication Email/Password
-const btnAdminToggle = document.getElementById('btn-admin-toggle');
+// Header basado exclusivamente en el perfil resuelto desde users/{uid}.
 const adminLoginModal = document.getElementById('admin-login-modal');
 const btnLoginSubmit = document.getElementById('btn-login-submit');
 const btnLoginGoogle = document.getElementById('btn-login-google');
@@ -891,56 +888,42 @@ const adminEmailInput = document.getElementById('admin-email-input');
 const adminPasswordInput = document.getElementById('admin-password-input');
 const loginError = document.getElementById('login-error');
 
-// Función para actualizar UI de administrador según estado isAdmin
+// Actualiza los controles del header según profile.role.
 function updateAdminUI(renderDashboard = true) {
+    const profileRole = getCurrentProfile()?.role;
+    const isAdminProfile = profileRole === 'admin';
+    const isCoordinatorProfile = profileRole === 'coordinator';
+    const hasAuthenticatedProfile = isAdminProfile
+        || isCoordinatorProfile
+        || profileRole === 'viewer';
+
     document.getElementById('btn-add-manual').classList.toggle(
         'hidden',
-        !canCreateServer(getCurrentChapelId())
+        !(isAdminProfile || isCoordinatorProfile)
     );
     document.getElementById('btn-manage-users').classList.toggle(
         'hidden',
-        !canManageUsers()
+        !isAdminProfile
+    );
+    document.getElementById('btn-logout').classList.toggle(
+        'hidden',
+        !hasAuthenticatedProfile
     );
 
-    if (canAccessAdminMode()) {
+    if (isAdminProfile) {
         document.getElementById('admin-banner').classList.remove('hidden');
         document.getElementById('upload-section').classList.remove('hidden');
-
-        btnAdminToggle.classList.replace('bg-white/10', 'bg-emerald-600');
-
-        document.getElementById('admin-btn-text').textContent =
-            "Administrador ativo";
-
-        document.getElementById('admin-icon').textContent = "🔓";
 
     } else {
 
         document.getElementById('admin-banner').classList.add('hidden');
         document.getElementById('upload-section').classList.add('hidden');
-
-        btnAdminToggle.classList.replace('bg-emerald-600', 'bg-white/10');
-
-        document.getElementById('admin-btn-text').textContent =
-            "Acesso Administrador";
-
-        document.getElementById('admin-icon').textContent = "🔒";
     }
 
     if (renderDashboard) {
         updateUI(dataset);
     }
 }
-
-btnAdminToggle.addEventListener('click', () => {
-    if (canAccessAdminMode()) {
-        performLogout();
-    } else {
-        adminEmailInput.value = '';
-        adminPasswordInput.value = '';
-        loginError.classList.add('hidden');
-        adminLoginModal.classList.remove('hidden');
-    }
-});
 
 document.getElementById('btn-logout').addEventListener('click', performLogout);
 

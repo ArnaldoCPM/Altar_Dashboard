@@ -54,10 +54,14 @@
                     Conectando à nuvem...
                 </span>
                 
-                <!-- Botón de Modo Administrador -->
-                <button id="btn-admin-toggle" class="bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-4 py-2 rounded-xl border border-white/20 transition-all flex items-center gap-1.5">
-                    <span id="admin-icon">🔒</span>
-                    <span id="admin-btn-text">Acesso Admin</span>
+                <button id="btn-add-manual" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all">
+                    + Novo Servidor
+                </button>
+                <button id="btn-manage-users" class="hidden bg-liturgical-blue hover:bg-liturgical-blue/90 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all">
+                    Usuários
+                </button>
+                <button id="btn-logout" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl transition-all">
+                    Sair
                 </button>
             </div>
         </div>
@@ -89,17 +93,6 @@
                     <h4 class="font-bold text-sm">Modo Administrador Ativo</h4>
                     <p class="text-xs text-emerald-600">Você possui permissão para editar, excluir, adicionar servidores e enviar arquivos CSV.</p>
                 </div>
-            </div>
-            <div class="flex items-center gap-2">
-                <button id="btn-add-manual" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all">
-                    + Adicionar Servidor
-                </button>
-                <button id="btn-manage-users" class="bg-liturgical-blue hover:bg-liturgical-blue/90 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all">
-                    Gerenciar Usuários
-                </button>
-                <button id="btn-logout" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl transition-all">
-                    Sair do Admin
-                </button>
             </div>
         </div>
 
@@ -335,6 +328,7 @@
                                 <th class="py-4 px-6">Capela / Origem</th>
                                 <th class="py-4 px-6">Sacramental</th>
                                 <th class="py-4 px-6">Alergias / Doenças</th>
+                                <th class="py-4 px-6">Contatos</th>
                                 <th class="py-4 px-6">Ações</th>
                             </tr>
                         </thead>
