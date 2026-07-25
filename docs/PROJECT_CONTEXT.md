@@ -364,3 +364,96 @@ Todos los usuarios activos (`admin`, `coordinator` y `viewer`) consultan el data
 - **Viewer:** solo consulta datos; no puede modificar registros.
 
 `authorization.js` expone las decisiones por registro (`canEdit(server)`, `canDelete(server)`, `canCreateServer(chapelId)` y `canChangeChapel(server, chapelId)`). La interfaz las aplica en los controles y antes de cada escritura, mientras que las Firestore Security Rules mantienen la misma restricción en el servidor.
+
+# Estado del proyecto – RC v0.8.0
+
+## Estado general
+
+El proyecto alcanzó una versión candidata para producción (Release Candidate).
+
+La arquitectura de autenticación, autorización y gestión de servidores fue estabilizada antes del despliegue en Vercel.
+
+---
+
+## Mejoras implementadas
+
+### Autenticación
+
+- Login rediseñado.
+- Google Sign-In como método principal.
+- Acceso por Email/Senha como opción secundaria.
+- Eliminado el concepto de "Acesso de administrador".
+
+---
+
+### Autorización
+
+- Roles consolidados:
+  - Admin
+  - Coordinator
+  - Viewer
+
+- Header dinámico según el rol.
+
+---
+
+### Gestión de Servidores
+
+Formulario actualizado con:
+
+- Nome do tutor
+- WhatsApp do tutor
+
+Corrección de carga de Data_nascimento durante la edición.
+
+Campo Horário de estudo convertido a selección múltiple.
+
+Compatibilidad con registros antiguos.
+
+---
+
+### Teléfonos
+
+Se centralizó el tratamiento de teléfonos mediante funciones reutilizables:
+
+- normalizePhone()
+- formatPhone()
+- isValidPhone()
+
+Aplicadas en:
+
+- creación
+- edición
+- importación CSV
+
+---
+
+### Edad
+
+La edad dejó de almacenarse como dato principal.
+
+Nueva política arquitectónica:
+
+La única fuente de verdad es Data_nascimento.
+
+calculateAge() pasa a ser el mecanismo oficial para obtener la edad.
+
+Compatibilidad temporal con el campo legado Idade.
+
+Aplicado en:
+
+- formularios
+- tabla
+- dashboard
+- KPIs
+- gráficos
+
+---
+
+## Estado arquitectónico
+
+La versión RC se considera estable.
+
+El siguiente gran objetivo será:
+
+M9 – Application Shell

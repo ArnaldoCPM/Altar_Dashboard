@@ -83,8 +83,12 @@ async function createUser(userData) {
  * @param {Object} userData Campos del usuario a modificar.
  * @returns {Promise<Object|null>} Usuario actualizado o resultado esperado de la operación.
  */
-async function updateUser(userId, userData) {
-  const userDocRef = doc(db, "users", userId);
+async function updateUser(uid, userData) {
+  if (!uid) {
+    throw new Error("updateUser requires uid");
+  }
+
+  const userDocRef = doc(db, "users", uid);
   const payload = {
     ...userData,
     updatedAt: serverTimestamp()
@@ -93,7 +97,7 @@ async function updateUser(userId, userData) {
   await updateDoc(userDocRef, payload);
 
   return {
-    id: userId,
+    id: uid,
     ...payload
   };
 }
@@ -103,19 +107,23 @@ async function updateUser(userId, userData) {
  * @param {string} uid UID del usuario que se desea desactivar.
  * @returns {Promise<Object|null>} Usuario desactivado o resultado esperado de la operación.
  */
-async function disableUser(userId) {
+async function disableUser(uid) {
+  if (!uid) {
+    throw new Error("disableUser requires uid");
+  }
+
   const payload = {
     active: false,
     status: "disabled",
     updatedAt: serverTimestamp()
   };
 
-  const userDocRef = doc(db, "users", userId);
+  const userDocRef = doc(db, "users", uid);
 
   await updateDoc(userDocRef, payload);
 
   return {
-    id: userId,
+    id: uid,
     ...payload
   };
 }
@@ -129,8 +137,8 @@ async function getAllUsers() {
   const snapshot = await getDocs(usersRef);
 
   return snapshot.docs.map(docItem => ({
-    id: docItem.id,
-    ...docItem.data()
+    ...docItem.data(),
+    documentId: docItem.id
   }));
 }
 

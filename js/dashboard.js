@@ -1,5 +1,17 @@
 ﻿import { cleanStr } from "./utils.js";
 
+import { calculateAge } from "./utils.js";
+
+function getServerAge(server) {
+    const calculatedAge = calculateAge(server.Data_nascimento);
+    if (calculatedAge !== null) {
+        return calculatedAge;
+    }
+
+    const legacyAge = parseInt(server.Idade);
+    return Number.isNaN(legacyAge) ? null : legacyAge;
+}
+
 function updateKPIs(data) {
     document.getElementById('kpi-total').textContent = data.length;
 
@@ -12,7 +24,7 @@ function updateKPIs(data) {
     const countFormandos = data.filter(d => cleanStr(d.Tipo).includes('formando')).length;
     document.getElementById('kpi-formandos').textContent = countFormandos;
 
-    const ages = data.map(d => parseInt(d.Idade)).filter(n => !isNaN(n));
+    const ages = data.map(getServerAge).filter(n => !isNaN(n));
     const avgAge = ages.length > 0 ? (ages.reduce((a, b) => a + b, 0) / ages.length).toFixed(1) : "0";
     document.getElementById('kpi-edad').innerHTML = `${avgAge} <span class="text-xs font-normal text-slate-500">anos</span>`;
 

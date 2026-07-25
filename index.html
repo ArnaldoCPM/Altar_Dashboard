@@ -363,31 +363,16 @@
         </div>
     </main>
 
-    <!-- ADMIN LOGIN MODAL (Firebase Authentication Email/Password) -->
+    <!-- LOGIN MODAL -->
     <div id="admin-login-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="text-lg font-bold text-slate-800">Acesso de administrador</h3>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">Entrar no SGSA</h3>
+                    <p class="text-xs text-slate-500 mt-1">Utilize sua conta autorizada para acessar o sistema.</p>
+                </div>
             </div>
-            
-            <div class="space-y-2">
-                <label class="text-xs font-semibold text-slate-500 block">Email do administrador</label>
-                <input type="email" id="admin-email-input" placeholder="admin@paroquia.com" class="w-full px-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue" />
-            </div>
-            <div class="space-y-2">
-                <label class="text-xs font-semibold text-slate-500 block">Palavra-passe</label>
-                <input type="password" id="admin-password-input" placeholder="Introduce la contraseña..." class="w-full px-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue" />
-                <p id="login-error" class="hidden text-xs text-rose-600 font-medium">Credenciais incorretas. Verifique email e senha.</p>
-            </div>
-            <div class="flex gap-2 pt-2">
-                <button id="btn-login-submit" class="w-full py-2 bg-liturgical-blue text-white text-xs font-bold rounded-xl hover:bg-liturgical-blue/90 transition-colors">Entrar</button>
-            </div>
-            <div class="flex items-center gap-3">
-                <span class="h-px flex-1 bg-slate-200"></span>
-                <span class="text-xs text-slate-400">ou</span>
-                <span class="h-px flex-1 bg-slate-200"></span>
-            </div>
-            <button id="btn-login-google" class="w-full py-2 border border-slate-300 bg-white text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+            <button id="btn-login-google" class="w-full py-2 bg-liturgical-blue text-white text-xs font-bold rounded-xl hover:bg-liturgical-blue/90 transition-colors flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
                     <path fill="#4285F4" d="M21.35 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.24a4.48 4.48 0 0 1-1.94 2.94v2.51h3.14c1.84-1.7 2.91-4.2 2.91-7.28Z"/>
                     <path fill="#34A853" d="M12 21.75c2.63 0 4.84-.87 6.45-2.36l-3.14-2.39c-.87.59-1.98.94-3.31.94-2.54 0-4.7-1.72-5.47-4.03H3.29v2.47A9.75 9.75 0 0 0 12 21.75Z"/>
@@ -396,6 +381,22 @@
                 </svg>
                 Continuar com Google
             </button>
+            <button type="button" id="btn-show-email-login" class="w-full text-xs font-semibold text-liturgical-blue hover:text-liturgical-blue/80 transition-colors">Entrar com e-mail e senha</button>
+            <div id="email-login-fields" class="hidden space-y-4">
+                <div class="space-y-2">
+                    <label class="text-xs font-semibold text-slate-500 block">Email</label>
+                    <input type="email" id="admin-email-input" placeholder="seuemail@paroquia.com" class="w-full px-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue" />
+                </div>
+                <div class="space-y-2">
+                    <label class="text-xs font-semibold text-slate-500 block">Senha</label>
+                    <input type="password" id="admin-password-input" placeholder="Digite sua senha" class="w-full px-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue" />
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button id="btn-login-submit" class="w-full py-2 bg-liturgical-blue text-white text-xs font-bold rounded-xl hover:bg-liturgical-blue/90 transition-colors">Entrar</button>
+                </div>
+            </div>
+            <p id="login-error" class="hidden text-xs text-rose-600 font-medium">Credenciais incorretas. Verifique email e senha.</p>
+            <p class="text-xs text-slate-400 text-center">Ainda não tem acesso?<br>Entre em contato com o administrador da sua comunidade.</p>
         </div>
     </div>
 
@@ -423,8 +424,8 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <label class="font-semibold text-slate-500 block mb-1">Idade *</label>
-                        <input type="number" id="form-idade" required min="0" max="30" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                            <label class="font-semibold text-slate-500 block mb-1">Idade</label>
+                            <input type="number" id="form-idade" readonly min="0" max="30" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
                     </div>
                     <div>
                         <label class="font-semibold text-slate-500 block mb-1">Sexo *</label>
@@ -465,7 +466,20 @@
                     </div>
                     <div>
                         <label class="font-semibold text-slate-500 block mb-1">Horário de estudo</label>
-                        <input type="text" id="form-horario-estudo" placeholder="Ej: Manhã;Tarde" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                        <div class="flex flex-wrap gap-3 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                            <label class="flex items-center gap-1.5 text-slate-600">
+                                <input type="checkbox" name="form-horario-estudo" value="Manha" />
+                                Manhã
+                            </label>
+                            <label class="flex items-center gap-1.5 text-slate-600">
+                                <input type="checkbox" name="form-horario-estudo" value="Tarde" />
+                                Tarde
+                            </label>
+                            <label class="flex items-center gap-1.5 text-slate-600">
+                                <input type="checkbox" name="form-horario-estudo" value="Noite" />
+                                Noite
+                            </label>
+                        </div>
                     </div>
                 </div>
 
@@ -502,6 +516,12 @@
                     <h4 class="font-bold text-slate-700">Contactos dos pais e tutores (Opcional)</h4>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
+                            <label class="font-semibold text-slate-400 block mb-1">WhatsApp do servidor</label>
+                            <input type="text" id="form-wp-candidato" placeholder="46999998888" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm" />
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
                             <label class="font-semibold text-slate-400 block mb-1">Nome da mãe</label>
                             <input type="text" id="form-nome-mae" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm" />
                         </div>
@@ -518,6 +538,16 @@
                         <div>
                             <label class="font-semibold text-slate-400 block mb-1">WhatsApp do Pais</label>
                             <input type="text" id="form-wp-pai" placeholder="46935052173" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm" />
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="font-semibold text-slate-400 block mb-1">Nome do tutor</label>
+                            <input type="text" id="form-nome-tutor" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm" />
+                        </div>
+                        <div>
+                            <label class="font-semibold text-slate-400 block mb-1">WhatsApp do tutor</label>
+                            <input type="text" id="form-wp-tutor" placeholder="46999102698" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm" />
                         </div>
                     </div>
                 </div>

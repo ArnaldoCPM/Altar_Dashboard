@@ -2,7 +2,7 @@ import { app, db, doc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./fireb
 import { initAuth, setupAuthStateListener, loginWithEmailPassword, loginWithGoogle, performLogout as performFirebaseLogout } from "./auth.js";
 import { getAllUsers, resolveUserProfile, updateUser, createUser } from "./data/users.js";
 import { createServer } from "./data/servers.js";
-import { cleanStr, generateWpLink } from "./utils.js";
+import { calculateAge, cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./dashboard.js";
 import {
     setCurrentUser,
@@ -44,6 +44,16 @@ let charts = {};
 let cachedActiveChapels = [];
 let unsubscribeFromServers = null;
 
+function getServerAge(server) {
+    const calculatedAge = calculateAge(server?.Data_nascimento);
+    if (calculatedAge !== null) {
+        return calculatedAge;
+    }
+
+    const legacyAge = parseInt(server?.Idade);
+    return Number.isNaN(legacyAge) ? null : legacyAge;
+}
+
 function stopServerSubscription() {
     if (unsubscribeFromServers) {
         unsubscribeFromServers();
@@ -53,6 +63,7 @@ function stopServerSubscription() {
 
 function showLoginScreen() {
     stopServerSubscription();
+    resetEmailLoginFields();
     document.getElementById('app-content').classList.add('hidden');
     document.getElementById('admin-login-modal').classList.remove('hidden');
     document.getElementById('loading-overlay').classList.add('hidden');
@@ -486,7 +497,7 @@ function renderCharts(data) {
     };
 
     data.forEach(d => {
-        const edad = parseInt(d.Idade);
+        const edad = getServerAge(d);
         if (!isNaN(edad)) {
             const rawTipo = cleanStr(d.Tipo);
             let tipoKey = 'candidato';
@@ -712,7 +723,7 @@ function renderTable(data) {
                 </div>
             </td>
             <td class="py-4 px-6">
-                <div class="font-medium text-slate-700">${server.Idade !== undefined ? server.Idade : 0} anos</div>
+                <div class="font-medium text-slate-700">${getServerAge(server) ?? 0} anos</div>
                 <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium ${genderColor}">${genderText}</span>
             </td>
             <td class="py-4 px-6">
@@ -884,9 +895,24 @@ function setupInteractiveEvents(data) {
 const adminLoginModal = document.getElementById('admin-login-modal');
 const btnLoginSubmit = document.getElementById('btn-login-submit');
 const btnLoginGoogle = document.getElementById('btn-login-google');
+const btnShowEmailLogin = document.getElementById('btn-show-email-login');
+const emailLoginFields = document.getElementById('email-login-fields');
 const adminEmailInput = document.getElementById('admin-email-input');
 const adminPasswordInput = document.getElementById('admin-password-input');
 const loginError = document.getElementById('login-error');
+
+function resetEmailLoginFields() {
+    emailLoginFields?.classList.add('hidden');
+    btnShowEmailLogin?.classList.remove('hidden');
+    loginError?.classList.add('hidden');
+}
+
+btnShowEmailLogin.addEventListener('click', () => {
+    emailLoginFields.classList.remove('hidden');
+    btnShowEmailLogin.classList.add('hidden');
+    loginError.classList.add('hidden');
+    adminEmailInput.focus();
+});
 
 // Actualiza los controles del header según profile.role.
 function updateAdminUI(renderDashboard = true) {
@@ -982,6 +1008,8 @@ async function performLogout() {
 // FORMULARIO MANUAL DE AGREGAR / EDITAR
 const editServerModal = document.getElementById('edit-server-modal');
 const serverForm = document.getElementById('server-form');
+const birthDateInput = document.getElementById('form-data-nasc');
+const ageInput = document.getElementById('form-idade');
 const usersManagementModal = document.getElementById('users-management-modal');
 const usersTableBody = document.getElementById('users-table-body');
 const userEditModal = document.getElementById('user-edit-modal');
@@ -1001,6 +1029,10 @@ const emptyUsersRowMarkup = `
         <td colspan="6" class="px-6 py-10 text-center text-sm text-slate-500">Nenhum usuário cadastrado.</td>
     </tr>
 `;
+
+birthDateInput.addEventListener('input', () => {
+    ageInput.value = calculateAge(birthDateInput.value) ?? '';
+});
 
 function syncUserChapelFieldState() {
     const userRoleRequiresNoChapel = userRoleInput.value === 'admin';
@@ -1061,9 +1093,11 @@ async function loadUsersTable() {
             <td class="py-4 px-6">${userItem.chapelId || '—'}</td>
             <td class="py-4 px-6">${isActive ? '🟢 Ativo' : '⚪ Inativo'}</td>
             <td class="py-4 px-6">
-                <button type="button" onclick="editUser('${userItem.id}')" class="text-xs font-bold text-liturgical-blue hover:text-liturgical-blue/80 transition-colors">
-                    Editar
-                </button>
+                ${userItem.uid === userItem.documentId ? `
+                    <button type="button" onclick="editUser('${userItem.uid}')" class="text-xs font-bold text-liturgical-blue hover:text-liturgical-blue/80 transition-colors">
+                        Editar
+                    </button>
+                ` : '<span class="text-xs text-slate-400">Aguardando ativação</span>'}
             </td>
         `;
 
@@ -1071,12 +1105,12 @@ async function loadUsersTable() {
     });
 }
 
-window.editUser = async function(userId) {
+window.editUser = async function(uid) {
     if (!canManageUsers()) {
         return;
     }
 
-    const userItem = loadedUsers.find((item) => item.id === userId);
+    const userItem = loadedUsers.find((item) => item.uid === uid);
 
     if (!userItem) {
         return;
@@ -1086,7 +1120,7 @@ window.editUser = async function(userId) {
     userEditModalTitle.textContent = "Editar Usuário";
     userDisplayNameInput.value = userItem.displayName || '';
     userEmailInput.value = userItem.email || '';
-    userIdInput.value = userItem.id || '';
+    userIdInput.value = userItem.uid || '';
     userEmailInput.readOnly = true;
     userRoleInput.value = userItem.role || 'viewer';
     await loadChapelsIntoUserForm(userItem.chapelId || '');
@@ -1163,7 +1197,7 @@ userEditForm.addEventListener('submit', async (e) => {
         return;
     }
 
-    const userId = userIdInput.value;
+    const uid = userIdInput.value;
     const email = userEmailInput.value.trim();
     const role = userRoleInput.value;
     const chapelId = userChapelInput.value.trim();
@@ -1187,7 +1221,7 @@ userEditForm.addEventListener('submit', async (e) => {
             ...userData
         });
     } else {
-        await updateUser(userId, userData);
+        await updateUser(uid, userData);
     }
 
     userEditModal.classList.add('hidden');
@@ -1210,21 +1244,23 @@ serverForm.addEventListener('submit', async (e) => {
         id: id,
         Nome: document.getElementById('form-nome').value.trim(),
         Data_nascimento: document.getElementById('form-data-nasc').value,
-        Idade: parseInt(document.getElementById('form-idade').value) || 0,
         Sexo: document.getElementById('form-sexo').value,
         Capela: document.getElementById('form-capela').value.trim(),
         Tipo: document.getElementById('form-tipo').value,
         Estado: document.getElementById('form-estado').value,
-        Horario_estudo: document.getElementById('form-horario-estudo').value,
+        Horario_estudo: getStudyScheduleFromForm(),
         Batizado: document.getElementById('form-batizado').checked ? 'Sim' : 'Não',
         Primeira_eucaristia: document.getElementById('form-comunion').checked ? 'Sim' : 'Não',
         Crismado: document.getElementById('form-crisma').checked ? 'Sim' : 'Não',
         Possui_alergia_doenca: document.getElementById('form-tem-alergia').value,
         Descricao_alergia_doenca: document.getElementById('form-desc-alergia').value.trim(),
         Nome_mae: document.getElementById('form-nome-mae').value.trim(),
-        Whatsapp_mae: document.getElementById('form-wp-mae').value.trim(),
+        Whatsapp_candidato: normalizePhone(document.getElementById('form-wp-candidato').value),
+        Whatsapp_mae: normalizePhone(document.getElementById('form-wp-mae').value),
         Nome_pai: document.getElementById('form-nome-pai').value.trim(),
-        Whatsapp_pai: document.getElementById('form-wp-pai').value.trim(),
+        Whatsapp_pai: normalizePhone(document.getElementById('form-wp-pai').value),
+        Nome_tutor_guardiao: document.getElementById('form-nome-tutor').value.trim(),
+        Whatsapp_tutor_guardiao: normalizePhone(document.getElementById('form-wp-tutor').value),
     }, existingServer);
 
     if (existingServer && !canChangeChapel(existingServer, payload.chapelId)) {
@@ -1239,6 +1275,92 @@ serverForm.addEventListener('submit', async (e) => {
     }
 });
 
+function formatDateForDateInput(value) {
+    if (!value) {
+        return '';
+    }
+
+    if (typeof value.toDate === 'function') {
+        return formatDateForDateInput(value.toDate());
+    }
+
+    if (value instanceof Date) {
+        if (Number.isNaN(value.getTime())) {
+            return '';
+        }
+
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    if (typeof value === 'object' && typeof value.seconds === 'number') {
+        return formatDateForDateInput(new Date(value.seconds * 1000));
+    }
+
+    const dateValue = String(value).trim();
+    const brazilianDate = dateValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+    if (brazilianDate) {
+        const [, day, month, year] = brazilianDate;
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+
+    const isoDate = dateValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return isoDate ? isoDate[0] : '';
+}
+
+function normalizePhone(phone) {
+    return (phone || '').toString().replace(/\D/g, '');
+}
+
+function formatPhone(phone) {
+    const originalPhone = (phone || '').toString().trim();
+    const normalizedPhone = normalizePhone(originalPhone);
+    const brazilianPhone = normalizedPhone.startsWith('55')
+        && (normalizedPhone.length === 12 || normalizedPhone.length === 13)
+        ? normalizedPhone.slice(2)
+        : normalizedPhone;
+
+    if (brazilianPhone.length === 11) {
+        return `(${brazilianPhone.slice(0, 2)}) ${brazilianPhone.slice(2, 7)}-${brazilianPhone.slice(7)}`;
+    }
+
+    if (brazilianPhone.length === 10) {
+        return `(${brazilianPhone.slice(0, 2)}) ${brazilianPhone.slice(2, 6)}-${brazilianPhone.slice(6)}`;
+    }
+
+    return originalPhone;
+}
+
+function isValidPhone(phone) {
+    return [10, 11, 12, 13].includes(normalizePhone(phone).length);
+}
+
+function getStudyScheduleFromForm() {
+    return Array.from(
+        document.querySelectorAll('input[name="form-horario-estudo"]:checked')
+    )
+        .map((input) => input.value)
+        .join(';');
+}
+
+function setStudyScheduleInForm(schedule) {
+    const selectedValues = new Set(
+        (schedule || '')
+            .toString()
+            .split(';')
+            .map((value) => cleanStr(value))
+    );
+
+    document
+        .querySelectorAll('input[name="form-horario-estudo"]')
+        .forEach((input) => {
+            input.checked = selectedValues.has(cleanStr(input.value));
+        });
+}
+
 // Funciones expuestas a nivel global para compatibilidad con handlers inline onclick
 window.editServer = function(id) {
     const server = dataset.find(d => d.id === id);
@@ -1247,14 +1369,14 @@ window.editServer = function(id) {
     document.getElementById('edit-modal-title').textContent = `Editar Servidor: ${server.id}`;
     document.getElementById('form-id').value = server.id;
     document.getElementById('form-nome').value = server.Nome || '';
-    document.getElementById('form-data-nasc').value = server.Data_nascimento || '';
-    document.getElementById('form-idade').value = server.Idade !== undefined ? server.Idade : 0;
+    document.getElementById('form-data-nasc').value = formatDateForDateInput(server.Data_nascimento);
+    document.getElementById('form-idade').value = getServerAge(server) ?? '';
     document.getElementById('form-sexo').value = server.Sexo || 'Masculino';
     document.getElementById('form-capela').value = server.Capela || '';
     document.getElementById('form-capela').disabled = !canAccessAdminMode();
     document.getElementById('form-tipo').value = server.Tipo || 'Candidato';
     document.getElementById('form-estado').value = server.Estado || 'Ativo';
-    document.getElementById('form-horario-estudo').value = server.Horario_estudo || '';
+    setStudyScheduleInForm(server.Horario_estudo);
     
     document.getElementById('form-batizado').checked = ['sim', 'si', 's'].includes(cleanStr(server.Batizado));
     document.getElementById('form-comunion').checked = ['sim', 'si', 's'].includes(cleanStr(server.Primeira_eucaristia));
@@ -1264,9 +1386,12 @@ window.editServer = function(id) {
     document.getElementById('form-desc-alergia').value = server.Descricao_alergia_doenca || '';
     
     document.getElementById('form-nome-mae').value = server.Nome_mae || '';
-    document.getElementById('form-wp-mae').value = server.Whatsapp_mae || '';
+    document.getElementById('form-wp-candidato').value = formatPhone(server.Whatsapp_candidato);
+    document.getElementById('form-wp-mae').value = formatPhone(server.Whatsapp_mae);
     document.getElementById('form-nome-pai').value = server.Nome_pai || '';
-    document.getElementById('form-wp-pai').value = server.Whatsapp_pai || '';
+    document.getElementById('form-wp-pai').value = formatPhone(server.Whatsapp_pai);
+    document.getElementById('form-nome-tutor').value = server.Nome_tutor_guardiao || '';
+    document.getElementById('form-wp-tutor').value = formatPhone(server.Whatsapp_tutor_guardiao);
 
     editServerModal.classList.remove('hidden');
 };
@@ -1375,14 +1500,10 @@ async function uploadBatchToFirestore(items) {
 
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'servers', itemID);
                 
-                const parsedAge = parseInt(item.Idade);
-                const safeAge = isNaN(parsedAge) ? 0 : parsedAge;
-
                 const payload = applyAuthorizedServerScope({
                     id: itemID,
                     Nome: (item.Nome || 'Sem Nome').trim(),
                     Data_nascimento: item.Data_nascimento || '',
-                    Idade: safeAge,
                     Sexo: cleanSexo(item.Sexo),
                     Capela: (item.Capela || 'Sem Capela').trim(),
                     Tipo: cleanTipo(item.Tipo),
@@ -1395,12 +1516,12 @@ async function uploadBatchToFirestore(items) {
                     Descricao_alergia_doenca: (item.Descricao_alergia_doenca || '').trim(),
                     Bairro: item.Bairro || '',
                     Nome_mae: (item.Nome_mae || '').trim(),
-                    Whatsapp_mae: (item.Whatsapp_mae || '').trim(),
+                    Whatsapp_mae: normalizePhone(item.Whatsapp_mae),
                     Nome_pai: (item.Nome_pai || '').trim(),
-                    Whatsapp_pai: (item.Whatsapp_pai || '').trim(),
-                    Whatsapp_candidato: (item.Whatsapp_candidato || '').trim(),
+                    Whatsapp_pai: normalizePhone(item.Whatsapp_pai),
+                    Whatsapp_candidato: normalizePhone(item.Whatsapp_candidato),
                     Nome_tutor_guardiao: (item.Nome_tutor_guardiao || '').trim(),
-                    Whatsapp_tutor_guardiao: (item.Whatsapp_tutor_guardiao || '').trim()
+                    Whatsapp_tutor_guardiao: normalizePhone(item.Whatsapp_tutor_guardiao)
                 });
 
                 batch.set(docRef, payload, { merge: true });

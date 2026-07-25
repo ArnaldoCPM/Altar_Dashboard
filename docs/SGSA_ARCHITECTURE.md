@@ -69,6 +69,23 @@ Las colecciones principales son:
 
 Las relaciones y el detalle de campos se documentan en `DATABASE.md`.
 
+### Datos derivados
+
+El SGSA diferencia entre:
+
+- datos almacenados;
+- datos derivados.
+
+Ejemplo:
+
+Data_nascimento → Edad
+
+La edad no se almacena como dato oficial.
+
+Se calcula dinámicamente mediante calculateAge().
+
+Este principio evita inconsistencias y elimina la necesidad de procesos periódicos de actualización.
+
 ## 7. Arquitectura UI
 
 - **Header:** identifica el estado general de la sesión y muestra acciones de alto nivel según `currentUserProfile.role`.
