@@ -457,3 +457,21 @@ La versión RC se considera estable.
 El siguiente gran objetivo será:
 
 M9 – Application Shell
+
+## M9-T1 — Blueprint del Application Shell
+
+Se definió el Blueprint oficial del Application Shell en `docs/M9_APPLICATION_SHELL_BLUEPRINT.md`.
+
+El Blueprint establece la transición del SGSA desde una página única hacia una aplicación modular con una infraestructura persistente: Header, Sidebar y Workspace, con un Footer reservado para el futuro. Durante la navegación solo cambia el contenido del Workspace y no existen recargas de página.
+
+La arquitectura objetivo incorpora responsabilidades separadas para `layout/`, `navigation/router.js` y los directorios de `modules/`. La navegación se determina por rol y oculta los módulos no autorizados; sus permisos son independientes de las autorizaciones internas de cada módulo.
+
+El documento también define los principios de bajo acoplamiento, alta cohesión, fuente única de verdad y separación entre UI y reglas de negocio, además del roadmap M9-T1 a M9-T6 para su implementación progresiva.
+
+## M9-T2 — Layout del Application Shell
+
+Se implementó la infraestructura visual inicial del Application Shell: Header persistente, Sidebar estático y Workspace. El Dashboard existente se conserva sin cambios funcionales y se renderiza dentro de `#workspace`.
+
+El Header mantiene las acciones globales existentes y presenta la información de sesión disponible (foto o iniciales, nombre, rol y capilla). El Sidebar muestra los módulos definidos por el Blueprint como enlaces estáticos; no realiza navegación ni aplica visibilidad por rol todavía. Esa responsabilidad queda explícitamente reservada para M9-T5.
+
+Se añadió la estructura base en `js/layout/`, `js/navigation/` y `js/modules/`. Los módulos funcionales, Firebase, autenticación, permisos, Firestore y la lógica del Dashboard permanecen sin cambios.

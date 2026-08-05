@@ -27,6 +27,9 @@ import {
 } from "./authorization.js";
 import { buildServersQuery } from "./serverQuery.js";
 import { getActiveChapels } from "./data/chapels.js";
+import { initHeader, updateHeaderSession } from "./layout/header.js";
+import { initSidebar } from "./layout/sidebar.js";
+import { getWorkspaceElement } from "./layout/workspace.js";
 
 // import { renderTable } from "./table.js";
 // import { renderCharts } from "./charts.js";
@@ -43,6 +46,14 @@ let user = null;
 let charts = {};
 let cachedActiveChapels = [];
 let unsubscribeFromServers = null;
+
+function initApplicationShell() {
+    initHeader();
+    initSidebar();
+    getWorkspaceElement();
+}
+
+initApplicationShell();
 
 function getServerAge(server) {
     const calculatedAge = calculateAge(server?.Data_nascimento);
@@ -64,6 +75,7 @@ function stopServerSubscription() {
 function showLoginScreen() {
     stopServerSubscription();
     resetEmailLoginFields();
+    updateHeaderSession(null, null);
     document.getElementById('app-content').classList.add('hidden');
     document.getElementById('admin-login-modal').classList.remove('hidden');
     document.getElementById('loading-overlay').classList.add('hidden');
@@ -249,6 +261,7 @@ setupAuthStateListener(async (u) => {
                 ...profile,
                 chapelName: resolveSessionChapelName(profile, chapels)
             });
+            updateHeaderSession(getCurrentProfile(), user);
             
             console.log("3");
             await loadChapelsIntoForm(chapels);
