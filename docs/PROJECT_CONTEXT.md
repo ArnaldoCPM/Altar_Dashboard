@@ -475,3 +475,9 @@ Se implementó la infraestructura visual inicial del Application Shell: Header p
 El Header mantiene las acciones globales existentes y presenta la información de sesión disponible (foto o iniciales, nombre, rol y capilla). El Sidebar muestra los módulos definidos por el Blueprint como enlaces estáticos; no realiza navegación ni aplica visibilidad por rol todavía. Esa responsabilidad queda explícitamente reservada para M9-T5.
 
 Se añadió la estructura base en `js/layout/`, `js/navigation/` y `js/modules/`. Los módulos funcionales, Firebase, autenticación, permisos, Firestore y la lógica del Dashboard permanecen sin cambios.
+
+## M9-T2A — Sidebar configurable
+
+La definición de los módulos visibles del Sidebar fue centralizada en `js/navigation/navigation.config.js`, organizada en las secciones GERAL, FORMAÇÃO y ADMINISTRAÇÃO. `sidebar.js` renderiza esas secciones desde la configuración y mantiene los enlaces como elementos estáticos sin navegación funcional.
+
+El Sidebar incorpora además un pie con la identificación SGSA y la versión `v0.8.0`. No se modificaron Router, permisos por rol ni módulos funcionales; esas responsabilidades continúan fuera del alcance de esta tarea.
