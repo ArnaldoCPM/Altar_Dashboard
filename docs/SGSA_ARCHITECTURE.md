@@ -97,6 +97,18 @@ Este principio evita inconsistencias y elimina la necesidad de procesos periódi
 
 ## 8. Organización de módulos JavaScript
 
+### Patrón oficial de módulos
+
+Todo módulo funcional nuevo debe organizarse bajo `js/modules/<module>/` y exponer una API de ciclo de vida desde `index.js`: `initialize()`, `refresh()` y `destroy()`.
+
+- `controller.js` coordina carga de datos y actualización de vistas.
+- `state.js` mantiene exclusivamente el estado del módulo.
+- `services/` encapsula el acceso a datos del dominio.
+- `views/` se limita al renderizado.
+- `components/` concentra piezas reutilizables cuando el módulo las necesite.
+
+El Dashboard es el primer módulo que aplica este patrón y actúa como referencia para los siguientes dominios. `main.js` conserva la orquestación global de sesión y el inicio de módulos; no debe contener el estado o ciclo de vida interno de un módulo.
+
 - **`auth`**: integra Firebase Authentication y comunica cambios de sesión.
 - **`authorization`**: decide si una operación sobre un servidor concreto está permitida según rol y capilla.
 - **`permissions`**: mantiene roles y capacidades generales del sistema.

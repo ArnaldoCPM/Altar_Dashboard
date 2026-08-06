@@ -1,9 +1,10 @@
-import { app, db, doc, getDoc, onSnapshot, deleteDoc, writeBatch } from "./firebase.js";
+import { app, db, doc, getDoc, deleteDoc, writeBatch } from "./firebase.js";
 import { initAuth, setupAuthStateListener, loginWithEmailPassword, loginWithGoogle, performLogout as performFirebaseLogout } from "./auth.js";
 import { getAllUsers, resolveUserProfile, updateUser, createUser } from "./data/users.js";
 import { createServer } from "./data/servers.js";
 import { calculateAge, cleanStr, generateWpLink } from "./utils.js";
-import { updateKPIs } from "./dashboard.js";
+import { updateKPIs } from "./modules/dashboard/views/kpis.view.js";
+import { destroy as destroyDashboard, getData as getDashboardData, initialize as initializeDashboard, refresh as refreshDashboard } from "./modules/dashboard/index.js";
 import {
     setCurrentUser,
     setCurrentProfile,
@@ -25,7 +26,6 @@ import {
     canDelete as canDeleteServer,
     canEdit as canEditServer
 } from "./authorization.js";
-import { buildServersQuery } from "./serverQuery.js";
 import { getActiveChapels } from "./data/chapels.js";
 import { initHeader, updateHeaderSession } from "./layout/header.js";
 import { initSidebar } from "./layout/sidebar.js";
@@ -41,11 +41,9 @@ import { getWorkspaceElement } from "./layout/workspace.js";
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 // Estado global de la aplicación
-let dataset = [];
 let user = null;
 let charts = {};
 let cachedActiveChapels = [];
-let unsubscribeFromServers = null;
 
 function initApplicationShell() {
     initHeader();
@@ -66,10 +64,7 @@ function getServerAge(server) {
 }
 
 function stopServerSubscription() {
-    if (unsubscribeFromServers) {
-        unsubscribeFromServers();
-        unsubscribeFromServers = null;
-    }
+    destroyDashboard();
 }
 
 function showLoginScreen() {
@@ -108,7 +103,7 @@ function auditChapels() {
 
     const problems = [];
 
-    dataset.forEach(server => {
+    getDashboardData().forEach(server => {
 
         const chapel = (server.Capela || "").trim();
 
@@ -267,11 +262,15 @@ setupAuthStateListener(async (u) => {
             await loadChapelsIntoForm(chapels);
             
             console.log("4");
-            await populateFilters(chapels, dataset);
             updateAdminUI();
             
             console.log("5");
-            subscribeToDatabase(chapels);
+            await initializeDashboard({
+                chapels,
+                render: updateUI,
+                populateFilters,
+                onError: (error) => showError('Erro ao carregar os dados da base de dados do Firestore: ' + error.message)
+            });
             console.log("6");
         }
 
@@ -284,47 +283,6 @@ setupAuthStateListener(async (u) => {
         updateAdminUI(false);
     }
 });
-
-// Suscribirse a los datos de Firestore en tiempo real (Regla 2 y snapshot error)
-function subscribeToDatabase(chapels = null) {
-    if (!user) return;
-
-    stopServerSubscription();
-    unsubscribeFromServers = onSnapshot(buildServersQuery(db), async (snapshot) => {
-        const loadedData = [];
-        snapshot.forEach((doc) => {
-            const data = doc.data();
-            loadedData.push({ 
-                id: doc.id, 
-                Id: doc.id,
-                ...data 
-            });
-        });
-
-        dataset = loadedData;
-        //Temporal
-        const capillasUnicas = [...new Set(
-            dataset
-                .map(s => (s.Capela || "").trim())
-        )];
-
-        console.table(capillasUnicas);
-        await populateFilters(chapels, dataset);
-        updateUI(dataset);
-        auditChapels();
-        
-        // Ocultar pantalla de carga inicial
-        document.getElementById('loading-overlay').classList.add('opacity-0');
-        setTimeout(() => {
-            document.getElementById('loading-overlay').classList.add('hidden');
-        }, 300);
-
-    }, (error) => {
-        showError('Erro ao carregar os dados da base de dados do Firestore: ' + error.message);
-        document.getElementById('loading-overlay').classList.add('hidden');
-    });
-}
-
 
 // EJECUCIÓN INICIAL: usar anonimamente (regla Canvas) y observar estado de auth
 initAuth((err) => {
@@ -341,7 +299,7 @@ function updateUI(data) {
 }
 
 // Llenado de filtros dinámicos
-async function populateFilters(chapelsList = null, authorizedData = dataset) {
+async function populateFilters(chapelsList = null, authorizedData = getDashboardData()) {
 
     const selectCapilla = document.getElementById('filter-capilla');
     const savedVal = selectCapilla.value;
@@ -960,7 +918,7 @@ function updateAdminUI(renderDashboard = true) {
     }
 
     if (renderDashboard) {
-        updateUI(dataset);
+        refreshDashboard();
     }
 }
 
@@ -1149,7 +1107,7 @@ document.getElementById('btn-add-manual').addEventListener('click', () => {
 
     document.getElementById('edit-modal-title').textContent = "Adicionar novo servidor";
     serverForm.reset();
-    const lastIdNum = dataset.reduce((max, cur) => {
+    const lastIdNum = getDashboardData().reduce((max, cur) => {
         const curId = cur.id || '';
         const match = curId.toString().match(/\d+/);
         return match ? Math.max(max, parseInt(match[0])) : max;
@@ -1245,7 +1203,7 @@ userEditForm.addEventListener('submit', async (e) => {
 serverForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = document.getElementById('form-id').value;
-    const existingServer = dataset.find(item => item.id === id) || null;
+    const existingServer = getDashboardData().find(item => item.id === id) || null;
 
     if (existingServer
         ? !canEditServer(existingServer)
@@ -1376,7 +1334,7 @@ function setStudyScheduleInForm(schedule) {
 
 // Funciones expuestas a nivel global para compatibilidad con handlers inline onclick
 window.editServer = function(id) {
-    const server = dataset.find(d => d.id === id);
+    const server = getDashboardData().find(d => d.id === id);
     if (!canEditServer(server)) return;
 
     document.getElementById('edit-modal-title').textContent = `Editar Servidor: ${server.id}`;
@@ -1410,7 +1368,7 @@ window.editServer = function(id) {
 };
 
 window.deleteServer = function(id, name) {
-    const server = dataset.find(d => d.id === id);
+    const server = getDashboardData().find(d => d.id === id);
 
     if (!canDeleteServer(server)) {
         return;

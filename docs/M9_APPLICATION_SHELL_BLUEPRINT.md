@@ -6,6 +6,8 @@ El Application Shell transforma el SGSA de una página única en una aplicación
 
 Este shell será la base de toda evolución futura del sistema: los módulos actuales y los que se incorporen después deberán integrarse en él.
 
+Las reglas de consistencia visual aplicables a sus regiones y módulos se documentan en [UI_GUIDELINES.md](UI_GUIDELINES.md).
+
 ## 2. Filosofía
 
 - El Header permanece fijo durante la sesión.

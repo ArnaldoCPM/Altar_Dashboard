@@ -481,3 +481,19 @@ Se añadió la estructura base en `js/layout/`, `js/navigation/` y `js/modules/`
 La definición de los módulos visibles del Sidebar fue centralizada en `js/navigation/navigation.config.js`, organizada en las secciones GERAL, FORMAÇÃO y ADMINISTRAÇÃO. `sidebar.js` renderiza esas secciones desde la configuración y mantiene los enlaces como elementos estáticos sin navegación funcional.
 
 El Sidebar incorpora además un pie con la identificación SGSA y la versión `v0.8.0`. No se modificaron Router, permisos por rol ni módulos funcionales; esas responsabilidades continúan fuera del alcance de esta tarea.
+
+## M9-T2B — Guía oficial de interfaz
+
+Se creó `docs/UI_GUIDELINES.md` como referencia obligatoria de interfaz y consistencia visual para los módulos futuros del SGSA. El documento audita y consolida los patrones existentes de Application Shell, colores, tipografía, botones, formularios, tablas, cards, modales, estados, iconografía, responsive design y accesibilidad.
+
+La guía registra además las pendientes de estandarización detectadas durante la auditoría, sin corregirlas ni ampliar el alcance. Esta tarea no realizó cambios de código en HTML, CSS, JavaScript, Firebase, Firestore, autenticación, permisos ni Application Shell.
+
+## M9-T3 — Dashboard como módulo oficial
+
+El Dashboard pasa a ser el módulo de referencia para la evolución modular del SGSA. Su estructura en `js/modules/dashboard/` separa punto de entrada, controlador, estado, servicio de datos, vistas y componentes reutilizables.
+
+`main.js` inicia el ciclo de vida del Dashboard a través de su API pública. La suscripción de datos y el estado del módulo se centralizan en el Dashboard, manteniendo sin cambios las funcionalidades, permisos, autenticación y acceso a Firestore existentes.
+
+## M9-T3B.1 — Fuente única de datos del Dashboard
+
+Se eliminó la suscripción legacy de `main.js`. El Dashboard obtiene ahora sus datos exclusivamente mediante `js/modules/dashboard/services/dashboard.service.js`, coordinado por el controller del módulo. Esta consolidación evita suscripciones y renders duplicados sin modificar KPIs, gráficos, tabla, filtros, permisos, autenticación ni el comportamiento observable de la interfaz.
