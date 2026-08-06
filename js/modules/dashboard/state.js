@@ -1,33 +1,32 @@
 const dashboardState = {
-    data: [],
-    charts: {},
-    currentPage: 1,
-    filteredItems: [],
-    unsubscribe: null
+    data: { dataset: [] },
+    filters: { active: {} },
+    pagination: { currentPage: 1, filteredItems: [], itemsPerPage: 12 },
+    charts: { instances: {} },
+    ui: { loading: true },
+    subscriptions: { unsubscribe: null }
 };
 
 function setData(data) {
-    dashboardState.data = data;
+    dashboardState.data.dataset = data;
 }
 
-function resetPagination() {
-    dashboardState.currentPage = 1;
-    dashboardState.filteredItems = [];
+function getData() {
+    return dashboardState.data.dataset;
 }
 
 function setUnsubscribe(unsubscribe) {
-    dashboardState.unsubscribe = unsubscribe;
+    dashboardState.subscriptions.unsubscribe = unsubscribe;
 }
 
 function clearSubscription() {
-    dashboardState.unsubscribe?.();
-    dashboardState.unsubscribe = null;
+    dashboardState.subscriptions.unsubscribe?.();
+    dashboardState.subscriptions.unsubscribe = null;
 }
 
-export {
-    dashboardState,
-    setData,
-    resetPagination,
-    setUnsubscribe,
-    clearSubscription
-};
+function resetPagination() {
+    dashboardState.pagination.currentPage = 1;
+    dashboardState.pagination.filteredItems = [];
+}
+
+export { dashboardState, clearSubscription, getData, resetPagination, setData, setUnsubscribe };

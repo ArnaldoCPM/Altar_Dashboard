@@ -1,7 +1,7 @@
 import { db } from "../../firebase.js";
 import { getActiveChapels } from "../../data/chapels.js";
 import { subscribeToDashboardData } from "./services/dashboard.service.js";
-import { clearSubscription, dashboardState, resetPagination, setData, setUnsubscribe } from "./state.js";
+import { clearSubscription, getData as getDashboardData, resetPagination, setData, setUnsubscribe } from "./state.js";
 
 let renderDashboard = null;
 let populateDashboardFilters = null;
@@ -19,8 +19,8 @@ async function loadData(chapels) {
     clearSubscription();
     setUnsubscribe(subscribeToDashboardData(db, async (data) => {
         setData(data);
-        await populateDashboardFilters?.(activeChapels, dashboardState.data);
-        renderDashboard?.(dashboardState.data);
+        await populateDashboardFilters?.(activeChapels, getDashboardData());
+        renderDashboard?.(getDashboardData());
         document.getElementById('loading-overlay').classList.add('opacity-0');
         setTimeout(() => {
             document.getElementById('loading-overlay').classList.add('hidden');
@@ -29,7 +29,7 @@ async function loadData(chapels) {
 }
 
 function refresh() {
-    renderDashboard?.(dashboardState.data);
+    renderDashboard?.(getDashboardData());
 }
 
 function destroy() {
@@ -38,7 +38,7 @@ function destroy() {
 }
 
 function getData() {
-    return dashboardState.data;
+    return getDashboardData();
 }
 
 export { configure, loadData, refresh, destroy, getData };

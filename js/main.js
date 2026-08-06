@@ -5,6 +5,7 @@ import { createServer } from "./data/servers.js";
 import { calculateAge, cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./modules/dashboard/views/kpis.view.js";
 import { destroy as destroyDashboard, getData as getDashboardData, initialize as initializeDashboard, refresh as refreshDashboard } from "./modules/dashboard/index.js";
+import { dashboardState } from "./modules/dashboard/state.js";
 import {
     setCurrentUser,
     setCurrentProfile,
@@ -32,7 +33,7 @@ import { initSidebar } from "./layout/sidebar.js";
 import { getWorkspaceElement } from "./layout/workspace.js";
 
 // import { renderTable } from "./table.js";
-// import { renderCharts } from "./charts.js";
+// import { renderCharts } from "./dashboardState.charts.instances.js";
 // import { populateFilters } from "./filters.js";
 // import { updatePaginationControls, goToPage, nextPage, previousPage } from "./pagination.js";
 // import { checkPermissions } from "./permissions.js";
@@ -42,7 +43,6 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 // Estado global de la aplicación
 let user = null;
-let charts = {};
 let cachedActiveChapels = [];
 
 function initApplicationShell() {
@@ -82,9 +82,6 @@ function showAuthenticatedScreen() {
 }
 
 // Variables de paginación
-let currentPage = 1;
-const ITEMS_PER_PAGE = 12;
-let totalFilteredItems = [];
 
 //temporal
 function auditChapels() {
@@ -235,11 +232,11 @@ setupAuthStateListener(async (u) => {
 
         document.getElementById('db-status').className =
             "text-xs px-3 py-1.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1.5";
-        
+
         console.log("1");
         console.log(user);
         const profile = await resolveUserProfile(user);
-        
+
         if (user?.uid === authUid) {
             if (!profile) {
                 showLoginScreen();
@@ -257,13 +254,13 @@ setupAuthStateListener(async (u) => {
                 chapelName: resolveSessionChapelName(profile, chapels)
             });
             updateHeaderSession(getCurrentProfile(), user);
-            
+
             console.log("3");
             await loadChapelsIntoForm(chapels);
-            
+
             console.log("4");
             updateAdminUI();
-            
+
             console.log("5");
             await initializeDashboard({
                 chapels,
@@ -345,11 +342,11 @@ async function populateFilters(chapelsList = null, authorizedData = getDashboard
 
 // Generar Gráficos Estadísticos con ChartJS
 function renderCharts(data) {
-    if (charts.capillas) charts.capillas.destroy();
-    if (charts.sacramentos) charts.sacramentos.destroy();
-    if (charts.genero) charts.genero.destroy();
-    if (charts.edades) charts.edades.destroy();
-    // if (charts.horarios) charts.horarios.destroy();
+    if (dashboardState.charts.instances.capillas) dashboardState.charts.instances.capillas.destroy();
+    if (dashboardState.charts.instances.sacramentos) dashboardState.charts.instances.sacramentos.destroy();
+    if (dashboardState.charts.instances.genero) dashboardState.charts.instances.genero.destroy();
+    if (dashboardState.charts.instances.edades) dashboardState.charts.instances.edades.destroy();
+    // if (dashboardState.charts.instances.horarios) dashboardState.charts.instances.horarios.destroy();
 
     // 1. CAPILLAS
     const capillasCount = {};
@@ -358,14 +355,14 @@ function renderCharts(data) {
         capillasCount[c] = (capillasCount[c] || 0) + 1;
     });
 
-    charts.capillas = new Chart(document.getElementById('chart-capillas'), {
+    dashboardState.charts.instances.capillas = new Chart(document.getElementById('chart-capillas'), {
         type: 'bar',
         data: {
             labels: Object.keys(capillasCount),
             datasets: [{
                 label: 'Registros',
                 data: Object.values(capillasCount),
-                backgroundColor: '#1E3A8A', 
+                backgroundColor: '#1E3A8A',
                 borderRadius: 8
             }]
         },
@@ -382,7 +379,7 @@ function renderCharts(data) {
     let comunion = data.filter(d => ['sim', 'si', 's'].includes(cleanStr(d.Primeira_eucaristia))).length;
     let crisma = data.filter(d => ['sim', 'si', 's'].includes(cleanStr(d.Crismado))).length;
 
-    charts.sacramentos = new Chart(document.getElementById('chart-sacramentos'), {
+    dashboardState.charts.instances.sacramentos = new Chart(document.getElementById('chart-sacramentos'), {
         type: 'bar',
         data: {
             labels: ['Batizado', '1ª Comunhão', 'Crisma'],
@@ -390,13 +387,13 @@ function renderCharts(data) {
                 {
                     label: 'Tem Sacramento',
                     data: [batizados, comunion, crisma],
-                    backgroundColor: '#D4AF37', 
+                    backgroundColor: '#D4AF37',
                     borderRadius: 8
                 },
                 {
                     label: 'Em espera',
                     data: [data.length - batizados, data.length - comunion, data.length - crisma],
-                    backgroundColor: '#E2E8F0', 
+                    backgroundColor: '#E2E8F0',
                     borderRadius: 8
                 }
             ]
@@ -425,7 +422,7 @@ function renderCharts(data) {
     const generoValues = generoLabels.map(key => generoCounts[key]);
     const generoColors = ['#2563EB', '#DB2777', '#94A3B8'];
 
-    charts.genero = new Chart(document.getElementById('chart-genero'), {
+    dashboardState.charts.instances.genero = new Chart(document.getElementById('chart-genero'), {
         type: 'doughnut',
         data: {
             labels: generoLabels,
@@ -483,7 +480,7 @@ function renderCharts(data) {
         }
     });
 
-    charts.edades = new Chart(document.getElementById('chart-edades'), {
+    dashboardState.charts.instances.edades = new Chart(document.getElementById('chart-edades'), {
         type: 'bar',
         data: {
             labels: ['6 - 11 anos', '12 - 24 anos'],
@@ -514,11 +511,11 @@ function renderCharts(data) {
             plugins: {
                 legend: { position: 'top' }
             },
-            scales: { 
-                y: { 
-                    beginAtZero: true, 
-                    ticks: { stepSize: 1 } 
-                } 
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
             }
         }
     });
@@ -536,7 +533,7 @@ function renderCharts(data) {
         });
     });
 
-    charts.horarios = new Chart(document.getElementById('chart-horarios'), {
+    dashboardState.charts.instances.horarios = new Chart(document.getElementById('chart-horarios'), {
         type: 'doughnut',
         data: {
             labels: Object.keys(turnos),
@@ -561,15 +558,15 @@ function showConfirm(title, message, onConfirm) {
     const modal = document.getElementById('confirm-modal');
     document.getElementById('confirm-title').textContent = title;
     document.getElementById('confirm-message').textContent = message;
-    
+
     const btnSubmit = document.getElementById('btn-confirm-submit');
     const btnCancel = document.getElementById('btn-confirm-cancel');
-    
+
     const newSubmit = btnSubmit.cloneNode(true);
     const newCancel = btnCancel.cloneNode(true);
     btnSubmit.parentNode.replaceChild(newSubmit, btnSubmit);
     btnCancel.parentNode.replaceChild(newCancel, btnCancel);
-    
+
     newSubmit.onclick = () => {
         modal.classList.add('hidden');
         onConfirm();
@@ -577,7 +574,7 @@ function showConfirm(title, message, onConfirm) {
     newCancel.onclick = () => {
         modal.classList.add('hidden');
     };
-    
+
     modal.classList.remove('hidden');
 }
 
@@ -589,8 +586,8 @@ function renderTable(data) {
     tableBody.innerHTML = '';
 
     // Guardar datos filtrados para paginación
-    totalFilteredItems = data;
-    //currentPage = 1;
+    dashboardState.pagination.filteredItems = data;
+    //dashboardState.pagination.currentPage = 1;
 
     if (data.length === 0) {
         emptyState.classList.remove('hidden');
@@ -601,8 +598,8 @@ function renderTable(data) {
     }
 
     // Calcular rango de items para la página actual
-    const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIdx = startIdx + ITEMS_PER_PAGE;
+    const startIdx = (dashboardState.pagination.currentPage - 1) * dashboardState.pagination.itemsPerPage;
+    const endIdx = startIdx + dashboardState.pagination.itemsPerPage;
     const pageData = data.slice(startIdx, endIdx);
 
     pageData.forEach(server => {
@@ -610,11 +607,11 @@ function renderTable(data) {
         row.className = "hover:bg-slate-50 transition-colors";
 
         const initials = server.Nome ? server.Nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() : 'SR';
-        
+
         const isActivo = cleanStr(server.Estado) === 'ativo';
         const statusColor = isActivo ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800';
         const statusText = isActivo ? 'Ativo' : 'Inativo';
-        
+
         // Mapeo de colores para Tipos
         let typeColor = 'bg-slate-100 text-slate-800';
         const roleType = cleanStr(server.Tipo);
@@ -634,15 +631,15 @@ function renderTable(data) {
         const isFeminino = ['femenino', 'feminino', 'f'].includes(cleanStr(server.Sexo));
         const genderColor = isFeminino ? 'bg-pink-100 text-pink-800' : 'bg-blue-100 text-blue-800';
         const genderText = isFeminino ? 'Feminino' : 'Masculino';
-        
+
         const tieneAlergia = ['sim', 'si', 's'].includes(cleanStr(server.Possui_alergia_doenca));
-        const alertClass = tieneAlergia 
-            ? 'bg-rose-50 border-l-4 border-rose-500 font-medium text-rose-700' 
+        const alertClass = tieneAlergia
+            ? 'bg-rose-50 border-l-4 border-rose-500 font-medium text-rose-700'
             : 'text-slate-500';
 
-        const batizadoIcon = ['sim', 'si', 's'].includes(cleanStr(server.Batizado)) ? '🟢' : '⚪';
-        const eucaristiaIcon = ['sim', 'si', 's'].includes(cleanStr(server.Primeira_eucaristia)) ? '🟢' : '⚪';
-        const crismaIcon = ['sim', 'si', 's'].includes(cleanStr(server.Crismado)) ? '🟢' : '⚪';
+        const batizadoIcon = ['sim', 'si', 's'].includes(cleanStr(server.Batizado)) ? '\u{1F7E2}' : '\u26AA';
+        const eucaristiaIcon = ['sim', 'si', 's'].includes(cleanStr(server.Primeira_eucaristia)) ? '\u{1F7E2}' : '\u26AA';
+        const crismaIcon = ['sim', 'si', 's'].includes(cleanStr(server.Crismado)) ? '\u{1F7E2}' : '\u26AA';
 
         const wpCandidate = server.Whatsapp_candidato ? generateWpLink(server.Whatsapp_candidato, `Olá ${server.Nome}, tudo bem? Aqui é da coordenação...`) : null;
         const wpMother = server.Whatsapp_mae ? generateWpLink(server.Whatsapp_mae, `Olá ${server.Nome_mae || 'Mãe'}, tudo bem? Gostaria de falar sobre o coroinha ${server.Nome}...`) : null;
@@ -704,7 +701,7 @@ function renderTable(data) {
             <td class="py-4 px-6">
                 <div class="flex flex-col space-y-1 text-xs">
                     <span class="flex items-center gap-1">${batizadoIcon} Batismo</span>
-                    <span class="flex items-center gap-1">${eucaristiaIcon} Comunhão</span>
+                    <span class="flex items-center gap-1">${eucaristiaIcon} Comunh\u00E3o</span>
                     <span class="flex items-center gap-1">${crismaIcon} Crisma</span>
                 </div>
             </td>
@@ -729,7 +726,7 @@ function renderTable(data) {
 
 // Función para actualizar controles de paginación
 function updatePaginationControls(totalItems) {
-    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(totalItems / dashboardState.pagination.itemsPerPage);
     const paginationContainer = document.getElementById('pagination-container');
     const paginationInfo = document.getElementById('pagination-info');
     const paginationButtons = document.getElementById('pagination-buttons');
@@ -744,18 +741,18 @@ function updatePaginationControls(totalItems) {
     paginationContainer.classList.remove('hidden');
 
     // Información de página
-    const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1;
-    const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalItems);
+    const startItem = (dashboardState.pagination.currentPage - 1) * dashboardState.pagination.itemsPerPage + 1;
+    const endItem = Math.min(dashboardState.pagination.currentPage * dashboardState.pagination.itemsPerPage, totalItems);
     paginationInfo.textContent = `${startItem}-${endItem} de ${totalItems}`;
 
     // Botones anteriores/siguientes
-    prevBtn.disabled = currentPage === 1;
-    nextBtn.disabled = currentPage === totalPages;
+    prevBtn.disabled = dashboardState.pagination.currentPage === 1;
+    nextBtn.disabled = dashboardState.pagination.currentPage === totalPages;
 
     // Generar botones numéricos
     paginationButtons.innerHTML = '';
     const maxButtons = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+    let startPage = Math.max(1, dashboardState.pagination.currentPage - Math.floor(maxButtons / 2));
     let endPage = Math.min(totalPages, startPage + maxButtons - 1);
     if (endPage - startPage < maxButtons - 1) {
         startPage = Math.max(1, endPage - maxButtons + 1);
@@ -776,7 +773,7 @@ function updatePaginationControls(totalItems) {
         const btn = document.createElement('button');
         btn.textContent = i;
         btn.onclick = () => window.goToPage(i);
-        btn.className = i === currentPage 
+        btn.className = i === dashboardState.pagination.currentPage
             ? 'p-1 px-2.5 bg-liturgical-blue text-white rounded-lg text-xs font-bold'
             : 'p-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all';
         paginationButtons.appendChild(btn);
@@ -796,22 +793,22 @@ function updatePaginationControls(totalItems) {
 
 // Funciones de navegación (expuestas globalmente)
 window.goToPage = function(pageNum) {
-    currentPage = pageNum;
-    renderTable(totalFilteredItems);
+    dashboardState.pagination.currentPage = pageNum;
+    renderTable(dashboardState.pagination.filteredItems);
 }
 
 window.nextPage = function() {
-    const totalPages = Math.ceil(totalFilteredItems.length / ITEMS_PER_PAGE);
-    if (currentPage < totalPages) {
-        currentPage++;
-        renderTable(totalFilteredItems);
+    const totalPages = Math.ceil(dashboardState.pagination.filteredItems.length / dashboardState.pagination.itemsPerPage);
+    if (dashboardState.pagination.currentPage < totalPages) {
+        dashboardState.pagination.currentPage++;
+        renderTable(dashboardState.pagination.filteredItems);
     }
 }
 
 window.previousPage = function() {
-    if (currentPage > 1) {
-        currentPage--;
-        renderTable(totalFilteredItems);
+    if (dashboardState.pagination.currentPage > 1) {
+        dashboardState.pagination.currentPage--;
+        renderTable(dashboardState.pagination.filteredItems);
     }
 }
 
@@ -839,10 +836,10 @@ function setupInteractiveEvents(data) {
             const matchesSearch = d.Nome.toLowerCase().includes(query) || d.id.toLowerCase().includes(query);
             const matchesCapilla = selectedChapelName === 'all' || (d.Capela || '').trim() === selectedChapelName;
             const matchesEstado = estadoVal === 'all' || (d.Estado || '').trim() === estadoVal;
-            
+
             const itemAlergia = ['sim', 'si', 's'].includes(cleanStr(d.Possui_alergia_doenca)) ? 'Sim' : 'Não';
             const matchesAlergias = alergiasVal === 'all' || itemAlergia === alergiasVal;
-            
+
             const itemTipo = cleanStr(d.Tipo);
             const filterTipoClean = cleanStr(tipoVal);
             const matchesTipo = tipoVal === 'all' || itemTipo === filterTipoClean;
@@ -850,7 +847,7 @@ function setupInteractiveEvents(data) {
             return matchesSearch && matchesCapilla && matchesEstado && matchesAlergias && matchesTipo;
         });
 
-        currentPage = 1;
+        dashboardState.pagination.currentPage = 1;
         renderTable(filtered);
     }
 
@@ -1348,14 +1345,14 @@ window.editServer = function(id) {
     document.getElementById('form-tipo').value = server.Tipo || 'Candidato';
     document.getElementById('form-estado').value = server.Estado || 'Ativo';
     setStudyScheduleInForm(server.Horario_estudo);
-    
+
     document.getElementById('form-batizado').checked = ['sim', 'si', 's'].includes(cleanStr(server.Batizado));
     document.getElementById('form-comunion').checked = ['sim', 'si', 's'].includes(cleanStr(server.Primeira_eucaristia));
     document.getElementById('form-crisma').checked = ['sim', 'si', 's'].includes(cleanStr(server.Crismado));
-    
+
     document.getElementById('form-tem-alergia').value = ['sim', 'si', 's'].includes(cleanStr(server.Possui_alergia_doenca)) ? 'Sim' : 'Não';
     document.getElementById('form-desc-alergia').value = server.Descricao_alergia_doenca || '';
-    
+
     document.getElementById('form-nome-mae').value = server.Nome_mae || '';
     document.getElementById('form-wp-candidato').value = formatPhone(server.Whatsapp_candidato);
     document.getElementById('form-wp-mae').value = formatPhone(server.Whatsapp_mae);
@@ -1403,7 +1400,7 @@ async function handleCsvUpload(e) {
     reader.onload = function(evt) {
         const text = evt.target.result;
         const parsed = csvToObjects(text);
-        
+
         if (parsed && parsed.length > 0) {
             showConfirm(
                 "Sincronizar a base de datos",
@@ -1427,7 +1424,7 @@ async function uploadBatchToFirestore(items) {
 
     let index = 0;
     const chunkSize = 150; // Procesado en lotes seguros
-    
+
     try {
         const cleanYesNo = (val) => {
             const cleanVal = (val || '').toString().trim().toLowerCase();
@@ -1461,7 +1458,7 @@ async function uploadBatchToFirestore(items) {
         while (index < items.length) {
             const batch = writeBatch(db);
             const chunk = items.slice(index, index + chunkSize);
-            
+
             chunk.forEach((item, innerIdx) => {
                 const uniqueSeqNum = index + innerIdx + 1;
                 let itemID = item.Id ? item.Id.toString().trim() : '';
@@ -1470,7 +1467,7 @@ async function uploadBatchToFirestore(items) {
                 }
 
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'servers', itemID);
-                
+
                 const payload = applyAuthorizedServerScope({
                     id: itemID,
                     Nome: (item.Nome || 'Sem Nome').trim(),
@@ -1500,7 +1497,7 @@ async function uploadBatchToFirestore(items) {
 
             await batch.commit();
             index += chunkSize;
-            
+
             const progressVal = Math.min(100, Math.round((index / items.length) * 100));
             progressFill.style.width = `${progressVal}%`;
         }
@@ -1510,7 +1507,7 @@ async function uploadBatchToFirestore(items) {
             const dropzoneText = document.querySelector('#upload-section h3');
             dropzoneText.innerHTML = `✅ Sincronizado com sucesso! ${items.length} servidores estão permanentemente disponíveis na nuvem.`;
             dropzoneText.className = "text-lg font-bold text-emerald-600";
-            
+
             fileInput.value = "";
         }, 1000);
 
@@ -1537,25 +1534,25 @@ function csvToObjects(text) {
     const delimiter = semicolonCount > commaCount ? ';' : ',';
 
     const rawHeaders = splitCsvLine(headerLine, delimiter);
-    const headers = rawHeaders.map(h => 
+    const headers = rawHeaders.map(h =>
         h.trim()
          .replace(/^"|"$/g, '')
-         .replace(/[\u200B-\u200D\uFEFF]/g, '') 
+         .replace(/[\u200B-\u200D\uFEFF]/g, '')
          .replace(/\s+/g, ' ')
-         .replace(/[^\x20-\x7E]/g, '') 
+         .replace(/[^\x20-\x7E]/g, '')
          .trim()
     );
 
     function getVal(rowObj, keyAlternatives) {
         for (const alt of keyAlternatives) {
             if (rowObj[alt] !== undefined) return rowObj[alt];
-            
+
             const foundKey = Object.keys(rowObj).find(k => {
                 const cleanK = k.toLowerCase().replace(/[^\w]/g, '').trim();
                 const cleanAlt = alt.toLowerCase().replace(/[^\w]/g, '').trim();
                 return cleanK === cleanAlt;
             });
-            
+
             if (foundKey) return rowObj[foundKey];
         }
         return '';
@@ -1564,10 +1561,10 @@ function csvToObjects(text) {
     const list = [];
     for (let j = 1; j < lines.length; j++) {
         const line = lines[j].trim();
-        if (!line) continue; 
+        if (!line) continue;
 
         const values = splitCsvLine(line, delimiter);
-        
+
         const nonemptyValues = values.filter(v => v.trim() !== "");
         if (nonemptyValues.length === 0) continue;
 

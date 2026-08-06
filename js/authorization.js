@@ -35,7 +35,7 @@ function belongsToCurrentChapel(server) {
 
 /**
  * Todos los perfiles con permiso de lectura pueden consultar cualquier
- * servidor de la parroquia. El Ã¡mbito de capilla solo limita escrituras.
+ * servidor de la parroquia. El ámbito de capilla solo limita escrituras.
  */
 function canAccessServer(server) {
   return Boolean(server) && canView();

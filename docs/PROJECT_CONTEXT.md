@@ -497,3 +497,7 @@ El Dashboard pasa a ser el módulo de referencia para la evolución modular del 
 ## M9-T3B.1 — Fuente única de datos del Dashboard
 
 Se eliminó la suscripción legacy de `main.js`. El Dashboard obtiene ahora sus datos exclusivamente mediante `js/modules/dashboard/services/dashboard.service.js`, coordinado por el controller del módulo. Esta consolidación evita suscripciones y renders duplicados sin modificar KPIs, gráficos, tabla, filtros, permisos, autenticación ni el comportamiento observable de la interfaz.
+
+## M9-T3B.2 — Estado único del Dashboard
+
+Se consolidó el estado propio del Dashboard en `js/modules/dashboard/state.js`, organizado por datos, filtros, paginación, gráficos, UI y suscripciones. `main.js` dejó de declarar referencias de gráficos y variables de paginación; estas se resuelven desde el estado centralizado. El controller accede a los datos mediante la API de `state.js`.

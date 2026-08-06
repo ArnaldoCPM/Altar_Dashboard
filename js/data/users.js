@@ -144,7 +144,7 @@ async function getAllUsers() {
 
 /**
  * Vincula el UID de Firebase Authentication con un usuario existente por email.
- * @param {string} email Correo electrÃ³nico del usuario registrado previamente.
+ * @param {string} email Correo electrónico del usuario registrado previamente.
  * @param {string} uid UID de Firebase Authentication a vincular.
  * @returns {Promise<Object|null>} Usuario actualizado con el UID vinculado o `null` si no existe.
  */
