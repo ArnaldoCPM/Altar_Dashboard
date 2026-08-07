@@ -1,5 +1,9 @@
 # Objetivo del proyecto
 
+## M9-T3C.2 — Callbacks internos del Dashboard
+
+El Controller registra internamente los callbacks de carga, renderizado, filtros y errores del Dashboard. `main.js` inicializa el módulo únicamente con las capillas disponibles y ya no entrega callbacks al Controller.
+
 ## M9-T3C.1 — Controller como único modificador del estado del Dashboard
 
 El Controller de `js/modules/dashboard/controller.js` pasó a ser el único responsable de modificar el estado del Dashboard. `main.js` ya no accede ni escribe directamente en `dashboardState`: las instancias de gráficos, los elementos filtrados y la página actual se actualizan exclusivamente mediante la API pública del módulo Dashboard.

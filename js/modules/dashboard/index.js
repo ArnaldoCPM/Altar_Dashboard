@@ -1,5 +1,4 @@
 import {
-    configure,
     destroy as destroyController,
     destroyCharts,
     getData,
@@ -14,7 +13,6 @@ import {
 } from "./controller.js";
 
 function initialize(options) {
-    configure(options);
     return loadData(options?.chapels);
 }
 

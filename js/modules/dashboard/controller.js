@@ -1,6 +1,7 @@
 import { db } from "../../firebase.js";
 import { getActiveChapels } from "../../data/chapels.js";
 import { subscribeToDashboardData } from "./services/dashboard.service.js";
+import { populateFilters, updateUI } from "./views/dashboard.view.js";
 import {
     clearSubscription,
     destroyChartInstances,
@@ -14,14 +15,13 @@ import {
     setUnsubscribe
 } from "./state.js";
 
-let renderDashboard = null;
-let populateDashboardFilters = null;
-let handleDashboardError = null;
+function handleDashboardError(error) {
+    const alertBox = document.getElementById('error-alert');
+    const alertText = document.getElementById('error-alert-text');
 
-function configure(options = {}) {
-    renderDashboard = options.render;
-    populateDashboardFilters = options.populateFilters;
-    handleDashboardError = options.onError;
+    alertText.textContent = 'Erro ao carregar os dados da base de dados do Firestore: ' + error.message;
+    alertBox.classList.remove('hidden');
+    alertBox.scrollIntoView({ behavior: 'smooth' });
 }
 
 async function loadData(chapels) {
@@ -31,18 +31,18 @@ async function loadData(chapels) {
     setUnsubscribe(subscribeToDashboardData(db, async (data) => {
         setData(data);
         setFilteredItems(data);
-        await populateDashboardFilters?.(activeChapels, getDashboardData());
-        renderDashboard?.(getDashboardData());
+        await populateFilters(activeChapels, getDashboardData());
+        updateUI(getDashboardData());
         document.getElementById('loading-overlay').classList.add('opacity-0');
         setTimeout(() => {
             document.getElementById('loading-overlay').classList.add('hidden');
         }, 300);
-    }, (error) => handleDashboardError?.(error)));
+    }, handleDashboardError));
 }
 
 function refresh() {
     setFilteredItems(getDashboardData());
-    renderDashboard?.(getDashboardData());
+    updateUI(getDashboardData());
 }
 
 function destroy() {
@@ -104,7 +104,6 @@ function destroyCharts() {
 }
 
 export {
-    configure,
     destroy,
     destroyCharts,
     getData,
