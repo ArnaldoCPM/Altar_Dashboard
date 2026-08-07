@@ -4,8 +4,19 @@ import { getAllUsers, resolveUserProfile, updateUser, createUser } from "./data/
 import { createServer } from "./data/servers.js";
 import { calculateAge, cleanStr, generateWpLink } from "./utils.js";
 import { updateKPIs } from "./modules/dashboard/views/kpis.view.js";
-import { destroy as destroyDashboard, getData as getDashboardData, initialize as initializeDashboard, refresh as refreshDashboard } from "./modules/dashboard/index.js";
-import { dashboardState } from "./modules/dashboard/state.js";
+import {
+    destroy as destroyDashboard,
+    destroyCharts as destroyDashboardCharts,
+    getData as getDashboardData,
+    getPagination as getDashboardPagination,
+    goToPage as goToDashboardPage,
+    initialize as initializeDashboard,
+    nextPage as nextDashboardPage,
+    previousPage as previousDashboardPage,
+    refresh as refreshDashboard,
+    setChart as setDashboardChart,
+    updateFilteredItems as updateDashboardFilteredItems
+} from "./modules/dashboard/index.js";
 import {
     setCurrentUser,
     setCurrentProfile,
@@ -33,7 +44,7 @@ import { initSidebar } from "./layout/sidebar.js";
 import { getWorkspaceElement } from "./layout/workspace.js";
 
 // import { renderTable } from "./table.js";
-// import { renderCharts } from "./dashboardState.charts.instances.js";
+// import { renderCharts } from "./charts.js";
 // import { populateFilters } from "./filters.js";
 // import { updatePaginationControls, goToPage, nextPage, previousPage } from "./pagination.js";
 // import { checkPermissions } from "./permissions.js";
@@ -342,11 +353,7 @@ async function populateFilters(chapelsList = null, authorizedData = getDashboard
 
 // Generar Gráficos Estadísticos con ChartJS
 function renderCharts(data) {
-    if (dashboardState.charts.instances.capillas) dashboardState.charts.instances.capillas.destroy();
-    if (dashboardState.charts.instances.sacramentos) dashboardState.charts.instances.sacramentos.destroy();
-    if (dashboardState.charts.instances.genero) dashboardState.charts.instances.genero.destroy();
-    if (dashboardState.charts.instances.edades) dashboardState.charts.instances.edades.destroy();
-    // if (dashboardState.charts.instances.horarios) dashboardState.charts.instances.horarios.destroy();
+    destroyDashboardCharts();
 
     // 1. CAPILLAS
     const capillasCount = {};
@@ -355,7 +362,7 @@ function renderCharts(data) {
         capillasCount[c] = (capillasCount[c] || 0) + 1;
     });
 
-    dashboardState.charts.instances.capillas = new Chart(document.getElementById('chart-capillas'), {
+    setDashboardChart('capillas', new Chart(document.getElementById('chart-capillas'), {
         type: 'bar',
         data: {
             labels: Object.keys(capillasCount),
@@ -372,14 +379,14 @@ function renderCharts(data) {
             plugins: { legend: { display: false } },
             scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
         }
-    });
+    }));
 
     // 2. SACRAMENTOS
     let batizados = data.filter(d => ['sim', 'si', 's'].includes(cleanStr(d.Batizado))).length;
     let comunion = data.filter(d => ['sim', 'si', 's'].includes(cleanStr(d.Primeira_eucaristia))).length;
     let crisma = data.filter(d => ['sim', 'si', 's'].includes(cleanStr(d.Crismado))).length;
 
-    dashboardState.charts.instances.sacramentos = new Chart(document.getElementById('chart-sacramentos'), {
+    setDashboardChart('sacramentos', new Chart(document.getElementById('chart-sacramentos'), {
         type: 'bar',
         data: {
             labels: ['Batizado', '1ª Comunhão', 'Crisma'],
@@ -403,7 +410,7 @@ function renderCharts(data) {
             maintainAspectRatio: false,
             scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } }
         }
-    });
+    }));
 
     // 3. GÉNERO MASCULINO / FEMENINO
     const generoCounts = { Masculino: 0, Femenino: 0, 'Sin dato': 0 };
@@ -422,7 +429,7 @@ function renderCharts(data) {
     const generoValues = generoLabels.map(key => generoCounts[key]);
     const generoColors = ['#2563EB', '#DB2777', '#94A3B8'];
 
-    dashboardState.charts.instances.genero = new Chart(document.getElementById('chart-genero'), {
+    setDashboardChart('genero', new Chart(document.getElementById('chart-genero'), {
         type: 'doughnut',
         data: {
             labels: generoLabels,
@@ -456,7 +463,7 @@ function renderCharts(data) {
                 }
             }
         }
-    });
+    }));
 
     // 3. EDADES POR TIPO DE REGISTRO (Rangos: 6-11 y 12-24 años)
     const tiposEnRangos = {
@@ -480,7 +487,7 @@ function renderCharts(data) {
         }
     });
 
-    dashboardState.charts.instances.edades = new Chart(document.getElementById('chart-edades'), {
+    setDashboardChart('edades', new Chart(document.getElementById('chart-edades'), {
         type: 'bar',
         data: {
             labels: ['6 - 11 anos', '12 - 24 anos'],
@@ -518,7 +525,7 @@ function renderCharts(data) {
                 }
             }
         }
-    });
+    }));
 
     /*
     // 4. TURNOS
@@ -533,7 +540,7 @@ function renderCharts(data) {
         });
     });
 
-    dashboardState.charts.instances.horarios = new Chart(document.getElementById('chart-horarios'), {
+    setDashboardChart('horarios', new Chart(document.getElementById('chart-horarios'), {
         type: 'doughnut',
         data: {
             labels: Object.keys(turnos),
@@ -549,7 +556,7 @@ function renderCharts(data) {
                 legend: { position: 'right' }
             }
         }
-    });
+    }));
     */
 }
 
@@ -586,8 +593,6 @@ function renderTable(data) {
     tableBody.innerHTML = '';
 
     // Guardar datos filtrados para paginación
-    dashboardState.pagination.filteredItems = data;
-    //dashboardState.pagination.currentPage = 1;
 
     if (data.length === 0) {
         emptyState.classList.remove('hidden');
@@ -598,8 +603,9 @@ function renderTable(data) {
     }
 
     // Calcular rango de items para la página actual
-    const startIdx = (dashboardState.pagination.currentPage - 1) * dashboardState.pagination.itemsPerPage;
-    const endIdx = startIdx + dashboardState.pagination.itemsPerPage;
+    const pagination = getDashboardPagination();
+    const startIdx = (pagination.currentPage - 1) * pagination.itemsPerPage;
+    const endIdx = startIdx + pagination.itemsPerPage;
     const pageData = data.slice(startIdx, endIdx);
 
     pageData.forEach(server => {
@@ -726,7 +732,8 @@ function renderTable(data) {
 
 // Función para actualizar controles de paginación
 function updatePaginationControls(totalItems) {
-    const totalPages = Math.ceil(totalItems / dashboardState.pagination.itemsPerPage);
+    const pagination = getDashboardPagination();
+    const totalPages = Math.ceil(totalItems / pagination.itemsPerPage);
     const paginationContainer = document.getElementById('pagination-container');
     const paginationInfo = document.getElementById('pagination-info');
     const paginationButtons = document.getElementById('pagination-buttons');
@@ -741,18 +748,18 @@ function updatePaginationControls(totalItems) {
     paginationContainer.classList.remove('hidden');
 
     // Información de página
-    const startItem = (dashboardState.pagination.currentPage - 1) * dashboardState.pagination.itemsPerPage + 1;
-    const endItem = Math.min(dashboardState.pagination.currentPage * dashboardState.pagination.itemsPerPage, totalItems);
+    const startItem = (pagination.currentPage - 1) * pagination.itemsPerPage + 1;
+    const endItem = Math.min(pagination.currentPage * pagination.itemsPerPage, totalItems);
     paginationInfo.textContent = `${startItem}-${endItem} de ${totalItems}`;
 
     // Botones anteriores/siguientes
-    prevBtn.disabled = dashboardState.pagination.currentPage === 1;
-    nextBtn.disabled = dashboardState.pagination.currentPage === totalPages;
+    prevBtn.disabled = pagination.currentPage === 1;
+    nextBtn.disabled = pagination.currentPage === totalPages;
 
     // Generar botones numéricos
     paginationButtons.innerHTML = '';
     const maxButtons = 5;
-    let startPage = Math.max(1, dashboardState.pagination.currentPage - Math.floor(maxButtons / 2));
+    let startPage = Math.max(1, pagination.currentPage - Math.floor(maxButtons / 2));
     let endPage = Math.min(totalPages, startPage + maxButtons - 1);
     if (endPage - startPage < maxButtons - 1) {
         startPage = Math.max(1, endPage - maxButtons + 1);
@@ -773,7 +780,7 @@ function updatePaginationControls(totalItems) {
         const btn = document.createElement('button');
         btn.textContent = i;
         btn.onclick = () => window.goToPage(i);
-        btn.className = i === dashboardState.pagination.currentPage
+        btn.className = i === pagination.currentPage
             ? 'p-1 px-2.5 bg-liturgical-blue text-white rounded-lg text-xs font-bold'
             : 'p-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all';
         paginationButtons.appendChild(btn);
@@ -793,23 +800,15 @@ function updatePaginationControls(totalItems) {
 
 // Funciones de navegación (expuestas globalmente)
 window.goToPage = function(pageNum) {
-    dashboardState.pagination.currentPage = pageNum;
-    renderTable(dashboardState.pagination.filteredItems);
+    renderTable(goToDashboardPage(pageNum));
 }
 
 window.nextPage = function() {
-    const totalPages = Math.ceil(dashboardState.pagination.filteredItems.length / dashboardState.pagination.itemsPerPage);
-    if (dashboardState.pagination.currentPage < totalPages) {
-        dashboardState.pagination.currentPage++;
-        renderTable(dashboardState.pagination.filteredItems);
-    }
+    renderTable(nextDashboardPage());
 }
 
 window.previousPage = function() {
-    if (dashboardState.pagination.currentPage > 1) {
-        dashboardState.pagination.currentPage--;
-        renderTable(dashboardState.pagination.filteredItems);
-    }
+    renderTable(previousDashboardPage());
 }
 
 // Configuración de eventos interactivos y filtros
@@ -847,8 +846,7 @@ function setupInteractiveEvents(data) {
             return matchesSearch && matchesCapilla && matchesEstado && matchesAlergias && matchesTipo;
         });
 
-        dashboardState.pagination.currentPage = 1;
-        renderTable(filtered);
+        renderTable(updateDashboardFilteredItems(filtered));
     }
 
     // Asignar listeners directamente para evitar solapamientos

@@ -1,5 +1,9 @@
 # Objetivo del proyecto
 
+## M9-T3C.1 — Controller como único modificador del estado del Dashboard
+
+El Controller de `js/modules/dashboard/controller.js` pasó a ser el único responsable de modificar el estado del Dashboard. `main.js` ya no accede ni escribe directamente en `dashboardState`: las instancias de gráficos, los elementos filtrados y la página actual se actualizan exclusivamente mediante la API pública del módulo Dashboard.
+
 SGSA - Sistema de Gestao dos Servidores do Altar.
 
 Sistema web para administrar los servidores del altar de una parroquia, centralizando el padrón de servidores, la visualización operativa y la gestión administrativa con control de acceso por usuarios.

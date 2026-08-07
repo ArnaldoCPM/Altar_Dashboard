@@ -29,4 +29,38 @@ function resetPagination() {
     dashboardState.pagination.filteredItems = [];
 }
 
-export { dashboardState, clearSubscription, getData, resetPagination, setData, setUnsubscribe };
+function setFilteredItems(items, resetCurrentPage = false) {
+    dashboardState.pagination.filteredItems = items;
+    if (resetCurrentPage) {
+        dashboardState.pagination.currentPage = 1;
+    }
+}
+
+function setCurrentPage(page) {
+    dashboardState.pagination.currentPage = page;
+}
+
+function getPagination() {
+    return dashboardState.pagination;
+}
+
+function setChartInstance(name, instance) {
+    dashboardState.charts.instances[name] = instance;
+}
+
+function destroyChartInstances() {
+    Object.values(dashboardState.charts.instances).forEach((instance) => instance?.destroy());
+}
+
+export {
+    clearSubscription,
+    destroyChartInstances,
+    getData,
+    getPagination,
+    resetPagination,
+    setChartInstance,
+    setCurrentPage,
+    setData,
+    setFilteredItems,
+    setUnsubscribe
+};
