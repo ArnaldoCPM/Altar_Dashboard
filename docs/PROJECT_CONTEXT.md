@@ -1,5 +1,9 @@
 # Objetivo del proyecto
 
+## M9-T4.1 - Acciones de tabla sin handlers globales
+
+La tabla del Dashboard emite acciones de edición y eliminación hacia su Controller mediante listeners locales. El Controller publica el evento de integración `dashboard:server-action`; `main.js` conserva la lógica existente de Servidores sin exponer `editServer` ni `deleteServer` como funciones globales.
+
 ## M9-T3C.4 - Eventos internos del Dashboard
 
 Los eventos de filtros, búsqueda y paginación del Dashboard se registran dentro de sus vistas internas. `main.js` no registra listeners propios del Dashboard y conserva únicamente los eventos de autenticación, Shell y flujos administrativos.

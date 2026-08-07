@@ -1,6 +1,6 @@
 import { cleanStr, generateWpLink } from "../../../utils.js";
 import { getServerAge } from "./kpis.view.js";
-function renderTable(data, pagination, getActions) {
+function renderTable(data, pagination, getActions, onAction) {
     const tableBody = document.getElementById('table-body');
     const emptyState = document.getElementById('empty-state');
     const paginationContainer = document.getElementById('pagination-container');
@@ -86,8 +86,8 @@ function renderTable(data, pagination, getActions) {
         if (mayEditServer || mayDeleteServer) {
             actionsHtml = `
                 <div class="flex gap-1.5 justify-center">
-                    ${mayEditServer ? `<button onclick="editServer('${server.id}')" class="p-1 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[11px] font-bold transition-all">Editar</button>` : ''}
-                    ${mayDeleteServer ? `<button onclick="deleteServer('${server.id}', '${server.Nome.replace(/'/g, "\\'")}')" class="p-1 px-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition-all">Apagar</button>` : ''}
+                    ${mayEditServer ? '<button data-dashboard-action="edit" class="p-1 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[11px] font-bold transition-all">Editar</button>' : ''}
+                    ${mayDeleteServer ? '<button data-dashboard-action="delete" class="p-1 px-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition-all">Apagar</button>' : ''}
                 </div>
             `;
         }
@@ -135,6 +135,8 @@ function renderTable(data, pagination, getActions) {
                 ${actionsHtml}
             </td>
         `;
+        row.querySelector('[data-dashboard-action="edit"]')?.addEventListener('click', () => onAction('edit', server));
+        row.querySelector('[data-dashboard-action="delete"]')?.addEventListener('click', () => onAction('delete', server));
         tableBody.appendChild(row);
     });
 

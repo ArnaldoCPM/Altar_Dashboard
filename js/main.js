@@ -779,8 +779,7 @@ function setStudyScheduleInForm(schedule) {
         });
 }
 
-// Funciones expuestas a nivel global para compatibilidad con handlers inline onclick
-window.editServer = function(id) {
+function editServer(id) {
     const server = getDashboardData().find(d => d.id === id);
     if (!canEditServer(server)) return;
 
@@ -812,9 +811,9 @@ window.editServer = function(id) {
     document.getElementById('form-wp-tutor').value = formatPhone(server.Whatsapp_tutor_guardiao);
 
     editServerModal.classList.remove('hidden');
-};
+}
 
-window.deleteServer = function(id, name) {
+function deleteServer(id, name) {
     const server = getDashboardData().find(d => d.id === id);
 
     if (!canDeleteServer(server)) {
@@ -833,7 +832,15 @@ window.deleteServer = function(id, name) {
             }
         }
     );
-};
+}
+
+document.addEventListener('dashboard:server-action', ({ detail }) => {
+    if (detail.action === 'edit') {
+        editServer(detail.serverId);
+    } else if (detail.action === 'delete') {
+        deleteServer(detail.serverId, detail.serverName);
+    }
+});
 
 // CARGA MASIVA CSV (Conexión directa, única y robusta al input)
 const fileInput = document.getElementById('csv-file-input');

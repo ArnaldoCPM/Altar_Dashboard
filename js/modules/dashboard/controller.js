@@ -33,9 +33,15 @@ function getTableActions(server) {
     };
 }
 
+function handleTableAction(action, server) {
+    document.dispatchEvent(new CustomEvent('dashboard:server-action', {
+        detail: { action, serverId: server.id, serverName: server.Nome }
+    }));
+}
+
 function renderDashboardTable(data = getPagination().filteredItems) {
     const pagination = getPagination();
-    renderTable(data, pagination, getTableActions);
+    renderTable(data, pagination, getTableActions, handleTableAction);
 }
 
 async function loadData(chapels) {
