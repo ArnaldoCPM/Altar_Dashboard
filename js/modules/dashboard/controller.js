@@ -1,7 +1,9 @@
 import { db } from "../../firebase.js";
 import { getActiveChapels } from "../../data/chapels.js";
+import { canDelete, canEdit } from "../../authorization.js";
 import { subscribeToDashboardData } from "./services/dashboard.service.js";
 import { populateFilters, updateUI } from "./views/dashboard.view.js";
+import { renderTable } from "./views/table.view.js";
 import {
     clearSubscription,
     destroyChartInstances,
@@ -24,6 +26,18 @@ function handleDashboardError(error) {
     alertBox.scrollIntoView({ behavior: 'smooth' });
 }
 
+function getTableActions(server) {
+    return {
+        mayEditServer: canEdit(server),
+        mayDeleteServer: canDelete(server)
+    };
+}
+
+function renderDashboardTable(data = getPagination().filteredItems) {
+    const pagination = getPagination();
+    renderTable(data, pagination, getTableActions);
+}
+
 async function loadData(chapels) {
     const activeChapels = chapels || await getActiveChapels();
 
@@ -33,6 +47,7 @@ async function loadData(chapels) {
         setFilteredItems(data);
         await populateFilters(activeChapels, getDashboardData());
         updateUI(getDashboardData());
+        renderDashboardTable();
         document.getElementById('loading-overlay').classList.add('opacity-0');
         setTimeout(() => {
             document.getElementById('loading-overlay').classList.add('hidden');
@@ -43,6 +58,7 @@ async function loadData(chapels) {
 function refresh() {
     setFilteredItems(getDashboardData());
     updateUI(getDashboardData());
+    renderDashboardTable();
 }
 
 function destroy() {
@@ -66,12 +82,12 @@ function getPagination() {
 
 function updateFilteredItems(items) {
     setFilteredItems(items, true);
-    return getPagination().filteredItems;
+    renderDashboardTable();
 }
 
 function goToPage(page) {
     setCurrentPage(page);
-    return getPagination().filteredItems;
+    renderDashboardTable();
 }
 
 function nextPage() {
@@ -82,7 +98,7 @@ function nextPage() {
         setCurrentPage(pagination.currentPage + 1);
     }
 
-    return getPagination().filteredItems;
+    renderDashboardTable();
 }
 
 function previousPage() {
@@ -92,7 +108,7 @@ function previousPage() {
         setCurrentPage(pagination.currentPage - 1);
     }
 
-    return getPagination().filteredItems;
+    renderDashboardTable();
 }
 
 function setChart(name, instance) {
