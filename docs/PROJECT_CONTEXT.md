@@ -1,5 +1,9 @@
 # Objetivo del proyecto
 
+## M9-T3C.4 - Eventos internos del Dashboard
+
+Los eventos de filtros, búsqueda y paginación del Dashboard se registran dentro de sus vistas internas. `main.js` no registra listeners propios del Dashboard y conserva únicamente los eventos de autenticación, Shell y flujos administrativos.
+
 ## M9-T3C.2 — Callbacks internos del Dashboard
 
 El Controller registra internamente los callbacks de carga, renderizado, filtros y errores del Dashboard. `main.js` inicializa el módulo únicamente con las capillas disponibles y ya no entrega callbacks al Controller.
