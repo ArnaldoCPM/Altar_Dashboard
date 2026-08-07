@@ -1,11 +1,11 @@
 import { getActiveChapels } from "../../../data/chapels.js";
 import { cleanStr } from "../../../utils.js";
 import { getServerAge, updateKPIs } from "./kpis.view.js";
-import { destroyCharts, getData as getDashboardData, goToPage, nextPage, previousPage, setChart, updateFilteredItems } from "../controller.js";
+import { applyFilters, destroyCharts, getData as getDashboardData, goToPage, nextPage, previousPage, setChart } from "../controller.js";
 function updateUI(data) {
     updateKPIs(data);
     renderCharts(data);
-    setupInteractiveEvents(data);
+    setupInteractiveEvents();
 }
 
 // Llenado de filtros dinámicos
@@ -244,48 +244,33 @@ window.previousPage = function() {
 }
 
 // Configuración de eventos interactivos y filtros
-function setupInteractiveEvents(data) {
+function setupInteractiveEvents() {
     const searchInput = document.getElementById('search-input');
     const filterCapilla = document.getElementById('filter-capilla');
     const filterEstado = document.getElementById('filter-estado');
     const filterAlergias = document.getElementById('filter-alergias');
     const filterTipo = document.getElementById('filter-tipo');
 
-    function applyFilters() {
-        const query = searchInput.value.toLowerCase();
+    function notifyFilters() {
         const capillaVal = filterCapilla.value;
-        // Adaptación temporal hasta la migración completa a chapelId en M7.
         const selectedChapelName =
             capillaVal === 'all'
                 ? 'all'
                 : filterCapilla.options[filterCapilla.selectedIndex]?.textContent?.trim() || '';
-        const estadoVal = filterEstado.value;
-        const alergiasVal = filterAlergias.value;
-        const tipoVal = filterTipo.value;
 
-        const filtered = data.filter(d => {
-            const matchesSearch = d.Nome.toLowerCase().includes(query) || d.id.toLowerCase().includes(query);
-            const matchesCapilla = selectedChapelName === 'all' || (d.Capela || '').trim() === selectedChapelName;
-            const matchesEstado = estadoVal === 'all' || (d.Estado || '').trim() === estadoVal;
-
-            const itemAlergia = ['sim', 'si', 's'].includes(cleanStr(d.Possui_alergia_doenca)) ? 'Sim' : 'Não';
-            const matchesAlergias = alergiasVal === 'all' || itemAlergia === alergiasVal;
-
-            const itemTipo = cleanStr(d.Tipo);
-            const filterTipoClean = cleanStr(tipoVal);
-            const matchesTipo = tipoVal === 'all' || itemTipo === filterTipoClean;
-
-            return matchesSearch && matchesCapilla && matchesEstado && matchesAlergias && matchesTipo;
+        applyFilters({
+            query: searchInput.value.toLowerCase(),
+            chapelName: selectedChapelName,
+            estado: filterEstado.value,
+            alergias: filterAlergias.value,
+            tipo: filterTipo.value
         });
-
-        updateFilteredItems(filtered);
     }
-
     // Asignar listeners directamente para evitar solapamientos
-    searchInput.oninput = applyFilters;
-    filterCapilla.onchange = applyFilters;
-    filterEstado.onchange = applyFilters;
-    filterAlergias.onchange = applyFilters;
-    filterTipo.onchange = applyFilters;
+    searchInput.oninput = notifyFilters;
+    filterCapilla.onchange = notifyFilters;
+    filterEstado.onchange = notifyFilters;
+    filterAlergias.onchange = notifyFilters;
+    filterTipo.onchange = notifyFilters;
 }
 export { populateFilters, updateUI };

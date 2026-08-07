@@ -1,6 +1,7 @@
 import { db } from "../../firebase.js";
 import { getActiveChapels } from "../../data/chapels.js";
 import { canDelete, canEdit } from "../../authorization.js";
+import { cleanStr } from "../../utils.js";
 import { subscribeToDashboardData } from "./services/dashboard.service.js";
 import { populateFilters, updateUI } from "./views/dashboard.view.js";
 import { renderTable } from "./views/table.view.js";
@@ -91,6 +92,23 @@ function updateFilteredItems(items) {
     renderDashboardTable();
 }
 
+function applyFilters({ query, chapelName, estado, alergias, tipo }) {
+    const filteredItems = getDashboardData().filter((server) => {
+        const matchesSearch = server.Nome.toLowerCase().includes(query)
+            || server.id.toLowerCase().includes(query);
+        const matchesChapel = chapelName === 'all'
+            || (server.Capela || '').trim() === chapelName;
+        const matchesEstado = estado === 'all' || (server.Estado || '').trim() === estado;
+        const itemAlergia = ['sim', 'si', 's'].includes(cleanStr(server.Possui_alergia_doenca)) ? 'Sim' : 'Não';
+        const matchesAlergias = alergias === 'all' || itemAlergia === alergias;
+        const matchesTipo = tipo === 'all' || cleanStr(server.Tipo) === cleanStr(tipo);
+
+        return matchesSearch && matchesChapel && matchesEstado && matchesAlergias && matchesTipo;
+    });
+
+    updateFilteredItems(filteredItems);
+}
+
 function goToPage(page) {
     setCurrentPage(page);
     renderDashboardTable();
@@ -126,6 +144,7 @@ function destroyCharts() {
 }
 
 export {
+    applyFilters,
     destroy,
     destroyCharts,
     getData,

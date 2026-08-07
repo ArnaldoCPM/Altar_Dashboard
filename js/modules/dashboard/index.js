@@ -1,4 +1,5 @@
 import {
+    applyFilters,
     destroy as destroyController,
     destroyCharts,
     getData,
@@ -37,6 +38,7 @@ function previousPage() {
 }
 
 export {
+    applyFilters,
     destroy,
     destroyCharts,
     getData,

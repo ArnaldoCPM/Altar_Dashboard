@@ -1,5 +1,9 @@
 # Objetivo del proyecto
 
+## M9-T4.2 - Filtrado gobernado por el Controller
+
+La vista del Dashboard captura los valores de búsqueda y filtros sin recorrer el dataset ni modificar estado. El Controller aplica los criterios sobre la fuente de datos, actualiza `filteredItems` y coordina el render de tabla y paginación.
+
 ## M9-T4.1 - Acciones de tabla sin handlers globales
 
 La tabla del Dashboard emite acciones de edición y eliminación hacia su Controller mediante listeners locales. El Controller publica el evento de integración `dashboard:server-action`; `main.js` conserva la lógica existente de Servidores sin exponer `editServer` ni `deleteServer` como funciones globales.
