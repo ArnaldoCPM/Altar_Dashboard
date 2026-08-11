@@ -415,12 +415,11 @@ btnLoginGoogle.addEventListener('click', async () => {
 
 // LOGOUT: cerrar sesión en Firebase Authentication
 async function performLogout() {
-    await performFirebaseLogout((err) => {
+    try {
+        await performFirebaseLogout();
+    } catch (err) {
         showError("Não foi possível encerrar a sessão: " + err.message);
-    });
-    resetPermissions();
-    showLoginScreen();
-    updateAdminUI(false);
+    }
 }
 
 // FORMULARIO MANUAL DE AGREGAR / EDITAR

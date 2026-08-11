@@ -2,6 +2,10 @@ import { auth, GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPasswor
 
 const googleProvider = new GoogleAuthProvider();
 
+googleProvider.setCustomParameters({
+    prompt: 'select_account'
+});
+
 const initAuth = async (onError) => {
     try {
         return auth;
@@ -26,15 +30,12 @@ const loginWithGoogle = () => {
     return signInWithPopup(auth, googleProvider);
 };
 
-async function performLogout(onError) {
+async function performLogout() {
     try {
         await signOut(auth);
     } catch (err) {
-        if (typeof onError === 'function') {
-            onError(err);
-        } else {
-            console.error('Firebase logout failed:', err);
-        }
+        console.error('Firebase logout failed:', err);
+        throw err;
     }
 }
 
