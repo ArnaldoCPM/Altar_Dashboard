@@ -408,8 +408,8 @@
     </main>
 
     <!-- LOGIN MODAL -->
-    <div id="admin-login-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
+    <div id="admin-login-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain shadow-2xl border border-slate-100 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
                 <div>
                     <h3 class="text-lg font-bold text-slate-800">Entrar no SGSA</h3>
@@ -446,7 +446,7 @@
 
     <!-- ADD/EDIT DIALOG MODAL -->
     <div id="edit-server-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <div class="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl border border-slate-100 space-y-4 my-8">
+        <div class="bg-white rounded-3xl p-6 max-w-2xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain shadow-2xl border border-slate-100 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-bold text-slate-800" id="edit-modal-title">Adicionar/Editar servidor</h3>
                 <button onclick="document.getElementById('edit-server-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
@@ -606,8 +606,8 @@
 
     <!-- USERS MANAGEMENT MODAL -->
     <div id="users-management-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <div class="bg-white rounded-3xl p-6 max-w-5xl w-full shadow-2xl border border-slate-100 space-y-4 my-8">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
+        <div class="bg-white rounded-3xl p-6 max-w-5xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain shadow-2xl border border-slate-100 space-y-4">
+            <div class="-mx-6 -mt-6 sticky top-0 z-10 bg-white px-6 pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-bold text-slate-800">Gerenciar Usuários</h3>
                 <button id="btn-new-user" type="button" class="bg-liturgical-blue hover:bg-liturgical-blue/90 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors w-full sm:w-auto">
                     + Novo Usuário
@@ -645,7 +645,7 @@
 
     <!-- USER EDIT MODAL -->
     <div id="user-edit-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <div class="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl border border-slate-100 space-y-4 my-8">
+        <div class="bg-white rounded-3xl p-6 max-w-2xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain shadow-2xl border border-slate-100 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
                 <h3 id="user-edit-modal-title" class="text-lg font-bold text-slate-800">Editar Usuário</h3>
                 <button type="button" onclick="document.getElementById('user-edit-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 font-bold">×</button>
@@ -692,8 +692,8 @@
     </div>
 
     <!-- CUSTOM CONFIRMATION MODAL (Evita usar confirm() nativo del navegador) -->
-    <div id="confirm-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain shadow-2xl border border-slate-100 space-y-4">
             <div class="flex items-center space-x-3 text-amber-500">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
