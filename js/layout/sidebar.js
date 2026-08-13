@@ -15,6 +15,9 @@ function createNavigationLink(item) {
 
     link.addEventListener('click', (event) => {
         event.preventDefault();
+        document.dispatchEvent(new CustomEvent('shell:navigate', {
+            detail: { moduleId: item.id }
+        }));
     });
 
     return link;

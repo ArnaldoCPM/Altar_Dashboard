@@ -521,3 +521,9 @@ Se eliminó la suscripción legacy de `main.js`. El Dashboard obtiene ahora sus 
 ## M9-T3B.2 — Estado único del Dashboard
 
 Se consolidó el estado propio del Dashboard en `js/modules/dashboard/state.js`, organizado por datos, filtros, paginación, gráficos, UI y suscripciones. `main.js` dejó de declarar referencias de gráficos y variables de paginación; estas se resuelven desde el estado centralizado. El controller accede a los datos mediante la API de `state.js`.
+
+## M10-T4.1 — Foundation do módulo Formação
+
+Foi criada a estrutura inicial em `js/modules/formation/`, com `index.js`, `controller.js` e `state.js`. A única API pública do módulo é `initialize()`, `refresh()` e `destroy()`; `main.js` integra somente esse ciclo de vida ao Shell.
+
+O módulo possui uma fonte única de estado preparada para dados, filtros, navegação, permissões, interface e subscriptions. Nesta etapa não há operações Firestore, CRUD, serviços funcionais ou regras de negócio de Formação. Essas funcionalidades permanecem para as etapas posteriores.

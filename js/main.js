@@ -4,6 +4,7 @@ import { getAllUsers, resolveUserProfile, updateUser, createUser } from "./data/
 import { createServer } from "./data/servers.js";
 import { calculateAge, cleanStr, generateWpLink } from "./utils.js";
 import { destroy as destroyDashboard, getData as getDashboardData, initialize as initializeDashboard, refresh as refreshDashboard } from "./modules/dashboard/index.js";
+import { destroy as destroyFormation, initialize as initializeFormation, refresh as refreshFormation } from "./modules/formation/index.js";
 import {
     setCurrentUser,
     setCurrentProfile,
@@ -42,6 +43,7 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 // Estado global de la aplicación
 let user = null;
 let cachedActiveChapels = [];
+let activeModule = 'dashboard';
 
 function initApplicationShell() {
     initHeader();
@@ -63,7 +65,46 @@ function getServerAge(server) {
 
 function stopServerSubscription() {
     destroyDashboard();
+    destroyFormation();
+    activeModule = null;
 }
+
+function setDashboardWorkspaceVisibility(isVisible) {
+    ['admin-banner', 'upload-section', 'dashboard-content'].forEach((id) => {
+        document.getElementById(id)?.classList.toggle('hidden', !isVisible);
+    });
+}
+
+async function navigateToModule(moduleId) {
+    if (moduleId === 'training') {
+        if (activeModule === 'training') {
+            refreshFormation();
+            return;
+        }
+
+        destroyDashboard();
+        setDashboardWorkspaceVisibility(false);
+        initializeFormation({ mountElement: getWorkspaceElement() });
+        activeModule = 'training';
+        return;
+    }
+
+    if (moduleId === 'dashboard') {
+        if (activeModule === 'dashboard') {
+            refreshDashboard();
+            return;
+        }
+
+        destroyFormation();
+        setDashboardWorkspaceVisibility(true);
+        await initializeDashboard({ chapels: cachedActiveChapels });
+        activeModule = 'dashboard';
+    }
+}
+
+document.addEventListener('shell:navigate', ({ detail }) => {
+    navigateToModule(detail.moduleId);
+});
 
 function showLoginScreen() {
     stopServerSubscription();
@@ -261,6 +302,7 @@ setupAuthStateListener(async (u) => {
 
             console.log("5");
             await initializeDashboard({ chapels });
+            activeModule = 'dashboard';
             console.log("6");
         }
 
