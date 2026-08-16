@@ -1,6 +1,7 @@
 const initialState = () => ({
     data: {
         formations: [],
+        filteredFormations: [],
         currentFormation: null,
         poles: [],
         currentPole: null,
@@ -28,7 +29,8 @@ const initialState = () => ({
     },
     ui: {
         loading: false,
-        error: null
+        error: null,
+        success: null
     },
     subscriptions: {
         formations: null,
@@ -40,12 +42,19 @@ const initialState = () => ({
 
 let formationState = initialState();
 
+function copyFormation(formation) {
+    return formation
+        ? { ...formation, modalities: [...(formation.modalities || [])] }
+        : formation;
+}
+
 function getState() {
     return {
         ...formationState,
         data: {
             ...formationState.data,
-            formations: [...formationState.data.formations],
+            formations: formationState.data.formations.map(copyFormation),
+            filteredFormations: formationState.data.filteredFormations.map(copyFormation),
             poles: [...formationState.data.poles],
             encounters: [...formationState.data.encounters],
             participants: [...formationState.data.participants]
@@ -58,8 +67,37 @@ function getState() {
     };
 }
 
+function setFormations(formations) {
+    formationState.data.formations = formations.map(copyFormation);
+}
+
+function setFilteredFormations(formations) {
+    formationState.data.filteredFormations = formations.map(copyFormation);
+}
+
+function setCurrentFormation(formation) {
+    formationState.data.currentFormation = copyFormation(formation);
+}
+
+function setFilters(filters) {
+    formationState.filters = { ...formationState.filters, ...filters };
+}
+
+function setNavigation(navigation) {
+    formationState.navigation = { ...formationState.navigation, ...navigation };
+}
+
+function setPermissions(permissions) {
+    formationState.permissions = { ...formationState.permissions, ...permissions };
+}
+
 function setUiState(ui) {
     formationState.ui = { ...formationState.ui, ...ui };
+}
+
+function setSubscription(name, unsubscribe) {
+    formationState.subscriptions[name]?.();
+    formationState.subscriptions[name] = unsubscribe;
 }
 
 function clearSubscriptions() {
@@ -78,5 +116,12 @@ export {
     clearSubscriptions,
     getState,
     resetState,
+    setCurrentFormation,
+    setFilteredFormations,
+    setFilters,
+    setFormations,
+    setNavigation,
+    setPermissions,
+    setSubscription,
     setUiState
 };

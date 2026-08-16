@@ -527,3 +527,11 @@ Se consolidó el estado propio del Dashboard en `js/modules/dashboard/state.js`,
 Foi criada a estrutura inicial em `js/modules/formation/`, com `index.js`, `controller.js` e `state.js`. A única API pública do módulo é `initialize()`, `refresh()` e `destroy()`; `main.js` integra somente esse ciclo de vida ao Shell.
 
 O módulo possui uma fonte única de estado preparada para dados, filtros, navegação, permissões, interface e subscriptions. Nesta etapa não há operações Firestore, CRUD, serviços funcionais ou regras de negócio de Formação. Essas funcionalidades permanecem para as etapas posteriores.
+
+## M10-T4.2 — CRUD de Formações
+
+Foi implementado o CRUD inicial da entidade `Formation` na coleção `formations/{formationId}`. O módulo agora inclui `services/formation.service.js` para acesso ao Firestore e `views/formation.view.js` para listagem, filtros, formulário, detalhes e ações de status.
+
+Os filtros permanecem centralizados no Controller, o estado continua sendo a única fonte de verdade do módulo e a subscription é controlada pelo ciclo de vida. O status utiliza as transições aprovadas: `draft → active/archived`, `active → completed/archived`, `completed → archived` e `archived → archived`.
+
+As regras mínimas de Firestore permitem leitura a usuários ativos e escrita somente a administradores, com validação do schema e dos campos de auditoria. Coordenadores permanecem em leitura até que a responsabilidade contextual por Polo seja implementada. Polos, encontros, participantes, presenças, exportações e estatísticas continuam fora do escopo.

@@ -219,5 +219,56 @@ service cloud.firestore {
        */
       allow create, update, delete: if isAdmin();
     }
+
+    /**
+     * Formações: leitura para usuários ativos e gestão inicial exclusiva de
+     * administradores. A gestão contextual de coordenadores será adicionada
+     * quando os polos existirem.
+     */
+    match /formations/{formationId} {
+      function hasValidFormationFields(data) {
+        return data.keys().hasOnly([
+          "name", "description", "stage", "modalities", "startDate", "endDate",
+          "status", "createdBy", "createdAt", "updatedAt"
+        ])
+          && data.keys().hasAll([
+            "name", "stage", "modalities", "status", "createdBy", "createdAt", "updatedAt"
+          ])
+          && data.name is string
+          && data.name.size() > 0
+          && data.stage in ["first", "second"]
+          && data.modalities is list
+          && data.modalities.size() > 0
+          && data.modalities.size() <= 2
+          && data.modalities.hasOnly(["initial", "permanent"])
+          && data.status in ["draft", "active", "completed", "archived"]
+          && (!data.keys().hasAny(["description"]) || data.description is string)
+          && (!data.keys().hasAny(["startDate"]) || data.startDate is timestamp)
+          && (!data.keys().hasAny(["endDate"]) || data.endDate is timestamp)
+          && (!data.keys().hasAll(["startDate", "endDate"]) || data.endDate >= data.startDate);
+      }
+
+      function hasValidStatusTransition(currentStatus, nextStatus) {
+        return currentStatus == nextStatus
+          || (currentStatus == "draft" && nextStatus in ["active", "archived"])
+          || (currentStatus == "active" && nextStatus in ["completed", "archived"])
+          || (currentStatus == "completed" && nextStatus == "archived")
+          || (currentStatus == "archived" && nextStatus == "archived");
+      }
+
+      allow get, list: if isActive();
+      allow create: if isAdmin()
+        && hasValidFormationFields(request.resource.data)
+        && request.resource.data.status == "draft"
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin()
+        && hasValidFormationFields(request.resource.data)
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && hasValidStatusTransition(resource.data.status, request.resource.data.status);
+    }
   }
 }
