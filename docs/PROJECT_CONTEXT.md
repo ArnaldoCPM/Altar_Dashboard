@@ -143,6 +143,11 @@ Sistema web para administrar los servidores del altar de una parroquia, centrali
 
 # Próximo módulo (M7)
 
+## M10-T4.4 — Encontros
+
+- Encontros se almacenan de forma contextual bajo `formations/{formationId}/poles/{poleId}/encounters/{encounterId}`.
+- La asignación de sustitutos y la gestión de responsables se restringen temporalmente a administradores en las Security Rules. Los coordinators de Polo no pueden listar perfiles globales para seleccionar sustitutos externos ni modificar `responsibilities` o `coordinatorIds` directamente. Esta limitación responde a que las Rules actuales de `users` no permiten un listado global controlado de coordinators y será revisada en una etapa posterior.
+
 - Migración de `Capela` a `capela_id` / `chapelId` en los flujos pendientes.
 - Eliminación del acceso anónimo heredado del proyecto base.
 - Permisos completos por rol en autenticación, autorización e interfaz.

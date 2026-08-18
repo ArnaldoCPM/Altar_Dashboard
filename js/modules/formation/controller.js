@@ -16,12 +16,15 @@ import {
     updatePole,
     updatePoleActive
 } from "./services/pole.service.js";
+import { createEncounter, getEncounter, subscribeToEncounters, updateEncounter, updateEncounterStatus, updateResponsibilities } from "./services/encounter.service.js";
 import {
     clearSubscriptions,
     getState,
     resetState,
     setCurrentFormation,
+    setCurrentEncounter,
     setCurrentPole,
+    setEncounters,
     setFilteredFormations,
     setFilters,
     setFormations,
@@ -34,6 +37,7 @@ import {
 } from "./state.js";
 import { renderFormationView } from "./views/formation.view.js";
 import { renderPoleView } from "./views/pole.view.js";
+import { renderEncounterView } from "./views/encounter.view.js";
 
 const VALID_STAGES = new Set(["first", "second"]);
 const VALID_MODALITIES = new Set(["initial", "permanent"]);
@@ -48,6 +52,7 @@ const STATUS_TRANSITIONS = {
 let initialized = false;
 let root = null;
 let poleResources = { chapels: [], coordinators: [] };
+let encounterResources = { chapels: [], designatedCoordinators: [], allCoordinators: [], userNames: {} };
 
 function resolvePermissions() {
     const canManageFormations = isAdmin();
@@ -65,6 +70,20 @@ function render() {
     if (!root) return;
 
     const state = getState();
+    if (["encounter-list", "encounter-form", "encounter-details", "encounter-substitute"].includes(state.navigation.currentView)) {
+        renderEncounterView(root, state, {
+            action: handleEncounterAction,
+            save: saveEncounter,
+            addSubstitute,
+            canManage: canManageCurrentPole(),
+            canEdit: canEditCurrentEncounter(),
+            canManageResponsibilities: isAdmin(),
+            canAddSubstitute: isAdmin() && state.navigation.currentView !== "encounter-substitute",
+            statusActions: availableEncounterStatuses(state.data.currentEncounter),
+            ...encounterResources
+        });
+        return;
+    }
     if (state.navigation.currentView === "poles" || state.navigation.currentView === "pole-form") {
         renderPoleView(root, state, {
             action: handlePoleAction,
@@ -166,6 +185,115 @@ function canEditPole(pole) {
     if (isAdmin()) return true;
     const user = getCurrentUser();
     return isCoordinator() && Boolean(user?.uid) && (pole.coordinatorIds || []).includes(user.uid);
+}
+
+function canManageCurrentPole() {
+    const pole = getState().data.currentPole;
+    return Boolean(pole) && (isAdmin() || canEditPole(pole));
+}
+
+function canEditCurrentEncounter() {
+    const encounter = getState().data.currentEncounter;
+    return Boolean(encounter) && canManageCurrentPole() && (isAdmin() || encounter.status === "scheduled");
+}
+
+function availableEncounterStatuses(encounter) {
+    if (!encounter) return [];
+    const user = getCurrentUser();
+    const operational = isCoordinator() && (encounter.coordinatorIds || []).includes(user?.uid);
+    if (encounter.status === "scheduled" && (canManageCurrentPole() || operational)) return ["in_progress", ...(canManageCurrentPole() ? ["cancelled"] : [])];
+    if (encounter.status === "in_progress" && (canManageCurrentPole() || operational)) return ["completed"];
+    return [];
+}
+
+async function loadEncounterResources() {
+    const pole = getState().data.currentPole;
+    if (!pole) throw new Error("Selecione um polo antes de gerenciar encontros.");
+    const chapels = (await getActiveChapels()).filter((chapel) => (pole.chapelIds || []).includes(chapel.id));
+    const users = isAdmin() ? await getAllUsers() : [];
+    const allCoordinators = users.filter((user) => user.documentId === user.uid && user.role === "coordinator" && user.active === true).map((user) => ({ id: user.uid, name: user.displayName || user.email || user.uid }));
+    const currentUser = getCurrentUser();
+    const visibleDesignatedIds = new Set((getState().data.currentEncounter?.responsibilities || [])
+        .filter((item) => item.type === "designated")
+        .map((item) => item.userId));
+    if (!isAdmin() && currentUser?.uid && (pole.coordinatorIds || []).includes(currentUser.uid)) visibleDesignatedIds.add(currentUser.uid);
+    const designatedCoordinators = isAdmin()
+        ? allCoordinators.filter((user) => (pole.coordinatorIds || []).includes(user.id))
+        : [...visibleDesignatedIds].map((id) => ({ id, name: id === currentUser?.uid ? (currentUser.displayName || currentUser.email || id) : id }));
+    encounterResources = { chapels, designatedCoordinators, allCoordinators, userNames: Object.fromEntries(allCoordinators.map((user) => [user.id, user.name])) };
+}
+
+function loadEncounters() {
+    const { currentFormation, currentPole } = getState().data;
+    if (!currentFormation?.id || !currentPole?.id) return;
+    setSubscription("encounters", subscribeToEncounters(currentFormation.id, currentPole.id, (encounters) => {
+        setEncounters(encounters);
+        const currentEncounter = getState().data.currentEncounter;
+        if (currentEncounter) setCurrentEncounter(encounters.find((item) => item.id === currentEncounter.id) || null);
+        setUiState({ loading: false, error: null });
+        render();
+    }, () => {
+        setUiState({ loading: false, error: "Não foi possível carregar os encontros. Tente novamente." });
+        render();
+    }));
+}
+
+function normalizedResponsibilities(designatedIds, existing = []) {
+    const selected = new Set(designatedIds);
+    const oldDesignated = existing.filter((item) => item.type === "designated");
+    const updatedDesignated = oldDesignated.map((item) => ({ ...item, status: selected.has(item.userId) ? "confirmed" : "cancelled" }));
+    const known = new Set(oldDesignated.map((item) => item.userId));
+    for (const userId of selected) if (!known.has(userId)) updatedDesignated.push({ userId, type: "designated", status: "confirmed" });
+    return [...updatedDesignated, ...existing.filter((item) => item.type === "substitute")];
+}
+
+function coordinatorIdsFrom(responsibilities) {
+    return [...new Set(responsibilities.filter((item) => item.status === "confirmed").map((item) => item.userId))];
+}
+
+function validateEncounter(input, existing = null) {
+    const pole = getState().data.currentPole;
+    const title = input.title?.trim();
+    const startAt = new Date(input.startAt);
+    const endAt = input.endAt ? new Date(input.endAt) : null;
+    const chapel = encounterResources.chapels.find((item) => item.id === input.chapelId);
+    const designatedIds = [...new Set(input.designatedIds || [])];
+    if (!title) throw new Error("Informe o título do encontro.");
+    if (Number.isNaN(startAt.getTime()) || (endAt && Number.isNaN(endAt.getTime()))) throw new Error("Informe data e horário válidos.");
+    if (endAt && endAt < startAt) throw new Error("O horário final não pode ser anterior ao inicial.");
+    if (!chapel || !(pole.chapelIds || []).includes(chapel.id)) throw new Error("Selecione uma capela ativa atendida pelo polo.");
+    if (designatedIds.some((id) => !encounterResources.designatedCoordinators.some((user) => user.id === id))) throw new Error("Selecione apenas coordenadores ativos do polo.");
+    const responsibilities = normalizedResponsibilities(designatedIds, existing?.responsibilities || []);
+    return { title, description: input.description?.trim() || "", startAt, ...(endAt ? { endAt } : {}), location: { chapelId: chapel.id, name: chapel.name }, responsibilities, coordinatorIds: coordinatorIdsFrom(responsibilities) };
+}
+
+async function showEncounters(poleId) {
+    try {
+        const pole = getState().data.poles.find((item) => item.id === poleId);
+        if (!pole) throw new Error("Polo não encontrado.");
+        setCurrentPole(pole); setCurrentEncounter(null); setNavigation({ currentView: "encounter-list" }); setUiState({ loading: true, error: null, success: null });
+        await loadEncounterResources(); loadEncounters(); render();
+    } catch (error) { setUiState({ loading: false, error: error.message || "Não foi possível carregar os encontros." }); render(); }
+}
+
+async function showEncounterDetails(encounterId) {
+    try { const { currentFormation, currentPole, encounters } = getState().data; const encounter = encounters.find((item) => item.id === encounterId) || await getEncounter(currentFormation.id, currentPole.id, encounterId); if (!encounter) throw new Error("Encontro não encontrado."); setCurrentEncounter(encounter); setNavigation({ currentView: "encounter-details" }); await loadEncounterResources(); setUiState({ error: null, success: null }); render(); } catch (error) { setUiState({ error: error.message }); render(); }
+}
+
+async function showEncounterForm(encounterId = null) {
+    try { if (!canManageCurrentPole()) throw new Error("Você não possui permissão para administrar encontros."); const encounter = encounterId ? getState().data.encounters.find((item) => item.id === encounterId) : null; if (encounter && !canEditCurrentEncounter()) throw new Error("Este encontro não pode mais ter sua agenda editada."); await loadEncounterResources(); setCurrentEncounter(encounter || null); setNavigation({ currentView: "encounter-form" }); setUiState({ error: null, success: null }); render(); } catch (error) { setUiState({ error: error.message }); render(); }
+}
+
+async function saveEncounter(input) {
+    try { const { currentFormation, currentPole, currentEncounter } = getState().data; if (!canManageCurrentPole()) throw new Error("Você não possui permissão para administrar encontros."); if (currentEncounter && !canEditCurrentEncounter()) throw new Error("Este encontro não pode mais ter sua agenda editada."); const encounter = validateEncounter(input, currentEncounter); setUiState({ loading: true, error: null }); render(); if (currentEncounter) await updateEncounter(currentFormation.id, currentPole.id, currentEncounter.id, encounter); else await createEncounter(currentFormation.id, currentPole.id, { ...encounter, status: "scheduled", createdBy: getCurrentUser().uid }); setNavigation({ currentView: "encounter-list" }); setCurrentEncounter(null); } catch (error) { setUiState({ error: error.message || "Não foi possível salvar o encontro." }); } finally { setUiState({ loading: false }); render(); }
+}
+
+async function changeEncounterStatus(status) {
+    try { const { currentFormation, currentPole, currentEncounter } = getState().data; if (!availableEncounterStatuses(currentEncounter).includes(status)) throw new Error("Transição de status não permitida."); if (status === "in_progress" && !(currentEncounter.coordinatorIds || []).length) throw new Error("Defina ao menos um responsável confirmado antes de iniciar."); setUiState({ loading: true, error: null }); render(); await updateEncounterStatus(currentFormation.id, currentPole.id, currentEncounter.id, status); setUiState({ success: "Status do encontro atualizado." }); } catch (error) { setUiState({ error: error.message }); } finally { setUiState({ loading: false }); render(); }
+}
+
+async function addSubstitute(replacesUserId, substituteId) {
+    try { if (!isAdmin()) throw new Error("A atribuição de substitutos é temporariamente exclusiva do administrador."); const { currentFormation, currentPole, currentEncounter } = getState().data; const designated = (currentEncounter.responsibilities || []).find((item) => item.type === "designated" && item.userId === replacesUserId && item.status === "confirmed"); if (!designated || !encounterResources.allCoordinators.some((user) => user.id === substituteId) || substituteId === replacesUserId || (currentEncounter.responsibilities || []).some((item) => item.type === "substitute" && item.status === "confirmed" && item.userId === substituteId)) throw new Error("Substituição inválida."); const responsibilities = [...currentEncounter.responsibilities, { userId: substituteId, type: "substitute", replacesUserId, status: "confirmed" }]; await updateResponsibilities(currentFormation.id, currentPole.id, currentEncounter.id, responsibilities, coordinatorIdsFrom(responsibilities)); setNavigation({ currentView: "encounter-details" }); } catch (error) { setUiState({ error: error.message }); } finally { render(); }
 }
 
 function requirePoleEditPermission(pole) {
@@ -415,10 +543,33 @@ function handleViewAction(action, formationId, status) {
 }
 
 function handlePoleAction(action, poleId, active) {
+    if (action === "encounters") showEncounters(poleId);
     if (action === "create") showPoleForm();
     if (action === "edit") showPoleForm(poleId);
     if (action === "toggle") togglePole(poleId, active);
     if (action === "back") backToFormationDetails();
+}
+
+function handleEncounterAction(action, encounterId, status) {
+    if (action === "create") showEncounterForm();
+    if (action === "details") showEncounterDetails(encounterId);
+    if (action === "edit") showEncounterForm(encounterId);
+    if (action === "status") changeEncounterStatus(status);
+    if (action === "substitute") { setNavigation({ currentView: "encounter-substitute" }); loadEncounterResources().then(render).catch((error) => { setUiState({ error: error.message }); render(); }); }
+    if (action === "back") {
+        const currentView = getState().navigation.currentView;
+        if (currentView === "encounter-list") {
+            setSubscription("encounters", null);
+            setCurrentEncounter(null);
+            setNavigation({ currentView: "poles" });
+        } else if (currentView === "encounter-details") {
+            setCurrentEncounter(null);
+            setNavigation({ currentView: "encounter-list" });
+        } else {
+            setNavigation({ currentView: getState().data.currentEncounter ? "encounter-details" : "encounter-list" });
+        }
+        render();
+    }
 }
 
 function loadFormations() {

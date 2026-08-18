@@ -25,6 +25,7 @@ const port = Number(portValue || 8080);
 const users = {
   admin: { uid: 'admin-uid', email: 'admin@example.test', role: 'admin', active: true, chapelId: 'chapel-a' },
   coordinator: { uid: 'coordinator-uid', email: 'coordinator@example.test', role: 'coordinator', active: true, chapelId: 'chapel-a' },
+  substitute: { uid: 'substitute-uid', email: 'substitute@example.test', role: 'coordinator', active: true, chapelId: 'chapel-b' },
   viewer: { uid: 'viewer-uid', email: 'viewer@example.test', role: 'viewer', active: true, chapelId: 'chapel-a' },
   inactive: { uid: 'inactive-uid', email: 'inactive@example.test', role: 'admin', active: false, chapelId: 'chapel-a' },
 };
@@ -72,6 +73,28 @@ function validPole(overrides = {}) {
     updatedAt: serverTimestamp(),
     ...overrides,
   };
+}
+
+function encounterRef(db, formationId = 'formation-1', poleId = 'pole-1', encounterId = 'encounter-1') {
+  return doc(db, 'formations', formationId, 'poles', poleId, 'encounters', encounterId);
+}
+
+function validEncounter(overrides = {}) {
+  return {
+    title: 'Encontro de formação', description: '',
+    startAt: Timestamp.fromDate(new Date('2026-03-10T10:00:00.000Z')),
+    location: { chapelId: 'chapel-a', name: 'Capela A' }, status: 'scheduled',
+    coordinatorIds: [users.coordinator.uid],
+    responsibilities: [{ userId: users.coordinator.uid, type: 'designated', status: 'confirmed' }],
+    createdBy: users.admin.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), ...overrides,
+  };
+}
+
+async function seedEncounter(overrides = {}) {
+  await seedPole();
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(encounterRef(context.firestore()), { ...validEncounter(overrides), createdAt: Timestamp.fromDate(new Date('2026-01-01T00:00:00.000Z')), updatedAt: Timestamp.fromDate(new Date('2026-01-01T00:00:00.000Z')) });
+  });
 }
 
 async function seedUsers() {
@@ -364,4 +387,70 @@ test('admin cannot alter a pole createdAt and must use request.time for updatedA
     name: 'Wrong audit timestamp',
     updatedAt: Timestamp.fromDate(new Date('2000-01-01T00:00:00.000Z')),
   }));
+});
+
+test('admin and pole coordinator can create encounters', async () => {
+  await seedPole();
+  await assertSucceeds(setDoc(encounterRef(dbFor(users.admin), 'formation-1', 'pole-1', 'admin-encounter'), validEncounter()));
+  await assertSucceeds(setDoc(encounterRef(dbFor(users.coordinator), 'formation-1', 'pole-1', 'coordinator-encounter'), validEncounter({ createdBy: users.coordinator.uid })));
+});
+
+test('active users can read encounters while inactive and anonymous users cannot', async () => {
+  await seedEncounter();
+  await assertSucceeds(getDocs(collection(dbFor(users.viewer), 'formations', 'formation-1', 'poles', 'pole-1', 'encounters')));
+  await assertFails(getDocs(collection(dbFor(users.inactive), 'formations', 'formation-1', 'poles', 'pole-1', 'encounters')));
+  await assertFails(getDocs(collection(dbFor(), 'formations', 'formation-1', 'poles', 'pole-1', 'encounters')));
+});
+
+test('effective coordinator can start and complete but cannot edit agenda or cancel', async () => {
+  await seedEncounter({ coordinatorIds: [users.substitute.uid], responsibilities: [{ userId: users.substitute.uid, type: 'substitute', replacesUserId: users.coordinator.uid, status: 'confirmed' }] });
+  const db = dbFor(users.substitute);
+  await assertSucceeds(updateDoc(encounterRef(db), { status: 'in_progress', updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(encounterRef(db), { status: 'completed', updatedAt: serverTimestamp() }));
+  await seedEncounter();
+  await assertFails(updateDoc(encounterRef(db), { title: 'Denied', updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(encounterRef(db), { status: 'cancelled', updatedAt: serverTimestamp() }));
+});
+
+test('admin can cancel scheduled and reopen completed encounters', async () => {
+  await seedEncounter();
+  await assertSucceeds(updateDoc(encounterRef(dbFor(users.admin)), { status: 'cancelled', updatedAt: serverTimestamp() }));
+  await seedEncounter({ status: 'completed' });
+  await assertSucceeds(updateDoc(encounterRef(dbFor(users.admin)), { status: 'in_progress', updatedAt: serverTimestamp() }));
+});
+
+test('pole coordinator can edit scheduled agenda and manage status but cannot alter responsibilities', async () => {
+  await seedEncounter();
+  const db = dbFor(users.coordinator);
+  await assertSucceeds(updateDoc(encounterRef(db), { title: 'Agenda atualizada', updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(encounterRef(db), { responsibilities: [{ userId: users.substitute.uid, type: 'substitute', replacesUserId: users.coordinator.uid, status: 'confirmed' }], coordinatorIds: [users.substitute.uid], updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(encounterRef(db), { responsibilities: [{ userId: 'arbitrary-uid', type: 'designated', status: 'confirmed' }], coordinatorIds: ['arbitrary-uid'], updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(encounterRef(db), { coordinatorIds: [users.substitute.uid], updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(encounterRef(db), { responsibilities: [{ userId: users.coordinator.uid, type: 'designated', status: 'cancelled' }], updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(encounterRef(db), { status: 'cancelled', updatedAt: serverTimestamp() }));
+});
+
+test('effective substitute cannot alter responsibilities or coordinatorIds', async () => {
+  await seedEncounter({ coordinatorIds: [users.substitute.uid], responsibilities: [{ userId: users.substitute.uid, type: 'substitute', replacesUserId: users.coordinator.uid, status: 'confirmed' }] });
+  const db = dbFor(users.substitute);
+  await assertFails(updateDoc(encounterRef(db), { responsibilities: [{ userId: users.substitute.uid, type: 'substitute', replacesUserId: users.coordinator.uid, status: 'cancelled' }], updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(encounterRef(db), { coordinatorIds: [users.coordinator.uid], updatedAt: serverTimestamp() }));
+});
+
+test('admin can manage encounter responsibilities and derived coordinatorIds', async () => {
+  await seedEncounter();
+  await assertSucceeds(updateDoc(encounterRef(dbFor(users.admin)), {
+    responsibilities: [{ userId: users.substitute.uid, type: 'substitute', replacesUserId: users.coordinator.uid, status: 'confirmed' }],
+    coordinatorIds: [users.substitute.uid],
+    updatedAt: serverTimestamp(),
+  }));
+});
+
+test('encounter schema rejects invalid location, timing, parents and audit fields', async () => {
+  await seedFormation();
+  await assertFails(setDoc(encounterRef(dbFor(users.admin)), validEncounter()));
+  await seedPole();
+  await assertFails(setDoc(encounterRef(dbFor(users.admin), 'formation-1', 'pole-1', 'invalid-location'), validEncounter({ location: { chapelId: 'chapel-x', name: 'X' } })));
+  await assertFails(setDoc(encounterRef(dbFor(users.admin), 'formation-1', 'pole-1', 'invalid-time'), validEncounter({ endAt: Timestamp.fromDate(new Date('2026-03-09T10:00:00.000Z') ) })));
+  await assertFails(setDoc(encounterRef(dbFor(users.admin), 'formation-1', 'pole-1', 'invalid-field'), validEncounter({ unexpected: true })));
 });
