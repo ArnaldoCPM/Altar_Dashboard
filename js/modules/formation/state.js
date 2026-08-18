@@ -4,6 +4,7 @@ const initialState = () => ({
         filteredFormations: [],
         currentFormation: null,
         poles: [],
+        poleSummaryByFormationId: {},
         currentPole: null,
         encounters: [],
         currentEncounter: null,
@@ -48,6 +49,16 @@ function copyFormation(formation) {
         : formation;
 }
 
+function copyPole(pole) {
+    return pole
+        ? {
+            ...pole,
+            chapelIds: [...(pole.chapelIds || [])],
+            coordinatorIds: [...(pole.coordinatorIds || [])]
+        }
+        : pole;
+}
+
 function getState() {
     return {
         ...formationState,
@@ -55,7 +66,9 @@ function getState() {
             ...formationState.data,
             formations: formationState.data.formations.map(copyFormation),
             filteredFormations: formationState.data.filteredFormations.map(copyFormation),
-            poles: [...formationState.data.poles],
+            poles: formationState.data.poles.map(copyPole),
+            poleSummaryByFormationId: Object.fromEntries(Object.entries(formationState.data.poleSummaryByFormationId).map(([formationId, summary]) => [formationId, { ...summary }])),
+            currentPole: copyPole(formationState.data.currentPole),
             encounters: [...formationState.data.encounters],
             participants: [...formationState.data.participants]
         },
@@ -77,6 +90,26 @@ function setFilteredFormations(formations) {
 
 function setCurrentFormation(formation) {
     formationState.data.currentFormation = copyFormation(formation);
+}
+
+function setPoles(formationId, poles) {
+    formationState.data.poles = poles.map(copyPole);
+    formationState.data.poleSummaryByFormationId[formationId] = {
+        count: poles.length,
+        status: "loaded"
+    };
+}
+
+function setPoleLoadStatus(formationId, status) {
+    const currentSummary = formationState.data.poleSummaryByFormationId[formationId] || {};
+    formationState.data.poleSummaryByFormationId[formationId] = {
+        ...currentSummary,
+        status
+    };
+}
+
+function setCurrentPole(pole) {
+    formationState.data.currentPole = copyPole(pole);
 }
 
 function setFilters(filters) {
@@ -117,11 +150,14 @@ export {
     getState,
     resetState,
     setCurrentFormation,
+    setCurrentPole,
     setFilteredFormations,
     setFilters,
     setFormations,
     setNavigation,
+    setPoleLoadStatus,
     setPermissions,
+    setPoles,
     setSubscription,
     setUiState
 };

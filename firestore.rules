@@ -269,6 +269,61 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.updatedAt == request.time
         && hasValidStatusTransition(resource.data.status, request.resource.data.status);
+
+      match /poles/{poleId} {
+        function formationExists() {
+          return exists(/databases/$(database)/documents/formations/$(formationId));
+        }
+
+        function hasValidPoleFields(data) {
+          return data.keys().hasOnly([
+            "name", "baseChapelId", "chapelIds", "coordinatorIds",
+            "active", "createdAt", "updatedAt"
+          ])
+            && data.keys().hasAll([
+              "name", "baseChapelId", "chapelIds", "coordinatorIds",
+              "active", "createdAt", "updatedAt"
+            ])
+            && data.name is string
+            && data.name.size() > 0
+            && data.baseChapelId is string
+            && data.chapelIds is list
+            && data.chapelIds.size() > 0
+            && data.baseChapelId in data.chapelIds
+            && data.coordinatorIds is list
+            && data.active is bool
+            && data.createdAt is timestamp
+            && data.updatedAt is timestamp;
+        }
+
+        function isAssignedCoordinator() {
+          return isCoordinator()
+            && request.auth.uid in resource.data.coordinatorIds;
+        }
+
+        function coordinatorChangesOnlyOperationalFields() {
+          return request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["name", "baseChapelId", "chapelIds", "updatedAt"])
+            && request.resource.data.coordinatorIds == resource.data.coordinatorIds
+            && request.resource.data.active == resource.data.active
+            && request.resource.data.createdAt == resource.data.createdAt;
+        }
+
+        allow get, list: if isActive() && formationExists();
+        allow create: if isAdmin()
+          && formationExists()
+          && hasValidPoleFields(request.resource.data)
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.updatedAt == request.time;
+        allow update: if formationExists()
+          && hasValidPoleFields(request.resource.data)
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedAt == request.time
+          && (
+            isAdmin()
+            || (isAssignedCoordinator() && coordinatorChangesOnlyOperationalFields())
+          );
+      }
     }
   }
 }
