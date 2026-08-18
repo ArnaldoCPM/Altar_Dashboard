@@ -57,6 +57,23 @@ function validFormation(overrides = {}) {
   };
 }
 
+function poleRef(db, formationId = 'formation-1', poleId = 'pole-1') {
+  return doc(db, 'formations', formationId, 'poles', poleId);
+}
+
+function validPole(overrides = {}) {
+  return {
+    name: 'Polo Centro',
+    baseChapelId: 'chapel-a',
+    chapelIds: ['chapel-a', 'chapel-b'],
+    coordinatorIds: [users.coordinator.uid],
+    active: true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
 async function seedUsers() {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
@@ -69,6 +86,17 @@ async function seedFormation(status = 'draft', id = 'formation-1') {
     const db = context.firestore();
     await setDoc(doc(db, 'formations', id), {
       ...validFormation({ status }),
+      createdAt: Timestamp.fromDate(new Date('2026-01-01T00:00:00.000Z')),
+      updatedAt: Timestamp.fromDate(new Date('2026-01-01T00:00:00.000Z')),
+    });
+  });
+}
+
+async function seedPole(overrides = {}, formationId = 'formation-1', poleId = 'pole-1') {
+  await seedFormation('draft', formationId);
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(poleRef(context.firestore(), formationId, poleId), {
+      ...validPole(overrides),
       createdAt: Timestamp.fromDate(new Date('2026-01-01T00:00:00.000Z')),
       updatedAt: Timestamp.fromDate(new Date('2026-01-01T00:00:00.000Z')),
     });
@@ -220,4 +248,120 @@ test('partial status update evaluates the resulting document and accepts valid d
 test('partial status update rejects an invalid transition', async () => {
   await seedFormation('draft');
   await assertFails(updateDoc(formationRef(dbFor(users.admin)), { status: 'completed', updatedAt: serverTimestamp() }));
+});
+
+test('admin can read poles', async () => {
+  await seedPole();
+  await assertSucceeds(getDocs(collection(dbFor(users.admin), 'formations', 'formation-1', 'poles')));
+});
+
+test('admin can create a valid pole with server timestamps', async () => {
+  await seedFormation();
+  await assertSucceeds(setDoc(poleRef(dbFor(users.admin), 'formation-1', 'admin-create'), validPole()));
+});
+
+test('admin can update a pole and toggle active', async () => {
+  await seedPole();
+  const ref = poleRef(dbFor(users.admin));
+  await assertSucceeds(updateDoc(ref, { name: 'Polo Norte', updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(ref, { active: false, updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(ref, { active: true, updatedAt: serverTimestamp() }));
+});
+
+test('assigned coordinator can read and update a pole name', async () => {
+  await seedPole();
+  const db = dbFor(users.coordinator);
+  await assertSucceeds(getDocs(collection(db, 'formations', 'formation-1', 'poles')));
+  await assertSucceeds(updateDoc(poleRef(db), { name: 'Polo Coordenado', updatedAt: serverTimestamp() }));
+});
+
+test('assigned coordinator can update baseChapelId and chapelIds together', async () => {
+  await seedPole();
+  await assertSucceeds(updateDoc(poleRef(dbFor(users.coordinator)), {
+    baseChapelId: 'chapel-b',
+    chapelIds: ['chapel-a', 'chapel-b'],
+    updatedAt: serverTimestamp(),
+  }));
+});
+
+for (const [field, value] of [
+  ['coordinatorIds', [users.admin.uid]],
+  ['active', false],
+  ['createdAt', serverTimestamp()],
+  ['updatedAt', Timestamp.fromDate(new Date('2000-01-01T00:00:00.000Z'))],
+]) {
+  test(`assigned coordinator cannot modify ${field}`, async () => {
+    await seedPole();
+    const update = { [field]: value };
+    if (field !== 'updatedAt') update.updatedAt = serverTimestamp();
+    await assertFails(updateDoc(poleRef(dbFor(users.coordinator)), update));
+  });
+}
+
+test('unassigned coordinator can read but cannot update a pole', async () => {
+  await seedPole({ coordinatorIds: [] });
+  const db = dbFor(users.coordinator);
+  await assertSucceeds(getDocs(collection(db, 'formations', 'formation-1', 'poles')));
+  await assertFails(updateDoc(poleRef(db), { name: 'Denied', updatedAt: serverTimestamp() }));
+});
+
+test('coordinator cannot create a pole', async () => {
+  await seedFormation();
+  await assertFails(setDoc(poleRef(dbFor(users.coordinator), 'formation-1', 'coordinator-create'), validPole()));
+});
+
+test('viewer can read poles but cannot write them', async () => {
+  await seedPole();
+  const db = dbFor(users.viewer);
+  await assertSucceeds(getDocs(collection(db, 'formations', 'formation-1', 'poles')));
+  await assertFails(updateDoc(poleRef(db), { name: 'Denied', updatedAt: serverTimestamp() }));
+});
+
+test('inactive user cannot read or write poles', async () => {
+  await seedPole();
+  const db = dbFor(users.inactive);
+  await assertFails(getDocs(collection(db, 'formations', 'formation-1', 'poles')));
+  await assertFails(updateDoc(poleRef(db), { name: 'Denied', updatedAt: serverTimestamp() }));
+});
+
+test('unauthenticated user cannot read or write poles', async () => {
+  await seedPole();
+  const db = dbFor();
+  await assertFails(getDocs(collection(db, 'formations', 'formation-1', 'poles')));
+  await assertFails(updateDoc(poleRef(db), { name: 'Denied', updatedAt: serverTimestamp() }));
+});
+
+test('pole creation requires an existing parent formation', async () => {
+  await assertFails(setDoc(poleRef(dbFor(users.admin), 'missing-formation'), validPole()));
+});
+
+const invalidPoles = [
+  ['baseChapelId is outside chapelIds', (data) => { data.baseChapelId = 'chapel-c'; }],
+  ['chapelIds is empty', (data) => { data.chapelIds = []; }],
+  ['coordinatorIds is not a list', (data) => { data.coordinatorIds = users.coordinator.uid; }],
+  ['chapelIds is not a list', (data) => { data.chapelIds = 'chapel-a'; }],
+  ['active is not boolean', (data) => { data.active = 'true'; }],
+  ['name is not a string', (data) => { data.name = 1; }],
+  ['unexpected field exists', (data) => { data.unexpected = true; }],
+  ['createdAt is not a timestamp', (data) => { data.createdAt = 'now'; }],
+  ['updatedAt is not a timestamp', (data) => { data.updatedAt = 'now'; }],
+];
+
+for (const [description, invalidate] of invalidPoles) {
+  test(`pole schema rejects creation when ${description}`, async () => {
+    await seedFormation();
+    const data = validPole();
+    invalidate(data);
+    await assertFails(setDoc(poleRef(dbFor(users.admin), 'formation-1', `invalid-${description.replace(/[^a-z]/gi, '-')}`), data));
+  });
+}
+
+test('admin cannot alter a pole createdAt and must use request.time for updatedAt', async () => {
+  await seedPole();
+  const db = dbFor(users.admin);
+  await assertFails(updateDoc(poleRef(db), { createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(poleRef(db), {
+    name: 'Wrong audit timestamp',
+    updatedAt: Timestamp.fromDate(new Date('2000-01-01T00:00:00.000Z')),
+  }));
 });
