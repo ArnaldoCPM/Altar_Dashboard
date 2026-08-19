@@ -1,6 +1,8 @@
 import { getCurrentUser } from "../../session.js";
 import { getAllUsers } from "../../data/users.js";
 import { getActiveChapels } from "../../data/chapels.js";
+import { getAllServers, getServersByChapelIds } from "../../data/servers.js";
+import { cleanStr } from "../../utils.js";
 import { isAdmin, isCoordinator } from "../../permissions.js";
 import {
     createFormation,
@@ -17,6 +19,7 @@ import {
     updatePoleActive
 } from "./services/pole.service.js";
 import { createEncounter, getEncounter, subscribeToEncounters, updateEncounter, updateEncounterStatus, updateResponsibilities } from "./services/encounter.service.js";
+import { addParticipant, createPreparedParticipants, getParticipantExclusions, removeParticipant, subscribeToParticipants } from "./services/participant.service.js";
 import {
     clearSubscriptions,
     getState,
@@ -25,6 +28,7 @@ import {
     setCurrentEncounter,
     setCurrentPole,
     setEncounters,
+    setParticipants,
     setFilteredFormations,
     setFilters,
     setFormations,
@@ -38,6 +42,7 @@ import {
 import { renderFormationView } from "./views/formation.view.js";
 import { renderPoleView } from "./views/pole.view.js";
 import { renderEncounterView } from "./views/encounter.view.js";
+import { renderParticipantsView } from "./views/participants.view.js";
 
 const VALID_STAGES = new Set(["first", "second"]);
 const VALID_MODALITIES = new Set(["initial", "permanent"]);
@@ -53,6 +58,7 @@ let initialized = false;
 let root = null;
 let poleResources = { chapels: [], coordinators: [] };
 let encounterResources = { chapels: [], designatedCoordinators: [], allCoordinators: [], userNames: {} };
+let participantResources = { servers: [] };
 
 function resolvePermissions() {
     const canManageFormations = isAdmin();
@@ -70,6 +76,10 @@ function render() {
     if (!root) return;
 
     const state = getState();
+    if (["participants", "participant-manual"].includes(state.navigation.currentView)) {
+        renderParticipantsView(root, state, { action: handleParticipantAction, addManual: addManualParticipant, canManage: canManageParticipants(), servers: participantResources.servers });
+        return;
+    }
     if (["encounter-list", "encounter-form", "encounter-details", "encounter-substitute"].includes(state.navigation.currentView)) {
         renderEncounterView(root, state, {
             action: handleEncounterAction,
@@ -82,6 +92,13 @@ function render() {
             statusActions: availableEncounterStatuses(state.data.currentEncounter),
             ...encounterResources
         });
+        if (state.navigation.currentView === "encounter-details") {
+            const actionsArea = root.querySelector(".mt-6.flex");
+            if (actionsArea) {
+                actionsArea.insertAdjacentHTML("afterbegin", '<button data-encounter-action="participants" class="rounded border px-3 py-2 text-sm">Gerenciar participantes</button>');
+                actionsArea.querySelector('[data-encounter-action="participants"]')?.addEventListener("click", () => handleEncounterAction("participants"));
+            }
+        }
         return;
     }
     if (state.navigation.currentView === "poles" || state.navigation.currentView === "pole-form") {
@@ -197,6 +214,44 @@ function canEditCurrentEncounter() {
     return Boolean(encounter) && canManageCurrentPole() && (isAdmin() || encounter.status === "scheduled");
 }
 
+function canManageParticipants() {
+    const encounter = getState().data.currentEncounter;
+    return Boolean(encounter) && encounter.status === "scheduled" && canManageCurrentPole();
+}
+
+function participantSnapshot(server, participationType, userId) {
+    const chapel = encounterResources.chapels.find((item) => item.id === server.chapelId);
+    return { serverId: server.id, serverName: server.Nome || server.id, chapelId: server.chapelId || "", chapelName: chapel?.name || server.Capela || server.chapelId || "", participationType, attendanceStatus: "pending", addedManually: participationType === "manual", addedBy: userId };
+}
+
+function ageAt(value, reference) {
+    const text = String(value || "").trim(); const match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/) || text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return null; const [year, month, day] = match[3] ? [Number(match[3]), Number(match[2]), Number(match[1])] : [Number(match[1]), Number(match[2]), Number(match[3])]; const birth = new Date(year, month - 1, day); if (birth.getFullYear() !== year || birth.getMonth() !== month - 1 || birth.getDate() !== day || birth > reference) return null; let age = reference.getFullYear() - year; if (reference.getMonth() < month - 1 || (reference.getMonth() === month - 1 && reference.getDate() < day)) age -= 1; return age;
+}
+
+function isEligibleServer(server) {
+    const { currentFormation, currentPole, currentEncounter } = getState().data;
+    const age = ageAt(server.Data_nascimento, currentEncounter.startAt?.toDate ? currentEncounter.startAt.toDate() : new Date(currentEncounter.startAt));
+    const stageOk = currentFormation.stage === "first" ? age >= 6 && age <= 11 : age >= 12 && age <= 24;
+    const type = cleanStr(server.Tipo); const modality = type.includes("instit") ? "permanent" : type.includes("candidato") || type.includes("formando") ? "initial" : null;
+    return stageOk && modality && currentFormation.modalities.includes(modality) && currentPole.chapelIds.includes(server.chapelId);
+}
+
+function manualInclusionWarnings(server) {
+    const { currentFormation, currentPole, currentEncounter } = getState().data;
+    const warnings = [];
+    const reference = currentEncounter.startAt?.toDate ? currentEncounter.startAt.toDate() : new Date(currentEncounter.startAt);
+    const age = ageAt(server.Data_nascimento, reference);
+    if (age === null) warnings.push("Data de nascimento inválida ou ausente");
+    else if (!(currentFormation.stage === "first" ? age >= 6 && age <= 11 : age >= 12 && age <= 24)) warnings.push("Fora da faixa etária");
+    const type = cleanStr(server.Tipo);
+    const modality = type.includes("instit") ? "permanent" : type.includes("candidato") || type.includes("formando") ? "initial" : null;
+    if (!modality) warnings.push("Tipo não classificável");
+    else if (!currentFormation.modalities.includes(modality)) warnings.push("Modalidade não contemplada");
+    if (!currentPole.chapelIds.includes(server.chapelId)) warnings.push("Capela fora do Polo");
+    return warnings;
+}
+
 function availableEncounterStatuses(encounter) {
     if (!encounter) return [];
     const user = getCurrentUser();
@@ -236,6 +291,41 @@ function loadEncounters() {
         setUiState({ loading: false, error: "Não foi possível carregar os encontros. Tente novamente." });
         render();
     }));
+}
+
+function loadParticipants() {
+    const { currentFormation, currentPole, currentEncounter } = getState().data;
+    if (!currentFormation?.id || !currentPole?.id || !currentEncounter?.id) return;
+    setSubscription("participants", subscribeToParticipants(currentFormation.id, currentPole.id, currentEncounter.id, (participants) => { setParticipants(participants); setUiState({ loading: false, error: null }); render(); }, () => { setUiState({ loading: false, error: "Não foi possível carregar os participantes. Tente novamente." }); render(); }));
+}
+
+async function showParticipants() {
+    try { const encounter = getState().data.currentEncounter; if (!encounter) throw new Error("Selecione um encontro."); setNavigation({ currentView: "participants" }); setUiState({ loading: true, error: null, success: null }); participantResources = { servers: [] }; loadParticipants(); render(); } catch (error) { setUiState({ error: error.message }); render(); }
+}
+
+async function generateParticipants() {
+    try {
+        if (!canManageParticipants()) throw new Error("Você não possui permissão para gerar participantes.");
+        const { currentFormation, currentPole, currentEncounter, participants } = getState().data;
+        setUiState({ loading: true, error: null }); render();
+        const [servers, exclusions] = await Promise.all([getServersByChapelIds(currentPole.chapelIds), getParticipantExclusions(currentFormation.id, currentPole.id, currentEncounter.id)]);
+        const existing = new Set(participants.map((item) => item.serverId));
+        const prepared = servers.filter(isEligibleServer).filter((server) => !existing.has(server.id) && !exclusions.has(server.id)).map((server) => participantSnapshot(server, "regular", getCurrentUser().uid));
+        await createPreparedParticipants(currentFormation.id, currentPole.id, currentEncounter.id, prepared);
+        setUiState({ success: prepared.length ? `${prepared.length} participante(s) adicionado(s).` : "Nenhum novo participante elegível." });
+    } catch (error) { setUiState({ error: error.message || "Não foi possível gerar participantes." }); } finally { setUiState({ loading: false }); render(); }
+}
+
+async function showManualParticipantForm() {
+    try { if (!canManageParticipants()) throw new Error("Você não possui permissão para adicionar participantes."); const servers = await getAllServers(); participantResources = { servers: servers.map((server) => ({ ...server, eligible: isEligibleServer(server), manualWarnings: manualInclusionWarnings(server) })) }; setNavigation({ currentView: "participant-manual" }); setUiState({ error: null, success: null }); render(); } catch (error) { setUiState({ error: error.message }); render(); }
+}
+
+async function addManualParticipant(serverId) {
+    try { if (!canManageParticipants()) throw new Error("Você não possui permissão para adicionar participantes."); const { currentFormation, currentPole, currentEncounter, participants } = getState().data; const server = participantResources.servers.find((item) => item.id === serverId); if (!server) throw new Error("Servidor não encontrado."); if (participants.some((item) => item.serverId === serverId)) throw new Error("Este servidor já é participante."); await addParticipant(currentFormation.id, currentPole.id, currentEncounter.id, participantSnapshot(server, "manual", getCurrentUser().uid)); setNavigation({ currentView: "participants" }); setUiState({ success: "Participante adicionado manualmente." }); } catch (error) { setUiState({ error: error.message }); } finally { render(); }
+}
+
+async function removeParticipantFromEncounter(serverId) {
+    try { if (!canManageParticipants()) throw new Error("Você não possui permissão para remover participantes."); const { currentFormation, currentPole, currentEncounter } = getState().data; await removeParticipant(currentFormation.id, currentPole.id, currentEncounter.id, serverId, getCurrentUser().uid); setUiState({ success: "Participante removido e excluído de futuras gerações." }); } catch (error) { setUiState({ error: error.message }); } finally { render(); }
 }
 
 function normalizedResponsibilities(designatedIds, existing = []) {
@@ -551,6 +641,7 @@ function handlePoleAction(action, poleId, active) {
 }
 
 function handleEncounterAction(action, encounterId, status) {
+    if (action === "participants") showParticipants();
     if (action === "create") showEncounterForm();
     if (action === "details") showEncounterDetails(encounterId);
     if (action === "edit") showEncounterForm(encounterId);
@@ -568,6 +659,17 @@ function handleEncounterAction(action, encounterId, status) {
         } else {
             setNavigation({ currentView: getState().data.currentEncounter ? "encounter-details" : "encounter-list" });
         }
+        render();
+    }
+}
+
+function handleParticipantAction(action, serverId) {
+    if (action === "generate") generateParticipants();
+    if (action === "manual") showManualParticipantForm();
+    if (action === "remove") removeParticipantFromEncounter(serverId);
+    if (action === "back") {
+        if (getState().navigation.currentView === "participant-manual") setNavigation({ currentView: "participants" });
+        else { setSubscription("participants", null); setParticipants([]); setNavigation({ currentView: "encounter-details" }); }
         render();
     }
 }

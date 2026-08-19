@@ -407,6 +407,20 @@ service cloud.firestore {
             && validTransition()
             && (!(resource.data.status == "scheduled" && request.resource.data.status == "in_progress") || request.resource.data.coordinatorIds.size() > 0)
             && (adminCanUpdate() || canUpdateScheduledAgenda() || canManageStatus() || canOperateStatus());
+
+          function canManageParticipants() { return isAdmin() || isPoleCoordinator(); }
+          match /participants/{serverId} {
+            function validParticipant(data) { return data.keys().hasOnly(["serverId", "serverName", "chapelId", "chapelName", "participationType", "attendanceStatus", "addedManually", "addedBy", "createdAt", "updatedAt"]) && data.keys().hasAll(["serverId", "serverName", "chapelId", "chapelName", "participationType", "attendanceStatus", "addedManually", "addedBy", "createdAt", "updatedAt"]) && data.serverId is string && data.serverId == serverId && data.serverName is string && data.serverName.size() > 0 && data.chapelId is string && data.chapelName is string && data.participationType in ["regular", "manual"] && data.attendanceStatus == "pending" && data.addedManually is bool && data.addedBy == request.auth.uid && data.createdAt is timestamp && data.updatedAt is timestamp; }
+            allow get, list: if isActive() && formationExists() && poleExists();
+            allow create: if isActive() && formationExists() && poleExists() && validParticipant(request.resource.data) && canManageParticipants() && resource == null && get(/databases/$(database)/documents/formations/$(formationId)/poles/$(poleId)/encounters/$(encounterId)).data.status == "scheduled" && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+            allow delete: if isActive() && formationExists() && poleExists() && canManageParticipants() && get(/databases/$(database)/documents/formations/$(formationId)/poles/$(poleId)/encounters/$(encounterId)).data.status == "scheduled";
+          }
+          match /participantExclusions/{serverId} {
+            function validExclusion(data) { return data.keys().hasOnly(["serverId", "excludedBy", "createdAt"]) && data.keys().hasAll(["serverId", "excludedBy", "createdAt"]) && data.serverId is string && data.serverId == serverId && data.excludedBy == request.auth.uid && data.createdAt is timestamp; }
+            allow get, list: if isActive() && formationExists() && poleExists();
+            allow create: if isActive() && formationExists() && poleExists() && validExclusion(request.resource.data) && canManageParticipants() && get(/databases/$(database)/documents/formations/$(formationId)/poles/$(poleId)/encounters/$(encounterId)).data.status == "scheduled" && request.resource.data.createdAt == request.time;
+            allow delete: if isActive() && formationExists() && poleExists() && canManageParticipants() && get(/databases/$(database)/documents/formations/$(formationId)/poles/$(poleId)/encounters/$(encounterId)).data.status == "scheduled";
+          }
         }
       }
     }

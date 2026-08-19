@@ -9,12 +9,14 @@ const {
 const {
   Timestamp,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
 } = require('firebase/firestore');
 
 const PROJECT_ID = 'sgsa-formation-rules-tests';
@@ -78,6 +80,10 @@ function validPole(overrides = {}) {
 function encounterRef(db, formationId = 'formation-1', poleId = 'pole-1', encounterId = 'encounter-1') {
   return doc(db, 'formations', formationId, 'poles', poleId, 'encounters', encounterId);
 }
+function participantRef(db, serverId = 'server-1', encounterId = 'encounter-1') { return doc(db, 'formations', 'formation-1', 'poles', 'pole-1', 'encounters', encounterId, 'participants', serverId); }
+function exclusionRef(db, serverId = 'server-1', encounterId = 'encounter-1') { return doc(db, 'formations', 'formation-1', 'poles', 'pole-1', 'encounters', encounterId, 'participantExclusions', serverId); }
+function validParticipant(overrides = {}) { return { serverId: 'server-1', serverName: 'Servidor', chapelId: 'chapel-a', chapelName: 'Capela A', participationType: 'regular', attendanceStatus: 'pending', addedManually: false, addedBy: users.admin.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), ...overrides }; }
+function validExclusion(overrides = {}) { return { serverId: 'server-1', excludedBy: users.admin.uid, createdAt: serverTimestamp(), ...overrides }; }
 
 function validEncounter(overrides = {}) {
   return {
@@ -453,4 +459,70 @@ test('encounter schema rejects invalid location, timing, parents and audit field
   await assertFails(setDoc(encounterRef(dbFor(users.admin), 'formation-1', 'pole-1', 'invalid-location'), validEncounter({ location: { chapelId: 'chapel-x', name: 'X' } })));
   await assertFails(setDoc(encounterRef(dbFor(users.admin), 'formation-1', 'pole-1', 'invalid-time'), validEncounter({ endAt: Timestamp.fromDate(new Date('2026-03-09T10:00:00.000Z') ) })));
   await assertFails(setDoc(encounterRef(dbFor(users.admin), 'formation-1', 'pole-1', 'invalid-field'), validEncounter({ unexpected: true })));
+});
+
+test('admin and pole coordinator manage scheduled participants and exclusions', async () => {
+  await seedEncounter();
+  for (const user of [users.admin, users.coordinator]) {
+    const db = dbFor(user); const id = user.uid;
+    await assertSucceeds(setDoc(participantRef(db, `server-${id}`), validParticipant({ serverId: `server-${id}`, participationType: 'manual', addedManually: true, addedBy: user.uid })));
+    await assertSucceeds(getDoc(participantRef(db, `server-${id}`)));
+    await assertSucceeds(deleteDoc(participantRef(db, `server-${id}`)));
+    await assertSucceeds(setDoc(exclusionRef(db, `server-${id}`), validExclusion({ serverId: `server-${id}`, excludedBy: user.uid })));
+    await assertSucceeds(deleteDoc(exclusionRef(db, `server-${id}`)));
+  }
+});
+
+test('scheduled participant lifecycle is additive, preserves exclusions, and permits manual reinclusion', async () => {
+  await seedEncounter();
+  const db = dbFor(users.admin);
+  await assertSucceeds(setDoc(participantRef(db, 'eligible-a'), validParticipant({ serverId: 'eligible-a' })));
+  await assertSucceeds(setDoc(participantRef(db, 'eligible-b'), validParticipant({ serverId: 'eligible-b' })));
+  await assertSucceeds(deleteDoc(participantRef(db, 'eligible-b')));
+  await assertSucceeds(setDoc(exclusionRef(db, 'eligible-b'), validExclusion({ serverId: 'eligible-b' })));
+
+  // Regeneration adds only the new eligible candidate; existing and excluded IDs stay untouched.
+  await assertSucceeds(setDoc(participantRef(db, 'eligible-c'), validParticipant({ serverId: 'eligible-c' })));
+  await assertFails(setDoc(participantRef(db, 'eligible-a'), validParticipant({ serverId: 'eligible-a' })));
+  assert.equal((await getDoc(exclusionRef(db, 'eligible-b'))).exists(), true);
+
+  const reinclusion = writeBatch(db);
+  reinclusion.delete(exclusionRef(db, 'eligible-b'));
+  reinclusion.set(participantRef(db, 'eligible-b'), validParticipant({ serverId: 'eligible-b', participationType: 'manual', addedManually: true }));
+  await assertSucceeds(reinclusion.commit());
+  const participants = await getDocs(collection(db, 'formations', 'formation-1', 'poles', 'pole-1', 'encounters', 'encounter-1', 'participants'));
+  assert.deepEqual(participants.docs.map((item) => item.id).sort(), ['eligible-a', 'eligible-b', 'eligible-c']);
+  assert.equal((await getDoc(exclusionRef(db, 'eligible-b'))).exists(), false);
+});
+
+test('participant and exclusion reads are active-only while contextual writes are denied', async () => {
+  await seedEncounter();
+  for (const user of [users.substitute, users.viewer]) { const db = dbFor(user); await assertSucceeds(getDocs(collection(db, 'formations', 'formation-1', 'poles', 'pole-1', 'encounters', 'encounter-1', 'participants'))); await assertFails(setDoc(participantRef(db, `x-${user.uid}`), validParticipant({ serverId: `x-${user.uid}`, addedBy: user.uid }))); }
+  for (const user of [users.inactive, undefined]) { const db = dbFor(user); await assertFails(getDocs(collection(db, 'formations', 'formation-1', 'poles', 'pole-1', 'encounters', 'encounter-1', 'participants'))); }
+});
+
+test('participant schemas, updates and non-scheduled writes are rejected', async () => {
+  await seedEncounter(); const db = dbFor(users.admin);
+  await assertFails(setDoc(participantRef(db, 'different'), validParticipant()));
+  await assertFails(setDoc(participantRef(db, 'bad'), validParticipant({ serverId: 'bad', attendanceStatus: 'present' })));
+  await assertFails(setDoc(participantRef(db, 'bad2'), validParticipant({ serverId: 'bad2', addedBy: users.coordinator.uid })));
+  await assertFails(setDoc(participantRef(db, 'bad3'), validParticipant({ serverId: 'bad3', unexpected: true })));
+  await assertSucceeds(setDoc(participantRef(db, 'ok'), validParticipant({ serverId: 'ok' })));
+  await assertFails(updateDoc(participantRef(db, 'ok'), { serverName: 'Changed', updatedAt: serverTimestamp() }));
+  await seedEncounter({ status: 'in_progress' }); await assertFails(setDoc(participantRef(db, 'late'), validParticipant({ serverId: 'late' })));
+});
+
+test('in-progress encounter rejects participant generate, manual add, remove, and exclusion writes', async () => {
+  await seedEncounter({ status: 'in_progress' });
+  const db = dbFor(users.admin);
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const bypass = context.firestore();
+    await setDoc(participantRef(bypass, 'existing'), { ...validParticipant({ serverId: 'existing' }), createdAt: Timestamp.fromDate(new Date()), updatedAt: Timestamp.fromDate(new Date()) });
+    await setDoc(exclusionRef(bypass, 'excluded'), { ...validExclusion({ serverId: 'excluded' }), createdAt: Timestamp.fromDate(new Date()) });
+  });
+  await assertFails(setDoc(participantRef(db, 'generated'), validParticipant({ serverId: 'generated' })));
+  await assertFails(setDoc(participantRef(db, 'manual'), validParticipant({ serverId: 'manual', participationType: 'manual', addedManually: true })));
+  await assertFails(deleteDoc(participantRef(db, 'existing')));
+  await assertFails(setDoc(exclusionRef(db, 'new-exclusion'), validExclusion({ serverId: 'new-exclusion' })));
+  await assertFails(deleteDoc(exclusionRef(db, 'excluded')));
 });

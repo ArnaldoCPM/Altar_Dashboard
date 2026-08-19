@@ -1,4 +1,6 @@
 import { db, doc, setDoc } from "../firebase.js";
+import { getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { buildServersQuery } from "../serverQuery.js";
 
 const appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
 
@@ -7,7 +9,8 @@ const appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
  * @returns {Promise<Array>} Colección esperada de documentos de servidores.
  */
 async function getAllServers() {
-  throw new Error("Not implemented");
+  const snapshot = await getDocs(buildServersQuery(db));
+  return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
 }
 
 /**
@@ -16,8 +19,9 @@ async function getAllServers() {
  * @returns {Promise<Object|null>} Documento de servidor esperado o `null` cuando no exista.
  */
 async function getServerById(serverId) {
-  void serverId;
-  throw new Error("Not implemented");
+  if (!serverId) return null;
+  const snapshot = await getDoc(doc(db, "artifacts", appId, "public", "data", "servers", serverId));
+  return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
 }
 
 /**
@@ -76,8 +80,17 @@ async function deleteServer(serverId) {
  * @returns {Promise<Array>} Colección esperada de servidores vinculados a la capilla.
  */
 async function getServersByChapel(chapelId) {
-  void chapelId;
-  throw new Error("Not implemented");
+  return getServersByChapelIds([chapelId]);
+}
+
+async function getServersByChapelIds(chapelIds = []) {
+  const uniqueIds = [...new Set(chapelIds.filter(Boolean))];
+  const servers = [];
+  for (let index = 0; index < uniqueIds.length; index += 30) {
+    const snapshot = await getDocs(query(buildServersQuery(db), where("chapelId", "in", uniqueIds.slice(index, index + 30))));
+    snapshot.forEach((item) => servers.push({ id: item.id, ...item.data() }));
+  }
+  return servers;
 }
 
 export {
@@ -86,5 +99,6 @@ export {
   createServer,
   updateServer,
   deleteServer,
-  getServersByChapel
+  getServersByChapel,
+  getServersByChapelIds
 };

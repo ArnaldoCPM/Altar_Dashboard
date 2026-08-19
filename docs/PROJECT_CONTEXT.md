@@ -148,6 +148,12 @@ Sistema web para administrar los servidores del altar de una parroquia, centrali
 - Encontros se almacenan de forma contextual bajo `formations/{formationId}/poles/{poleId}/encounters/{encounterId}`.
 - La asignación de sustitutos y la gestión de responsables se restringen temporalmente a administradores en las Security Rules. Los coordinators de Polo no pueden listar perfiles globales para seleccionar sustitutos externos ni modificar `responsibilities` o `coordinatorIds` directamente. Esta limitación responde a que las Rules actuales de `users` no permiten un listado global controlado de coordinators y será revisada en una etapa posterior.
 
+## M10-T4.5 — Participantes
+
+- Los participantes son contextuales a Encounter y usan `participants/{serverId}` con snapshot mínimo, `addedBy` y asistencia inicial `pending`.
+- La edad se calcula desde `Data_nascimento` en la fecha local de `Encounter.startAt`; `Tipo` Instituído mapea a permanente y Candidato/Formando a inicial.
+- La generación es aditiva, respeta `participantExclusions`, y la inclusión manual excepcional elimina la exclusión previa. Responsable efectivo y substitute tienen solo lectura; presencia queda para T4.6.
+
 - Migración de `Capela` a `capela_id` / `chapelId` en los flujos pendientes.
 - Eliminación del acceso anónimo heredado del proyecto base.
 - Permisos completos por rol en autenticación, autorización e interfaz.
