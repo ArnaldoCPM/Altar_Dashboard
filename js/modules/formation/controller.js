@@ -43,6 +43,7 @@ import { renderFormationView } from "./views/formation.view.js";
 import { renderPoleView } from "./views/pole.view.js";
 import { renderEncounterView } from "./views/encounter.view.js";
 import { renderParticipantsView } from "./views/participants.view.js";
+import { mountBreadcrumb } from "./components/breadcrumb.js";
 
 const VALID_STAGES = new Set(["first", "second"]);
 const VALID_MODALITIES = new Set(["initial", "permanent"]);
@@ -78,6 +79,7 @@ function render() {
     const state = getState();
     if (["participants", "participant-manual"].includes(state.navigation.currentView)) {
         renderParticipantsView(root, state, { action: handleParticipantAction, addManual: addManualParticipant, canManage: canManageParticipants(), canManageAttendance: canManageAttendance(), servers: participantResources.servers });
+        mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation);
         return;
     }
     if (["encounter-list", "encounter-form", "encounter-details", "encounter-substitute"].includes(state.navigation.currentView)) {
@@ -99,6 +101,7 @@ function render() {
                 actionsArea.querySelector('[data-encounter-action="participants"]')?.addEventListener("click", () => handleEncounterAction("participants"));
             }
         }
+        mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation);
         return;
     }
     if (state.navigation.currentView === "poles" || state.navigation.currentView === "pole-form") {
@@ -113,6 +116,7 @@ function render() {
             chapels: poleResources.chapels,
             coordinators: poleResources.coordinators
         });
+        mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation);
         return;
     }
 
@@ -122,6 +126,27 @@ function render() {
         save: saveFormation,
         poleSummaryByFormationId: state.data.poleSummaryByFormationId
     });
+    mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation);
+}
+
+function breadcrumbItems(state) {
+    const { currentFormation, currentPole, currentEncounter } = state.data;
+    const { currentView } = state.navigation;
+    const items = [{ label: "Formações", action: currentView === "list" ? null : "formations" }];
+
+    if (currentFormation && currentView !== "list") items.push({ label: currentFormation.name, action: ["details", "form"].includes(currentView) ? null : "formation" });
+    if (["poles", "pole-form"].includes(currentView)) {
+        items.push({ label: currentPole?.name || "Polos", action: null });
+    }
+    if (currentPole && ["encounter-list", "encounter-form", "encounter-details", "encounter-substitute", "participants", "participant-manual"].includes(currentView)) {
+        items.push({ label: currentPole.name, action: "pole" });
+    }
+    if (currentView === "encounter-list") items.push({ label: "Encontros", action: null });
+    if (["encounter-form", "encounter-details", "encounter-substitute", "participants", "participant-manual"].includes(currentView) && (currentEncounter || currentView === "encounter-form")) {
+        items.push({ label: currentEncounter?.title || "Novo encontro", action: ["encounter-details", "encounter-substitute", "encounter-form"].includes(currentView) ? null : "encounter" });
+    }
+    if (["participants", "participant-manual"].includes(currentView)) items.push({ label: "Participantes", action: null });
+    return items;
 }
 
 function applyFilters(filters = {}) {
@@ -731,6 +756,33 @@ function backToList() {
     setCurrentPole(null);
     setNavigation({ currentView: "list" });
     render();
+}
+
+function handleBreadcrumbNavigation(level) {
+    const { currentFormation, currentPole, currentEncounter } = getState().data;
+
+    if (level === "formations") {
+        backToList();
+        return;
+    }
+    if (level === "formation" && currentFormation?.id) {
+        setSubscription("participants", null);
+        setSubscription("encounters", null);
+        setCurrentEncounter(null);
+        setCurrentPole(null);
+        showDetails(currentFormation.id);
+        return;
+    }
+    if (level === "pole" && currentPole?.id) {
+        showEncounters(currentPole.id);
+        return;
+    }
+    if (level === "encounter" && currentEncounter?.id) {
+        setSubscription("participants", null);
+        setParticipants([]);
+        setNavigation({ currentView: "encounter-details" });
+        render();
+    }
 }
 
 function handleViewAction(action, formationId, status) {

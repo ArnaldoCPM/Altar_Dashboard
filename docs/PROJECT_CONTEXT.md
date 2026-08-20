@@ -559,3 +559,11 @@ Foi implementado o CRUD inicial da entidade `Formation` na coleção `formations
 Os filtros permanecem centralizados no Controller, o estado continua sendo a única fonte de verdade do módulo e a subscription é controlada pelo ciclo de vida. O status utiliza as transições aprovadas: `draft → active/archived`, `active → completed/archived`, `completed → archived` e `archived → archived`.
 
 As regras mínimas de Firestore permitem leitura a usuários ativos e escrita somente a administradores, com validação do schema e dos campos de auditoria. Coordenadores permanecem em leitura até que a responsabilidade contextual por Polo seja implementada. Polos, encontros, participantes, presenças, exportações e estatísticas continuam fora do escopo.
+
+## M10-UX1 — Navegação contextual e nomenclatura de ações
+
+O módulo Formação passou a exibir breadcrumbs contextuais derivados de `currentFormation`, `currentPole`, `currentEncounter` e `currentView`. Os níveis anteriores reutilizam as transições existentes do Controller, sem novo Router, URLs internas ou estado persistente adicional.
+
+As ações de abertura nas listas utilizam agora a nomenclatura **Abrir**. As ações sobre entidades filhas usam **Gerenciar polos**, **Gerenciar encontros** e **Gerenciar participantes**, mantendo **Voltar** como alternativa direta de navegação.
+
+A substituição iniciada por coordenador designado permanece adiada para etapa futura. A política atual, exclusiva de administrador, não foi alterada.
