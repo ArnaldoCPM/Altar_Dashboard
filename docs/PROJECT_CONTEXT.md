@@ -567,3 +567,9 @@ O módulo Formação passou a exibir breadcrumbs contextuais derivados de `curre
 As ações de abertura nas listas utilizam agora a nomenclatura **Abrir**. As ações sobre entidades filhas usam **Gerenciar polos**, **Gerenciar encontros** e **Gerenciar participantes**, mantendo **Voltar** como alternativa direta de navegação.
 
 A substituição iniciada por coordenador designado permanece adiada para etapa futura. A política atual, exclusiva de administrador, não foi alterada.
+
+## M10-UX2 — Contagem inicial de polos
+
+A lista de Formações obtém a contagem inicial de polos por Formação com uma agregação pontual sobre `formations/{formationId}/poles`. A contagem permanece apenas em `poleSummaryByFormationId` durante a sessão; não utiliza `collectionGroup`, subscriptions por Formação nem um campo `poleCount` persistido.
+
+As consultas são limitadas a quatro simultâneas e atualizam cada linha conforme terminam. Polos inativos continuam incluídos na contagem. Quando o contexto de Polos já está carregado, seu total substitui a agregação para a Formação correspondente.

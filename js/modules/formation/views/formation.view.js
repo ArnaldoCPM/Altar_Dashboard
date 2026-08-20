@@ -25,6 +25,7 @@ function statusActions(formation, canEdit) {
 }
 
 function poleCountLabel(summary) {
+    if (summary?.status === "loading") return "Carregando...";
     if (summary?.status !== "loaded") return "—";
     if (summary.count === 0) return "Sem polos";
     return summary.count === 1 ? "1 polo" : `${summary.count} polos`;

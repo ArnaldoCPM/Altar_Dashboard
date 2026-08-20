@@ -3,6 +3,7 @@ import {
     addDoc,
     collection,
     doc,
+    getCountFromServer,
     getDoc,
     onSnapshot,
     orderBy,
@@ -27,6 +28,11 @@ function subscribeToPoles(formationId, onData, onError) {
     return onSnapshot(query(polesCollection(formationId), orderBy("createdAt", "desc")), (snapshot) => {
         onData(snapshot.docs.map(toPole));
     }, onError);
+}
+
+async function countPoles(formationId) {
+    const snapshot = await getCountFromServer(polesCollection(formationId));
+    return snapshot.data().count;
 }
 
 async function getPole(formationId, poleId) {
@@ -58,6 +64,7 @@ function updatePoleActive(formationId, poleId, active) {
 
 export {
     subscribeToPoles,
+    countPoles,
     getPole,
     createPole,
     updatePole,

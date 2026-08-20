@@ -113,7 +113,16 @@ function setPoles(formationId, poles) {
     formationState.data.poles = poles.map(copyPole);
     formationState.data.poleSummaryByFormationId[formationId] = {
         count: poles.length,
-        status: "loaded"
+        status: "loaded",
+        source: "poles"
+    };
+}
+
+function setPoleCount(formationId, count) {
+    formationState.data.poleSummaryByFormationId[formationId] = {
+        count,
+        status: "loaded",
+        source: "count"
     };
 }
 
@@ -188,6 +197,7 @@ export {
     setFormations,
     setNavigation,
     setPoleLoadStatus,
+    setPoleCount,
     setPermissions,
     setPoles,
     setSubscription,

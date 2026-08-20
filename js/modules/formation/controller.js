@@ -13,6 +13,7 @@ import {
 } from "./services/formation.service.js";
 import {
     createPole,
+    countPoles,
     getPole,
     subscribeToPoles,
     updatePole,
@@ -34,6 +35,7 @@ import {
     setFormations,
     setNavigation,
     setPoleLoadStatus,
+    setPoleCount,
     setPermissions,
     setPoles,
     setSubscription,
@@ -60,6 +62,8 @@ let root = null;
 let poleResources = { chapels: [], coordinators: [] };
 let encounterResources = { chapels: [], designatedCoordinators: [], allCoordinators: [], userNames: {} };
 let participantResources = { servers: [] };
+let lifecycleVersion = 0;
+const POLE_COUNT_CONCURRENCY = 4;
 
 function resolvePermissions() {
     const canManageFormations = isAdmin();
@@ -170,6 +174,36 @@ function applyFilters(filters = {}) {
 
     setFilteredFormations(filtered);
     render();
+}
+
+function loadInitialPoleCounts(formations) {
+    const state = getState();
+    const formationIds = formations
+        .map((formation) => formation.id)
+        .filter((formationId) => !state.data.poleSummaryByFormationId[formationId]);
+    if (!formationIds.length) return;
+
+    formationIds.forEach((formationId) => setPoleLoadStatus(formationId, "loading"));
+    render();
+
+    const version = lifecycleVersion;
+    let nextIndex = 0;
+    const loadNext = async () => {
+        while (nextIndex < formationIds.length) {
+            const formationId = formationIds[nextIndex++];
+            try {
+                const count = await countPoles(formationId);
+                if (!initialized || version !== lifecycleVersion) return;
+                if (getState().data.poleSummaryByFormationId[formationId]?.source !== "poles") setPoleCount(formationId, count);
+            } catch {
+                if (!initialized || version !== lifecycleVersion) return;
+                if (getState().data.poleSummaryByFormationId[formationId]?.source !== "poles") setPoleLoadStatus(formationId, "error");
+            }
+            render();
+        }
+    };
+
+    Array.from({ length: Math.min(POLE_COUNT_CONCURRENCY, formationIds.length) }, loadNext);
 }
 
 function validateFormation(input) {
@@ -841,6 +875,7 @@ function loadFormations() {
     setSubscription("formations", subscribeToFormations((formations) => {
         setFormations(formations);
         applyFilters(getState().filters);
+        loadInitialPoleCounts(formations);
         setUiState({ loading: false, error: null });
         render();
     }, () => {
@@ -852,6 +887,7 @@ function loadFormations() {
 function initialize({ mountElement } = {}) {
     if (initialized) return;
 
+    lifecycleVersion += 1;
     resetState();
     root = document.createElement("section");
     root.id = "formation-module-root";
@@ -873,6 +909,7 @@ function refresh() {
 function destroy() {
     if (!initialized) return;
 
+    lifecycleVersion += 1;
     clearSubscriptions();
     root?.remove();
     root = null;
