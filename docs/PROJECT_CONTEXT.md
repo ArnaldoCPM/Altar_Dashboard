@@ -153,10 +153,23 @@ Sistema web para administrar los servidores del altar de una parroquia, centrali
 - Los participantes son contextuales a Encounter y usan `participants/{serverId}` con snapshot mínimo, `addedBy` y asistencia inicial `pending`.
 - La edad se calcula desde `Data_nascimento` en la fecha local de `Encounter.startAt`; `Tipo` Instituído mapea a permanente y Candidato/Formando a inicial.
 - La generación es aditiva, respeta `participantExclusions`, y la inclusión manual excepcional elimina la exclusión previa. Responsable efectivo y substitute tienen solo lectura; presencia queda para T4.6.
+- La composición estructural de Participants es exclusiva de `scheduled`. Antes de iniciar un Encounter debe existir al menos un Participant; una vez en `in_progress`, `completed` o `cancelled` no se pueden generar, añadir ni remover Participants.
 
 - Migración de `Capela` a `capela_id` / `chapelId` en los flujos pendientes.
 - Eliminación del acceso anónimo heredado del proyecto base.
 - Permisos completos por rol en autenticación, autorización e interfaz.
+
+## M10-T4.6 — Presenças
+
+- A assistência permanece em `participants/{serverId}`: `pending`, `present`, `absent` ou `justified`, sem coleção paralela.
+- `justified` exige `attendanceNote` não vazia após trim e limitada a 500 caracteres; notas são opcionais para presente e ausente.
+- Cada alteração não pendente grava o último `recordedBy` e `recordedAt`; o reset para `pending` remove nota e auditoria ativa.
+- O registro é operacional apenas em `in_progress` para Admin, coordenador do Polo e responsável efetivo do Encounter. Em `completed`, apenas Admin corrige; `scheduled` e `cancelled` bloqueiam escrita.
+- Substituto confirmado opera somente o Encounter cujo UID integra `coordinatorIds`; não adquire acesso ao Polo ou a outros encontros.
+- Para manter `coordinatorIds` como projeção segura de autorização, um coordenador do Polo só cria Encounter autoatribuído; atribuições adicionais e substitutos exigem Admin.
+- Perfis canônicos com `active !== true` não entram no shell protegido: a sessão Firebase é encerrada antes de inicializar Dashboard ou Formações.
+- O Dashboard possui ciclo explícito `idle`/`loading`/`loaded`/`error`; o primeiro snapshot libera a primeira renderização de dados, e o cleanup de sessão cancela listeners, destrói gráficos e limpa dataset, filtros e paginação.
+- Coordinator ativo não atribuído continua sendo um ator válido somente para leituras permitidas; `role == coordinator` sem atribuição contextual não concede permissões operacionais.
 
 ## M7-T1
 

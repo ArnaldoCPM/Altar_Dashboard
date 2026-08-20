@@ -9,6 +9,7 @@ const {
 const {
   Timestamp,
   collection,
+  deleteField,
   deleteDoc,
   doc,
   getDoc,
@@ -27,6 +28,7 @@ const port = Number(portValue || 8080);
 const users = {
   admin: { uid: 'admin-uid', email: 'admin@example.test', role: 'admin', active: true, chapelId: 'chapel-a' },
   coordinator: { uid: 'coordinator-uid', email: 'coordinator@example.test', role: 'coordinator', active: true, chapelId: 'chapel-a' },
+  unassignedCoordinator: { uid: 'unassigned-coordinator-uid', email: 'coordinator.unassigned@example.test', role: 'coordinator', active: true, chapelId: 'chapel-b' },
   substitute: { uid: 'substitute-uid', email: 'substitute@example.test', role: 'coordinator', active: true, chapelId: 'chapel-b' },
   viewer: { uid: 'viewer-uid', email: 'viewer@example.test', role: 'viewer', active: true, chapelId: 'chapel-a' },
   inactive: { uid: 'inactive-uid', email: 'inactive@example.test', role: 'admin', active: false, chapelId: 'chapel-a' },
@@ -100,6 +102,17 @@ async function seedEncounter(overrides = {}) {
   await seedPole();
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(encounterRef(context.firestore()), { ...validEncounter(overrides), createdAt: Timestamp.fromDate(new Date('2026-01-01T00:00:00.000Z')), updatedAt: Timestamp.fromDate(new Date('2026-01-01T00:00:00.000Z')) });
+  });
+}
+
+async function seedParticipant(overrides = {}, encounter = {}) {
+  await seedEncounter(encounter);
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(participantRef(context.firestore(), overrides.serverId || 'server-1', encounter.id || 'encounter-1'), {
+      ...validParticipant(overrides),
+      createdAt: Timestamp.fromDate(new Date('2026-01-01T00:00:00.000Z')),
+      updatedAt: Timestamp.fromDate(new Date('2026-01-01T00:00:00.000Z')),
+    });
   });
 }
 
@@ -327,9 +340,9 @@ for (const [field, value] of [
   });
 }
 
-test('unassigned coordinator can read but cannot update a pole', async () => {
-  await seedPole({ coordinatorIds: [] });
-  const db = dbFor(users.coordinator);
+test('active unassigned coordinator can read but cannot update a pole', async () => {
+  await seedPole();
+  const db = dbFor(users.unassignedCoordinator);
   await assertSucceeds(getDocs(collection(db, 'formations', 'formation-1', 'poles')));
   await assertFails(updateDoc(poleRef(db), { name: 'Denied', updatedAt: serverTimestamp() }));
 });
@@ -401,6 +414,20 @@ test('admin and pole coordinator can create encounters', async () => {
   await assertSucceeds(setDoc(encounterRef(dbFor(users.coordinator), 'formation-1', 'pole-1', 'coordinator-encounter'), validEncounter({ createdBy: users.coordinator.uid })));
 });
 
+test('pole coordinator can create only a self-assigned designated encounter', async () => {
+  await seedPole();
+  const db = dbFor(users.coordinator);
+  await assertSucceeds(setDoc(encounterRef(db, 'formation-1', 'pole-1', 'self-assigned'), validEncounter({ createdBy: users.coordinator.uid })));
+  await assertFails(setDoc(encounterRef(db, 'formation-1', 'pole-1', 'external'), validEncounter({ createdBy: users.coordinator.uid, coordinatorIds: [users.substitute.uid], responsibilities: [{ userId: users.substitute.uid, type: 'designated', status: 'confirmed' }] })));
+  await assertFails(setDoc(encounterRef(db, 'formation-1', 'pole-1', 'multiple'), validEncounter({ createdBy: users.coordinator.uid, coordinatorIds: [users.coordinator.uid, users.substitute.uid], responsibilities: [{ userId: users.coordinator.uid, type: 'designated', status: 'confirmed' }, { userId: users.substitute.uid, type: 'designated', status: 'confirmed' }] })));
+  await assertFails(setDoc(encounterRef(db, 'formation-1', 'pole-1', 'substitute'), validEncounter({ createdBy: users.coordinator.uid, responsibilities: [{ userId: users.coordinator.uid, type: 'substitute', replacesUserId: users.substitute.uid, status: 'confirmed' }] })));
+});
+
+test('admin can still create encounters with multiple responsibilities and coordinatorIds', async () => {
+  await seedPole();
+  await assertSucceeds(setDoc(encounterRef(dbFor(users.admin), 'formation-1', 'pole-1', 'admin-multiple'), validEncounter({ coordinatorIds: [users.coordinator.uid, users.substitute.uid], responsibilities: [{ userId: users.coordinator.uid, type: 'designated', status: 'confirmed' }, { userId: users.substitute.uid, type: 'substitute', replacesUserId: users.coordinator.uid, status: 'confirmed' }] })));
+});
+
 test('active users can read encounters while inactive and anonymous users cannot', async () => {
   await seedEncounter();
   await assertSucceeds(getDocs(collection(dbFor(users.viewer), 'formations', 'formation-1', 'poles', 'pole-1', 'encounters')));
@@ -441,6 +468,28 @@ test('effective substitute cannot alter responsibilities or coordinatorIds', asy
   const db = dbFor(users.substitute);
   await assertFails(updateDoc(encounterRef(db), { responsibilities: [{ userId: users.substitute.uid, type: 'substitute', replacesUserId: users.coordinator.uid, status: 'cancelled' }], updatedAt: serverTimestamp() }));
   await assertFails(updateDoc(encounterRef(db), { coordinatorIds: [users.coordinator.uid], updatedAt: serverTimestamp() }));
+});
+
+test('active unassigned coordinator has read-only access and no contextual encounter permissions', async () => {
+  await seedEncounter();
+  const db = dbFor(users.unassignedCoordinator);
+  await assertSucceeds(getDocs(collection(db, 'formations', 'formation-1', 'poles', 'pole-1', 'encounters')));
+  await assertFails(setDoc(encounterRef(db, 'formation-1', 'pole-1', 'unassigned-create'), validEncounter({ createdBy: users.unassignedCoordinator.uid, coordinatorIds: [users.unassignedCoordinator.uid], responsibilities: [{ userId: users.unassignedCoordinator.uid, type: 'designated', status: 'confirmed' }] })));
+  await assertFails(updateDoc(encounterRef(db), { title: 'Denied', updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(encounterRef(db), { status: 'in_progress', updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(encounterRef(db), { responsibilities: [{ userId: users.unassignedCoordinator.uid, type: 'designated', status: 'confirmed' }], coordinatorIds: [users.unassignedCoordinator.uid], updatedAt: serverTimestamp() }));
+});
+
+test('non-admin operational actors cannot combine status or attendance with coordinatorIds', async () => {
+  await seedEncounter();
+  await assertFails(updateDoc(encounterRef(dbFor(users.coordinator)), { status: 'in_progress', coordinatorIds: [users.coordinator.uid, users.substitute.uid], updatedAt: serverTimestamp() }));
+  await seedEncounter({ status: 'in_progress', coordinatorIds: [users.substitute.uid], responsibilities: [{ userId: users.substitute.uid, type: 'designated', status: 'confirmed' }] });
+  await assertFails(updateDoc(encounterRef(dbFor(users.substitute)), { coordinatorIds: [users.substitute.uid, users.coordinator.uid], updatedAt: serverTimestamp() }));
+  await seedParticipant({}, { status: 'in_progress' });
+  const db = dbFor(users.coordinator); const batch = writeBatch(db);
+  batch.update(participantRef(db), attendanceUpdate(users.coordinator, 'present'));
+  batch.update(encounterRef(db), { coordinatorIds: [users.coordinator.uid, users.substitute.uid], updatedAt: serverTimestamp() });
+  await assertFails(batch.commit());
 });
 
 test('admin can manage encounter responsibilities and derived coordinatorIds', async () => {
@@ -501,6 +550,15 @@ test('participant and exclusion reads are active-only while contextual writes ar
   for (const user of [users.inactive, undefined]) { const db = dbFor(user); await assertFails(getDocs(collection(db, 'formations', 'formation-1', 'poles', 'pole-1', 'encounters', 'encounter-1', 'participants'))); }
 });
 
+test('active unassigned coordinator cannot manage participants, exclusions, or attendance', async () => {
+  await seedParticipant({}, { status: 'in_progress' });
+  const db = dbFor(users.unassignedCoordinator);
+  await assertSucceeds(getDocs(collection(db, 'formations', 'formation-1', 'poles', 'pole-1', 'encounters', 'encounter-1', 'participants')));
+  await assertFails(setDoc(participantRef(db, 'unassigned'), validParticipant({ serverId: 'unassigned', addedBy: users.unassignedCoordinator.uid })));
+  await assertFails(setDoc(exclusionRef(db, 'unassigned'), validExclusion({ serverId: 'unassigned', excludedBy: users.unassignedCoordinator.uid })));
+  await assertFails(updateDoc(participantRef(db), attendanceUpdate(users.unassignedCoordinator, 'present')));
+});
+
 test('participant schemas, updates and non-scheduled writes are rejected', async () => {
   await seedEncounter(); const db = dbFor(users.admin);
   await assertFails(setDoc(participantRef(db, 'different'), validParticipant()));
@@ -525,4 +583,77 @@ test('in-progress encounter rejects participant generate, manual add, remove, an
   await assertFails(deleteDoc(participantRef(db, 'existing')));
   await assertFails(setDoc(exclusionRef(db, 'new-exclusion'), validExclusion({ serverId: 'new-exclusion' })));
   await assertFails(deleteDoc(exclusionRef(db, 'excluded')));
+});
+
+function attendanceUpdate(user, attendanceStatus, attendanceNote) {
+  return {
+    attendanceStatus,
+    ...(attendanceNote === undefined ? {} : { attendanceNote }),
+    recordedBy: user.uid,
+    recordedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+}
+
+test('admin records, corrects, and resets attendance in progress and corrects completed', async () => {
+  await seedParticipant({}, { status: 'in_progress' });
+  const ref = participantRef(dbFor(users.admin));
+  await assertSucceeds(updateDoc(ref, attendanceUpdate(users.admin, 'present')));
+  const recorded = await getDoc(ref);
+  assert.equal(recorded.data().recordedBy, users.admin.uid);
+  assert.ok(recorded.data().recordedAt);
+  await assertSucceeds(updateDoc(ref, attendanceUpdate(users.admin, 'absent', 'Chegou após o encontro')));
+  await assertSucceeds(updateDoc(ref, attendanceUpdate(users.admin, 'justified', 'Atestado médico')));
+  await assertSucceeds(updateDoc(ref, { attendanceStatus: 'pending', attendanceNote: deleteField(), recordedBy: deleteField(), recordedAt: deleteField(), updatedAt: serverTimestamp() }));
+  await seedParticipant({}, { status: 'completed' });
+  await assertSucceeds(updateDoc(participantRef(dbFor(users.admin)), attendanceUpdate(users.admin, 'present')));
+});
+
+test('pole coordinator and effective coordinator update in progress, but not completed', async () => {
+  await seedParticipant({}, { status: 'in_progress', coordinatorIds: [users.substitute.uid], responsibilities: [{ userId: users.substitute.uid, type: 'designated', status: 'confirmed' }] });
+  await assertSucceeds(updateDoc(participantRef(dbFor(users.coordinator)), attendanceUpdate(users.coordinator, 'present')));
+  await assertSucceeds(updateDoc(participantRef(dbFor(users.substitute)), attendanceUpdate(users.substitute, 'absent')));
+  await seedParticipant({}, { status: 'completed' });
+  await assertFails(updateDoc(participantRef(dbFor(users.coordinator)), attendanceUpdate(users.coordinator, 'present')));
+});
+
+test('confirmed substitute is restricted to its encounter', async () => {
+  const substituteEncounter = { status: 'in_progress', coordinatorIds: [users.substitute.uid], responsibilities: [{ userId: users.substitute.uid, type: 'substitute', replacesUserId: users.coordinator.uid, status: 'confirmed' }] };
+  await seedParticipant({}, substituteEncounter);
+  await assertSucceeds(updateDoc(participantRef(dbFor(users.substitute)), attendanceUpdate(users.substitute, 'present')));
+  await seedParticipant({ serverId: 'server-2' }, { ...substituteEncounter, id: 'encounter-2', coordinatorIds: [users.coordinator.uid], responsibilities: [{ userId: users.coordinator.uid, type: 'designated', status: 'confirmed' }] });
+  await assertFails(updateDoc(participantRef(dbFor(users.substitute), 'server-2', 'encounter-2'), attendanceUpdate(users.substitute, 'present')));
+});
+
+test('attendance is rejected for unrelated, viewer, inactive, anonymous, scheduled, and cancelled contexts', async () => {
+  await seedParticipant({}, { status: 'in_progress', coordinatorIds: [], responsibilities: [] });
+  for (const user of [users.substitute, users.viewer, users.inactive, undefined]) {
+    await assertFails(updateDoc(participantRef(dbFor(user)), attendanceUpdate(user || users.admin, 'present')));
+  }
+  await seedParticipant({}, { status: 'scheduled' });
+  await assertFails(updateDoc(participantRef(dbFor(users.admin)), attendanceUpdate(users.admin, 'present')));
+  await seedParticipant({}, { status: 'cancelled' });
+  await assertFails(updateDoc(participantRef(dbFor(users.admin)), attendanceUpdate(users.admin, 'present')));
+});
+
+test('attendance schema protects audit fields, notes, and immutable participant snapshots', async () => {
+  await seedParticipant({}, { status: 'in_progress' });
+  const db = dbFor(users.admin); const ref = participantRef(db);
+  await assertFails(updateDoc(ref, attendanceUpdate(users.admin, 'invalid')));
+  await assertFails(updateDoc(ref, attendanceUpdate(users.admin, 'justified')));
+  await assertFails(updateDoc(ref, attendanceUpdate(users.admin, 'justified', '   ')));
+  await assertFails(updateDoc(ref, attendanceUpdate(users.admin, 'present', 'x'.repeat(501))));
+  await assertFails(updateDoc(ref, { ...attendanceUpdate(users.admin, 'present'), recordedBy: users.coordinator.uid }));
+  await assertFails(updateDoc(ref, { ...attendanceUpdate(users.admin, 'present'), recordedAt: Timestamp.fromDate(new Date('2000-01-01T00:00:00.000Z')) }));
+  await assertFails(updateDoc(ref, { ...attendanceUpdate(users.admin, 'present'), updatedAt: Timestamp.fromDate(new Date('2000-01-01T00:00:00.000Z')) }));
+  await assertFails(updateDoc(ref, { ...attendanceUpdate(users.admin, 'present'), serverName: 'Alterado' }));
+  await assertFails(updateDoc(ref, { ...attendanceUpdate(users.admin, 'present'), chapelId: 'chapel-b' }));
+  await assertFails(updateDoc(ref, { ...attendanceUpdate(users.admin, 'present'), participationType: 'manual' }));
+  await assertFails(updateDoc(ref, { ...attendanceUpdate(users.admin, 'present'), addedBy: users.coordinator.uid }));
+  await assertFails(updateDoc(ref, { ...attendanceUpdate(users.admin, 'present'), createdAt: serverTimestamp() }));
+  await assertFails(updateDoc(ref, { ...attendanceUpdate(users.admin, 'present'), unexpected: true }));
+  await assertFails(updateDoc(ref, { attendanceStatus: 'pending', attendanceNote: 'No borrar', updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(ref, { attendanceStatus: 'pending', recordedBy: users.admin.uid, updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(ref, { attendanceStatus: 'pending', recordedAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(ref, { attendanceStatus: 'pending', attendanceNote: 'No borrar', recordedBy: users.admin.uid, recordedAt: serverTimestamp(), updatedAt: serverTimestamp() }));
 });

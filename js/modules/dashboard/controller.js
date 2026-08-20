@@ -10,15 +10,20 @@ import {
     destroyChartInstances,
     getData as getDashboardData,
     getPagination as getDashboardPagination,
-    resetPagination,
+    getUiState,
+    resetState,
     setChartInstance,
     setCurrentPage,
     setData,
     setFilteredItems,
-    setUnsubscribe
+    setUnsubscribe,
+    setUiState
 } from "./state.js";
 
+let loadGeneration = 0;
+
 function handleDashboardError(error) {
+    setUiState({ status: "error", error });
     const alertBox = document.getElementById('error-alert');
     const alertText = document.getElementById('error-alert-text');
 
@@ -46,31 +51,59 @@ function renderDashboardTable(data = getPagination().filteredItems) {
 }
 
 async function loadData(chapels) {
-    const activeChapels = chapels || await getActiveChapels();
+    const generation = ++loadGeneration;
+
+    setData([]);
+    setFilteredItems([], true);
+    setUiState({ status: "loading", error: null });
+    document.getElementById('dashboard-content')?.classList.add('hidden');
+
+    let activeChapels;
+    try {
+        activeChapels = chapels || await getActiveChapels();
+    } catch (error) {
+        if (generation === loadGeneration) handleDashboardError(error);
+        return;
+    }
+
+    if (generation !== loadGeneration) return;
 
     clearSubscription();
     setUnsubscribe(subscribeToDashboardData(db, async (data) => {
+        if (generation !== loadGeneration) return;
+
         setData(data);
         setFilteredItems(data);
         await populateFilters(activeChapels, getDashboardData());
+        if (generation !== loadGeneration) return;
+
+        setUiState({ status: "loaded", error: null });
         updateUI(getDashboardData());
         renderDashboardTable();
+        document.getElementById('dashboard-content')?.classList.remove('hidden');
         document.getElementById('loading-overlay').classList.add('opacity-0');
-        setTimeout(() => {
-            document.getElementById('loading-overlay').classList.add('hidden');
-        }, 300);
-    }, handleDashboardError));
+        document.getElementById('loading-overlay').classList.add('hidden');
+    }, (error) => {
+        if (generation === loadGeneration) handleDashboardError(error);
+    }));
 }
 
 function refresh() {
+    const ui = getUiState();
+    if (ui.status === "loading") return;
+    if (ui.status === "idle" || ui.status === "error") {
+        return loadData();
+    }
+
     setFilteredItems(getDashboardData());
     updateUI(getDashboardData());
     renderDashboardTable();
 }
 
 function destroy() {
-    clearSubscription();
-    resetPagination();
+    loadGeneration += 1;
+    resetState();
+    document.getElementById('dashboard-content')?.classList.add('hidden');
 }
 
 function getData() {

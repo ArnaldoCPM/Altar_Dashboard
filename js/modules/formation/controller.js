@@ -19,7 +19,7 @@ import {
     updatePoleActive
 } from "./services/pole.service.js";
 import { createEncounter, getEncounter, subscribeToEncounters, updateEncounter, updateEncounterStatus, updateResponsibilities } from "./services/encounter.service.js";
-import { addParticipant, createPreparedParticipants, getParticipantExclusions, removeParticipant, subscribeToParticipants } from "./services/participant.service.js";
+import { addParticipant, createPreparedParticipants, getParticipantExclusions, hasParticipants, removeParticipant, subscribeToParticipants, updateAttendance } from "./services/participant.service.js";
 import {
     clearSubscriptions,
     getState,
@@ -77,7 +77,7 @@ function render() {
 
     const state = getState();
     if (["participants", "participant-manual"].includes(state.navigation.currentView)) {
-        renderParticipantsView(root, state, { action: handleParticipantAction, addManual: addManualParticipant, canManage: canManageParticipants(), servers: participantResources.servers });
+        renderParticipantsView(root, state, { action: handleParticipantAction, addManual: addManualParticipant, canManage: canManageParticipants(), canManageAttendance: canManageAttendance(), servers: participantResources.servers });
         return;
     }
     if (["encounter-list", "encounter-form", "encounter-details", "encounter-substitute"].includes(state.navigation.currentView)) {
@@ -219,6 +219,17 @@ function canManageParticipants() {
     return Boolean(encounter) && encounter.status === "scheduled" && canManageCurrentPole();
 }
 
+function canManageAttendance() {
+    const { currentEncounter, currentPole } = getState().data;
+    const user = getCurrentUser();
+    if (!currentEncounter || !user?.uid) return false;
+    if (currentEncounter.status === "completed") return isAdmin();
+    if (currentEncounter.status !== "in_progress") return false;
+    return isAdmin()
+        || (isCoordinator() && (currentPole?.coordinatorIds || []).includes(user.uid))
+        || (isCoordinator() && (currentEncounter.coordinatorIds || []).includes(user.uid));
+}
+
 function participantSnapshot(server, participationType, userId) {
     const chapel = encounterResources.chapels.find((item) => item.id === server.chapelId);
     return { serverId: server.id, serverName: server.Nome || server.id, chapelId: server.chapelId || "", chapelName: chapel?.name || server.Capela || server.chapelId || "", participationType, attendanceStatus: "pending", addedManually: participationType === "manual", addedBy: userId };
@@ -328,6 +339,30 @@ async function removeParticipantFromEncounter(serverId) {
     try { if (!canManageParticipants()) throw new Error("Você não possui permissão para remover participantes."); const { currentFormation, currentPole, currentEncounter } = getState().data; await removeParticipant(currentFormation.id, currentPole.id, currentEncounter.id, serverId, getCurrentUser().uid); setUiState({ success: "Participante removido e excluído de futuras gerações." }); } catch (error) { setUiState({ error: error.message }); } finally { render(); }
 }
 
+async function saveAttendance(serverId, input) {
+    try {
+        const { currentFormation, currentPole, currentEncounter, participants } = getState().data;
+        const user = getCurrentUser();
+        if (!canManageAttendance()) throw new Error("Você não possui permissão para registrar presença neste encontro.");
+        if (!participants.some((participant) => participant.serverId === serverId)) throw new Error("Participante não encontrado.");
+        if ((getState().ui.savingAttendanceIds || []).includes(serverId)) return;
+        const attendanceStatus = input?.attendanceStatus;
+        if (!["pending", "present", "absent", "justified"].includes(attendanceStatus)) throw new Error("Status de presença inválido.");
+        const attendanceNote = String(input?.attendanceNote || "").trim();
+        if (attendanceNote.length > 500) throw new Error("A observação pode ter no máximo 500 caracteres.");
+        if (attendanceStatus === "justified" && !attendanceNote) throw new Error("Informe a justificativa da ausência.");
+        setUiState({ savingAttendanceIds: [...new Set([...(getState().ui.savingAttendanceIds || []), serverId])], error: null, success: null });
+        render();
+        await updateAttendance(currentFormation.id, currentPole.id, currentEncounter.id, serverId, { attendanceStatus, attendanceNote, recordedBy: user.uid });
+        setUiState({ success: "Presença atualizada." });
+    } catch (error) {
+        setUiState({ error: error.message || "Não foi possível atualizar a presença." });
+    } finally {
+        setUiState({ savingAttendanceIds: (getState().ui.savingAttendanceIds || []).filter((id) => id !== serverId) });
+        render();
+    }
+}
+
 function normalizedResponsibilities(designatedIds, existing = []) {
     const selected = new Set(designatedIds);
     const oldDesignated = existing.filter((item) => item.type === "designated");
@@ -378,8 +413,83 @@ async function saveEncounter(input) {
     try { const { currentFormation, currentPole, currentEncounter } = getState().data; if (!canManageCurrentPole()) throw new Error("Você não possui permissão para administrar encontros."); if (currentEncounter && !canEditCurrentEncounter()) throw new Error("Este encontro não pode mais ter sua agenda editada."); const encounter = validateEncounter(input, currentEncounter); setUiState({ loading: true, error: null }); render(); if (currentEncounter) await updateEncounter(currentFormation.id, currentPole.id, currentEncounter.id, encounter); else await createEncounter(currentFormation.id, currentPole.id, { ...encounter, status: "scheduled", createdBy: getCurrentUser().uid }); setNavigation({ currentView: "encounter-list" }); setCurrentEncounter(null); } catch (error) { setUiState({ error: error.message || "Não foi possível salvar o encontro." }); } finally { setUiState({ loading: false }); render(); }
 }
 
+function statusConfirmationCopy(status) {
+    if (status === "in_progress") return { title: "Iniciar encontro?", message: "Após iniciar, não será possível adicionar ou remover participantes.", cancelLabel: "Cancelar", confirmLabel: "Iniciar encontro" };
+    if (status === "completed") return { title: "Concluir encontro?", message: "Após concluir, somente um administrador poderá corrigir as presenças.", cancelLabel: "Cancelar", confirmLabel: "Concluir encontro" };
+    return { title: "Cancelar encontro?", message: "O encontro cancelado não aceitará registros de presença.", cancelLabel: "Voltar", confirmLabel: "Cancelar encontro" };
+}
+
+function clearStatusConfirmation() {
+    setUiState({ pendingStatusConfirmation: null });
+    render();
+}
+
+function openStatusConfirmation(confirmation) {
+    const copy = statusConfirmationCopy(confirmation.status);
+    document.dispatchEvent(new CustomEvent("shell:confirm", {
+        detail: {
+            ...copy,
+            onConfirm: () => confirmEncounterStatusChange(confirmation),
+            onCancel: clearStatusConfirmation
+        }
+    }));
+}
+
 async function changeEncounterStatus(status) {
-    try { const { currentFormation, currentPole, currentEncounter } = getState().data; if (!availableEncounterStatuses(currentEncounter).includes(status)) throw new Error("Transição de status não permitida."); if (status === "in_progress" && !(currentEncounter.coordinatorIds || []).length) throw new Error("Defina ao menos um responsável confirmado antes de iniciar."); setUiState({ loading: true, error: null }); render(); await updateEncounterStatus(currentFormation.id, currentPole.id, currentEncounter.id, status); setUiState({ success: "Status do encontro atualizado." }); } catch (error) { setUiState({ error: error.message }); } finally { setUiState({ loading: false }); render(); }
+    const state = getState();
+    const { currentFormation, currentPole, currentEncounter } = state.data;
+    if (state.ui.pendingStatusConfirmation || state.ui.statusTransitioning) return;
+
+    try {
+        if (!currentFormation?.id || !currentPole?.id || !currentEncounter?.id) throw new Error("Selecione um encontro.");
+        if (!availableEncounterStatuses(currentEncounter).includes(status)) throw new Error("Transição de status não permitida.");
+        if (status === "in_progress") {
+            if (!(currentEncounter.coordinatorIds || []).length) throw new Error("Defina ao menos um responsável confirmado antes de iniciar.");
+            if (!await hasParticipants(currentFormation.id, currentPole.id, currentEncounter.id)) {
+                throw new Error("Não é possível iniciar o encontro sem participantes. Adicione ou gere os participantes antes de iniciar.");
+            }
+        }
+
+        const confirmation = { formationId: currentFormation.id, poleId: currentPole.id, encounterId: currentEncounter.id, status };
+        setUiState({ pendingStatusConfirmation: confirmation, error: null, success: null });
+        render();
+        openStatusConfirmation(confirmation);
+    } catch (error) {
+        setUiState({ error: error.message });
+        render();
+    }
+}
+
+async function confirmEncounterStatusChange(confirmation) {
+    const state = getState();
+    const { currentFormation, currentPole, currentEncounter } = state.data;
+    const pending = state.ui.pendingStatusConfirmation;
+
+    if (state.ui.statusTransitioning || !pending
+        || pending.encounterId !== confirmation.encounterId
+        || currentFormation?.id !== confirmation.formationId
+        || currentPole?.id !== confirmation.poleId
+        || currentEncounter?.id !== confirmation.encounterId
+        || !availableEncounterStatuses(currentEncounter).includes(confirmation.status)) {
+        clearStatusConfirmation();
+        return;
+    }
+
+    setUiState({ pendingStatusConfirmation: null, statusTransitioning: true, loading: true, error: null });
+    render();
+
+    try {
+        if (confirmation.status === "in_progress" && !await hasParticipants(confirmation.formationId, confirmation.poleId, confirmation.encounterId)) {
+            throw new Error("Não é possível iniciar o encontro sem participantes. Adicione ou gere os participantes antes de iniciar.");
+        }
+        await updateEncounterStatus(confirmation.formationId, confirmation.poleId, confirmation.encounterId, confirmation.status);
+        setUiState({ success: "Status do encontro atualizado." });
+    } catch (error) {
+        setUiState({ error: error.message });
+    } finally {
+        setUiState({ loading: false, statusTransitioning: false });
+        render();
+    }
 }
 
 async function addSubstitute(replacesUserId, substituteId) {
@@ -663,10 +773,11 @@ function handleEncounterAction(action, encounterId, status) {
     }
 }
 
-function handleParticipantAction(action, serverId) {
+function handleParticipantAction(action, serverId, input) {
     if (action === "generate") generateParticipants();
     if (action === "manual") showManualParticipantForm();
     if (action === "remove") removeParticipantFromEncounter(serverId);
+    if (action === "attendance") saveAttendance(serverId, input);
     if (action === "back") {
         if (getState().navigation.currentView === "participant-manual") setNavigation({ currentView: "participants" });
         else { setSubscription("participants", null); setParticipants([]); setNavigation({ currentView: "encounter-details" }); }

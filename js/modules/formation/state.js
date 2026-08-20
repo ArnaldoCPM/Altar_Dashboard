@@ -30,6 +30,9 @@ const initialState = () => ({
     },
     ui: {
         loading: false,
+        savingAttendanceIds: [],
+        pendingStatusConfirmation: null,
+        statusTransitioning: false,
         error: null,
         success: null
     },
@@ -84,7 +87,12 @@ function getState() {
         filters: { ...formationState.filters },
         navigation: { ...formationState.navigation },
         permissions: { ...formationState.permissions },
-        ui: { ...formationState.ui },
+        ui: {
+            ...formationState.ui,
+            pendingStatusConfirmation: formationState.ui.pendingStatusConfirmation
+                ? { ...formationState.ui.pendingStatusConfirmation }
+                : null
+        },
         subscriptions: { ...formationState.subscriptions }
     };
 }

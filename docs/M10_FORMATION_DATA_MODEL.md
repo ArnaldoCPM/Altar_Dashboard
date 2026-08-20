@@ -343,9 +343,12 @@ participantes e exportar a lista.
 
 ### `in_progress`
 
-Pode registrar presença, modificar observações e adicionar participante
-excepcionalmente. A identidade estrutural do encontro não deve ser
-modificada livremente.
+Pode registrar presença e modificar observações de presença. Na versão
+atual, a composição estrutural de participantes permanece bloqueada:
+participantes não podem ser gerados, adicionados nem removidos após o
+início do encontro. Exceções devem ser resolvidas ainda em `scheduled`.
+Uma eventual política futura de inclusão durante `in_progress` está fora
+do escopo de M10-T4.6.
 
 ### `completed`
 

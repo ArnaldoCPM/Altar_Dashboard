@@ -44,6 +44,7 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 let user = null;
 let cachedActiveChapels = [];
 let activeModule = 'dashboard';
+let loginScreenMessage = null;
 
 function initApplicationShell() {
     initHeader();
@@ -106,13 +107,18 @@ document.addEventListener('shell:navigate', ({ detail }) => {
     navigateToModule(detail.moduleId);
 });
 
-function showLoginScreen() {
+function showLoginScreen(message = loginScreenMessage) {
     stopServerSubscription();
     resetEmailLoginFields();
     updateHeaderSession(null, null);
     document.getElementById('app-content').classList.add('hidden');
     document.getElementById('admin-login-modal').classList.remove('hidden');
     document.getElementById('loading-overlay').classList.add('hidden');
+
+    if (message) {
+        loginError.textContent = message;
+        loginError.classList.remove('hidden');
+    }
 }
 
 function showAuthenticatedScreen() {
@@ -262,6 +268,7 @@ setupAuthStateListener(async (u) => {
 
     if (u) {
 
+        stopServerSubscription();
         user = u;
         const authUid = u.uid;
         setCurrentUser(user);
@@ -282,6 +289,22 @@ setupAuthStateListener(async (u) => {
                 return;
             }
 
+            if (profile.active !== true) {
+                loginScreenMessage = 'Seu acesso ao sistema estÃ¡ desativado. Entre em contato com um administrador.';
+                user = null;
+                clearSession();
+                resetPermissions();
+                updateAdminUI(false);
+                showLoginScreen(loginScreenMessage);
+                try {
+                    await performFirebaseLogout();
+                } catch (error) {
+                    console.error('Unable to sign out inactive user:', error);
+                }
+                return;
+            }
+
+            loginScreenMessage = null;
             showAuthenticatedScreen();
             console.log("2", profile);
             setCurrentProfile(profile);
@@ -298,7 +321,7 @@ setupAuthStateListener(async (u) => {
             await loadChapelsIntoForm(chapels);
 
             console.log("4");
-            updateAdminUI();
+            updateAdminUI(false);
 
             console.log("5");
             await initializeDashboard({ chapels });
@@ -325,7 +348,7 @@ initAuth((err) => {
 // Actualizar UI
 
 // Helper para lanzar modal de confirmación personalizada
-function showConfirm(title, message, onConfirm) {
+function showConfirm(title, message, onConfirm, { cancelLabel = "Cancelar", confirmLabel = "Confirmar", onCancel = null } = {}) {
     const modal = document.getElementById('confirm-modal');
     document.getElementById('confirm-title').textContent = title;
     document.getElementById('confirm-message').textContent = message;
@@ -338,12 +361,15 @@ function showConfirm(title, message, onConfirm) {
     btnSubmit.parentNode.replaceChild(newSubmit, btnSubmit);
     btnCancel.parentNode.replaceChild(newCancel, btnCancel);
 
+    newSubmit.textContent = confirmLabel;
+    newCancel.textContent = cancelLabel;
     newSubmit.onclick = () => {
         modal.classList.add('hidden');
         onConfirm();
     };
     newCancel.onclick = () => {
         modal.classList.add('hidden');
+        onCancel?.();
     };
 
     modal.classList.remove('hidden');
@@ -463,6 +489,10 @@ async function performLogout() {
         showError("Não foi possível encerrar a sessão: " + err.message);
     }
 }
+
+document.addEventListener('shell:confirm', ({ detail }) => {
+    showConfirm(detail.title, detail.message, detail.onConfirm, detail);
+});
 
 // FORMULARIO MANUAL DE AGREGAR / EDITAR
 const editServerModal = document.getElementById('edit-server-modal');
