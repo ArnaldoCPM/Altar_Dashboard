@@ -586,4 +586,10 @@ As tabelas de Formação, Polos, Encontros e Participantes agora mantêm o scrol
 
 Os cabeçalhos de coluna usam `scope="col"` e as colunas de ações possuem rótulo acessível. As ações por linha receberam foco visível consistente. Não houve alteração na lógica de Participants/Attendance nem em permissões, regras ou dados.
 
-M10-UX3-B contempla exclusivamente melhorias de tabelas, responsividade e acessibilidade. M10-UX3-C — refinamento operacional de Participants/Attendance — permanece pendente e não foi implementado; a lógica e o comportamento funcional de Participants/Attendance permanecem inalterados nesta etapa.
+M10-UX3-B contemplou exclusivamente melhorias de tabelas, responsividade e acessibilidade. Naquela etapa, M10-UX3-C — refinamento operacional de Participants/Attendance — permaneceu pendente e não foi implementado; a lógica e o comportamento funcional de Participants/Attendance permaneceram inalterados.
+
+## M10-UX3-C — Participants/Attendance operativo
+
+A operação de presença em Participants foi refinada visualmente para priorizar o status atual, as ações rápidas e a correção secundária. Os botões de presença receberam área tátil maior, wrap para telas estreitas e foco visível, enquanto notas e o retorno a pendente permanecem em ações discretas.
+
+Em Encontros concluídos, a correção autorizada permanece secundária e não apresenta a interface como uma operação em andamento. Não houve alteração de lógica funcional, permissões, regras, dados ou fluxos de Participants/Attendance.
