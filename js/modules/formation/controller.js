@@ -98,13 +98,6 @@ function render() {
             statusActions: availableEncounterStatuses(state.data.currentEncounter),
             ...encounterResources
         });
-        if (state.navigation.currentView === "encounter-details") {
-            const actionsArea = root.querySelector(".mt-6.flex");
-            if (actionsArea) {
-                actionsArea.insertAdjacentHTML("afterbegin", '<button data-encounter-action="participants" class="rounded border px-3 py-2 text-sm">Gerenciar participantes</button>');
-                actionsArea.querySelector('[data-encounter-action="participants"]')?.addEventListener("click", () => handleEncounterAction("participants"));
-            }
-        }
         mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation);
         return;
     }

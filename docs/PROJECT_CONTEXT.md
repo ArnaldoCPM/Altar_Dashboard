@@ -573,3 +573,9 @@ A substituição iniciada por coordenador designado permanece adiada para etapa 
 A lista de Formações obtém a contagem inicial de polos por Formação com uma agregação pontual sobre `formations/{formationId}/poles`. A contagem permanece apenas em `poleSummaryByFormationId` durante a sessão; não utiliza `collectionGroup`, subscriptions por Formação nem um campo `poleCount` persistido.
 
 As consultas são limitadas a quatro simultâneas e atualizam cada linha conforme terminam. Polos inativos continuam incluídos na contagem. Quando o contexto de Polos já está carregado, seu total substitui a agregação para a Formação correspondente.
+
+## M10-UX3-A — Hierarquia de headers, ações e badges
+
+As views de Formação passaram a distinguir a ação principal por contexto das ações secundárias e de status. O detalhe da Formação prioriza **Gerenciar polos**; o detalhe do Encounter prioriza **Gerenciar participantes** quando agendado e **Registrar presença** quando em andamento, reutilizando o mesmo fluxo existente de Participants.
+
+Os badges de status foram unificados para Formação, Polo e Encounter. Ações de transição e risco permanecem com as mesmas permissões e confirmações, mas foram separadas visualmente das ações operacionais principais.
