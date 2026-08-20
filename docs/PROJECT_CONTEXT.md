@@ -579,3 +579,11 @@ As consultas são limitadas a quatro simultâneas e atualizam cada linha conform
 As views de Formação passaram a distinguir a ação principal por contexto das ações secundárias e de status. O detalhe da Formação prioriza **Gerenciar polos**; o detalhe do Encounter prioriza **Gerenciar participantes** quando agendado e **Registrar presença** quando em andamento, reutilizando o mesmo fluxo existente de Participants.
 
 Os badges de status foram unificados para Formação, Polo e Encounter. Ações de transição e risco permanecem com as mesmas permissões e confirmações, mas foram separadas visualmente das ações operacionais principais.
+
+## M10-UX3-B — Tabelas responsivas e acessíveis
+
+As tabelas de Formação, Polos, Encontros e Participantes agora mantêm o scroll horizontal dentro de seus próprios blocos, com larguras mínimas que preservam as informações prioritárias sem ocultar colunas.
+
+Os cabeçalhos de coluna usam `scope="col"` e as colunas de ações possuem rótulo acessível. As ações por linha receberam foco visível consistente. Não houve alteração na lógica de Participants/Attendance nem em permissões, regras ou dados.
+
+M10-UX3-B contempla exclusivamente melhorias de tabelas, responsividade e acessibilidade. M10-UX3-C — refinamento operacional de Participants/Attendance — permanece pendente e não foi implementado; a lógica e o comportamento funcional de Participants/Attendance permanecem inalterados nesta etapa.
