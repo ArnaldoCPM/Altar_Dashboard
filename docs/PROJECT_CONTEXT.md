@@ -1,14 +1,13 @@
 # Estado atual do projeto
 
-- **Última versão formal:** `v0.8.0`.
-- **Próxima versão proposta:** `v0.9.0` (ainda sem tag).
+- **Versão formal atual:** `v0.9.0` (tag ainda não criado).
 - **Branch de trabalho:** `main`.
-- **Último milestone concluído:** M10 — Formation operacional.
+- **Milestone fechado:** M10 — Formation / gestão de formação e attendance.
 - **Arquitetura:** Shell/Workspace com módulos Dashboard e Formation. Cada módulo usa Controller, State, Services e Views; `main.js` orquestra sessão, Shell, navegação e fluxos legacy ainda existentes.
 - **Auth e roles:** Firebase Auth, perfis canônicos em `users/{uid}` e papéis `admin`, `coordinator` e `viewer`. A compatibilidade por email é exclusivamente legado de migração.
 - **Firestore:** Rules protegem usuário ativo, papel, escopo de capela e contexto de Formation. Participants são snapshots contextuais; a composição é somente `scheduled`.
 - **M10:** Formations, Polos, Encounters, Participants, Attendance e consulta de presenças em Encounter `completed` estão implementados. Admin conserva correção de attendance após conclusão; os demais atores autorizados apenas consultam.
-- **Validação:** 95/95 testes automatizados de Rules aprovados. Fluxos relevantes de UI, sessão/Dashboard, navegação, consulta completed e seeds foram validados manualmente. UI/rendering, lifecycle de Controller, responsividade, acessibilidade, seeds e deploy não possuem cobertura automatizada específica.
+- **Validação:** release validation aprovada: 95/95 testes automatizados de Rules, `git diff --check v0.8.0..HEAD` limpo durante a validação final e smoke manual final aprovado. UI/rendering, lifecycle de Controller, responsividade, acessibilidade, seeds e deploy não possuem cobertura automatizada específica.
 - **Produção:** implementado no repositório e validado em Emulator/manual; não há evidência suficiente para afirmar deploy de M10 em produção.
 - **Diferidos:** exportação, histórico global por Server, filtros de Encounter, KPIs/estatísticas, ações massivas, offline real, multi-paróquia e substituição autônoma por coordinator.
 - **Próximo milestone proposto:** M11 — Relatório operacional de Encounter.

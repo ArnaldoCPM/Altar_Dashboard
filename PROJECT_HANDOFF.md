@@ -3,10 +3,10 @@
 ## Estado rápido
 
 - **Branch:** `main`.
-- **Última versão formal:** `v0.8.0`.
-- **Versão proposta:** `v0.9.0`, ainda sem tag.
-- **Último milestone:** M10 operacionalmente concluído.
-- **Produção:** não há evidência no repositório de deploy de M10.
+- **Versão formal atual:** `v0.9.0`.
+- **Tag:** ainda pendente de criação.
+- **Milestone fechado:** M10 — Formation / gestão de formação e attendance.
+- **Produção:** push pendente; não há evidência no repositório de deploy de M10.
 
 ## Arquitetura e módulos
 
@@ -26,8 +26,8 @@ Participants são snapshots de Encounter. Sua composição só pode mudar em `sc
 
 ## Validação
 
-- **Automatizado:** 95/95 testes de Firestore Rules.
-- **Manual:** fluxos UI de M10, Dashboard/sessão, breadcrumbs, consulta completed e sequência de seeds.
+- **Automatizado:** 95/95 testes de Firestore Rules; `git diff --check v0.8.0..HEAD` limpo durante a validação final.
+- **Manual:** smoke final aprovado para Admin, Coordinator, Viewer, usuário inativo, troca de sessão, Dashboard e fluxos M10, incluindo consulta e correção Admin em Encounter `completed`.
 - **Sem cobertura automatizada específica:** rendering/UI, lifecycle, responsividade, acessibilidade, seeds e deploy.
 
 ## Limites e próximo passo
@@ -51,6 +51,6 @@ npm test
 
 Para abrir a aplicação no Emulator, use host local com `?emulator=1`.
 
-## Próximas ações de release
+## Estado pre-tag
 
-Antes de formalizar `v0.9.0`: revisar o diff documental, executar `git diff --check`, criar commits aprovados, atualizar/confirmar Changelog, criar o tag e realizar deploy somente após checklist explícito de produção.
+`v0.9.0` é a versão formal atual no repositório. O tag ainda não foi criado, o push permanece pendente e não foi realizado nem demonstrado deploy de produção. O deploy só pode ocorrer após checklist explícito de produção.

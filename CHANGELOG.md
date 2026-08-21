@@ -4,7 +4,9 @@ Este archivo registra los cambios relevantes entre versiones del proyecto.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
-## [Unreleased] — candidato v0.9.0
+## [Unreleased]
+
+## [v0.9.0] — 2026-08-21
 
 ### Añadido
 
@@ -23,7 +25,7 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 - Consistencia de credenciales entre los seeds locales de Admin y Polos.
 
-> Esta entrada prepara el cierre documental de v0.9.0. No representa un tag ni un despliegue de producción.
+> Esta entrada formaliza v0.9.0 en el repositorio. El tag sigue pendiente de creación; no representa push ni despliegue de producción.
 
 ## [v0.6.0] - Fin de M6
 
