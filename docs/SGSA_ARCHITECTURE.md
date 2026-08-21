@@ -33,7 +33,7 @@ Interfaz de usuario
 ```
 
 - **Firebase Authentication** autentica la identidad de la persona.
-- **Firestore** conserva perfiles, servidores, capillas y demás datos operativos; sus Security Rules aplican el control final de acceso.
+- **Firestore** conserva perfiles, servidores, capillas, formaciones y demás datos operativos; sus Security Rules aplican el control final de acceso.
 - **Servicios y capa de datos** encapsulan las lecturas y escrituras de cada colección.
 - **Módulos JavaScript** resuelven sesión, permisos, autorización, presentación y coordinación de flujos.
 - **UI** presenta información y dispara acciones ya autorizadas; no define por sí misma qué está permitido.
@@ -65,6 +65,7 @@ Las colecciones principales son:
 - **`users`**: perfiles canónicos de los usuarios autenticados. Contiene, entre otros, `uid`, `role`, `chapelId` y `active`.
 - **`servers`**: padrón operativo de Servidores del Altar. `chapelId` es el identificador canónico para decisiones de escritura; `Capela` puede mantenerse como dato descriptivo.
 - **`chapels`**: catálogo de capillas y sus datos de referencia.
+- **`formations`**: jerarquía contextual Formation → Polo → Encounter → Participant. El detalle de su contrato está en `M10_FORMATION_DATA_MODEL.md`.
 - **`authorizedUsers`**: colección reservada para una necesidad futura de autorización explícita; no debe usarse ni implementarse sin una decisión arquitectónica previa.
 
 Las relaciones y el detalle de campos se documentan en `DATABASE.md`.
@@ -89,7 +90,7 @@ Este principio evita inconsistencias y elimina la necesidad de procesos periódi
 ## 7. Arquitectura UI
 
 - **Header:** identifica el estado general de la sesión y muestra acciones de alto nivel según `currentUserProfile.role`.
-- **Sidebar (M9):** organizará la navegación entre los dominios funcionales sin asumir reglas de autorización.
+- **Sidebar:** organiza la navegación entre los dominios funcionales sin asumir reglas de autorización.
 - **Workspace:** área central donde se presenta el módulo activo y sus datos.
 - **Modales:** contienen formularios y confirmaciones de acciones puntuales; validan antes de escribir, sin reemplazar la autorización.
 - **Tabla:** presenta el padrón, contactos y acciones disponibles para cada registro.
@@ -107,7 +108,7 @@ Todo módulo funcional nuevo debe organizarse bajo `js/modules/<module>/` y expo
 - `views/` se limita al renderizado.
 - `components/` concentra piezas reutilizables cuando el módulo las necesite.
 
-El Dashboard es el primer módulo que aplica este patrón y actúa como referencia para los siguientes dominios. `main.js` conserva la orquestación global de sesión y el inicio de módulos; no debe contener el estado o ciclo de vida interno de un módulo.
+Dashboard y Formation aplican este patrón. `main.js` conserva la orquestación global de sesión y el inicio de módulos; no debe contener el estado o ciclo de vida interno de un módulo, aunque mantiene compatibilidad con flujos legacy de servidores.
 
 - **`auth`**: integra Firebase Authentication y comunica cambios de sesión.
 - **`authorization`**: decide si una operación sobre un servidor concreto está permitida según rol y capilla.
@@ -140,8 +141,8 @@ Todo nuevo módulo debe:
 La visión de crecimiento contempla los siguientes dominios:
 
 - **Shell (M9):** estructura de navegación y espacio de trabajo modular.
-- **Formación:** seguimiento de itinerarios, contenidos y progreso formativo.
-- **Asistencias:** registro y consulta de participación en actividades.
+- **Formación:** módulo operativo de Formations, Polos, Encounters, Participants y Attendance.
+- **Reportes operativos:** siguiente candidato para salida imprimible/exportable contextual de Encounter.
 - **Escalas:** organización de servicios y asignaciones pastorales.
 - **Historial del servidor:** trayectoria individual, cambios y eventos relevantes.
 - **Reportes:** consultas y salidas operativas para coordinación y administración.

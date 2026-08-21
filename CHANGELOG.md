@@ -4,6 +4,27 @@ Este archivo registra los cambios relevantes entre versiones del proyecto.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [Unreleased] — candidato v0.9.0
+
+### Añadido
+
+- Shell de aplicación y Dashboard modular.
+- Módulo Formation: Formations, Polos, Encounters, Participants y Attendance.
+- Consulta contextual de presencias de Encounter concluido.
+- Breadcrumbs, conteo inicial de Polos y mejoras UX de jerarquía, tablas y attendance.
+- Seeds locales para Firebase Emulator.
+
+### Cambiado
+
+- Autorización contextual de Formation respaldada por Firestore Rules y pruebas de regresión.
+- Dashboard, sesión y navegación modular estabilizados.
+
+### Corregido
+
+- Consistencia de credenciales entre los seeds locales de Admin y Polos.
+
+> Esta entrada prepara el cierre documental de v0.9.0. No representa un tag ni un despliegue de producción.
+
 ## [v0.6.0] - Fin de M6
 
 ### Añadido

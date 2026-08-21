@@ -1,5 +1,9 @@
 # M10 --- Formação
 
+> **Documento histórico de design / blueprint.** Não é a fonte canônica do estado atual. Consulte `MASTER_PROJECT.md` para a arquitetura vigente, `docs/M10_FORMATION_DATA_MODEL.md` para o contrato final de M10 e `docs/PROJECT_CONTEXT.md` para estado e decisões.
+>
+> A implementação preservou a arquitetura modular central, mas deliberadamente integrou attendance em `participants.view.js` (sem `attendance.view.js` independente), usa operações individuais de attendance e deixou exportação, histórico, estatísticas e outros itens de futuro fora de M10.
+
 ## M10-T3 --- Architecture Blueprint
 
 **Projeto:** SGSA --- Sistema de Gestão dos Servidores do Altar\

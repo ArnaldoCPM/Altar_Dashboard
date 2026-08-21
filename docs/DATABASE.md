@@ -1,87 +1,49 @@
-# Base de datos
+# Base de dados Firestore
 
-## Colección: `users`
+Esta é a referência do modelo atual. As Rules em `firestore.rules` são a fonte final de autorização e validação.
 
-Cada documento de la colección `users` representa a un usuario autenticado del sistema y contiene los siguientes campos:
+## Coleções principais
 
-- `uid`
-  - Tipo: `string`
-  - Obligatorio: sí
-  - Descripción: Identificador único del usuario proporcionado por Firebase Authentication.
+| Rota | Propósito e ID |
+| --- | --- |
+| `users/{uid}` | Perfil canônico do usuário autenticado. O ID é o Firebase Auth UID. Campos principais: `uid`, `email`, `displayName`, `role`, `chapelId`, `active`. Documentos históricos por email existem somente para migração controlada. |
+| `chapels/{chapelId}` | Catálogo de capelas. Campos principais: `name`, `active`. |
+| `artifacts/{appId}/public/data/servers/{serverId}` | Cadastro de servidores. `serverId` é o ID do registro; `chapelId` é a referência canônica de autorização e `Capela` pode permanecer como descrição legacy. |
+| `formations/{formationId}` | Formação com `name`, `description`, `stage`, `modalities`, datas, `status` e auditoria. |
+| `formations/{formationId}/poles/{poleId}` | Polo contextual à Formação: `name`, `baseChapelId`, `chapelIds`, `coordinatorIds`, `active` e auditoria. |
+| `.../encounters/{encounterId}` | Encontro: `title`, `description`, `startAt`, `endAt`, `location`, `status`, `coordinatorIds`, `responsibilities` e auditoria. |
 
-- `email`
-  - Tipo: `string`
-  - Obligatorio: sí
-  - Descripción: Dirección de correo electrónico del usuario.
+`location` é um snapshot `{ chapelId, name }`. `responsibilities` mantém designações/substituições e `coordinatorIds` é a projeção operacional usada para autorização contextual.
 
-- `displayName`
-  - Tipo: `string`
-  - Obligatorio: sí
-  - Descripción: Nombre legible del usuario para mostrar en la interfaz.
+## Participants e attendance
 
-- `role`
-  - Tipo: `string`
-  - Obligatorio: sí
-  - Descripción: Rol del usuario en la aplicación que determina sus permisos.
+```text
+formations/{formationId}/poles/{poleId}/encounters/{encounterId}/participants/{serverId}
+```
 
-- `chapelId`
-  - Tipo: `string`
-  - Obligatorio: sí
-  - Descripción: Identificador de la capilla asociada al usuario.
+O ID do Participant é o `serverId`. Cada documento é um snapshot contextual da lista do Encounter e contém:
 
-- `active`
-  - Tipo: `boolean`
-  - Obligatorio: sí
-  - Descripción: Estado activo del usuario; `true` si puede acceder al sistema.
+- `serverId`, `serverName`, `chapelId`, `chapelName`;
+- `participationType`: `regular` ou `manual`;
+- `attendanceStatus`: `pending`, `present`, `absent` ou `justified`;
+- `attendanceNote`, quando aplicável;
+- `recordedBy` e `recordedAt`, quando há presença registrada;
+- `addedManually`, `addedBy`, `createdAt` e `updatedAt`.
 
-- `createdAt`
-  - Tipo: `timestamp`
-  - Obligatorio: sí
-  - Descripción: Fecha y hora de creación del documento de usuario.
+Attendance pertence ao Participant; não há coleção paralela de presença. Alterações no cadastro global de servidor ou capela não modificam o snapshot.
 
-- `lastLogin`
-  - Tipo: `timestamp`
-  - Obligatorio: sí
-  - Descripción: Fecha y hora del último inicio de sesión del usuario.
+## Exclusions e política de estado
 
-## Colección: `chapels`
+```text
+formations/{formationId}/poles/{poleId}/encounters/{encounterId}/participantExclusions/{serverId}
+```
 
-Cada documento de la colección `chapels` representa una capilla referenciada por usuarios y servidores.
+Exclusions registram `serverId`, `excludedBy` e `createdAt` para evitar geração futura no mesmo Encounter. A composição estrutural — gerar, incluir manualmente, remover e criar/remover exclusions — ocorre somente quando o Encounter está `scheduled`.
 
-- `id`
-  - Tipo: `string`
-  - Obligatorio: sí
-  - Descripción: Identificador único de la capilla.
+Em `in_progress`, attendance pode ser registrado pelos atores autorizados. Em `completed`, a lista permanece consultável por usuários ativos e somente Admin pode corrigir attendance. `cancelled` não permite attendance.
 
-- `name`
-  - Tipo: `string`
-  - Obligatorio: sí
-  - Descripción: Nombre de la capilla.
+## Relações e limites
 
-- `city`
-  - Tipo: `string`
-  - Obligatorio: sí
-  - Descripción: Ciudad donde se ubica la capilla.
-
-- `active`
-  - Tipo: `boolean`
-  - Obligatorio: sí
-  - Descripción: Indica si la capilla está activa en el sistema.
-
-- `createdAt`
-  - Tipo: `timestamp`
-  - Obligatorio: sí
-  - Descripción: Fecha y hora de creación del documento de la capilla.
-
-## Relaciones
-
-- `users.chapelId` referencia a `chapels.id`
-- `servers.chapelId` referencia a `chapels.id`
-
-## Roles
-
-- `admin`
-  - Responsabilidades: Gestionar la configuración global del sistema, supervisar usuarios y datos, y acceder a todas las funciones administrativas.
-
-- `coordinator`
-  - Responsabilidades: Administrar registros operativos de los servidores del altar y coordinar actividades de la capilla asignada.
+- `users.chapelId`, `servers.chapelId`, `poles.chapelIds` e `location.chapelId` referenciam capelas.
+- A hierarquia de Formation é sempre contextual: Formação → Polo → Encounter → Participant.
+- Não há `collectionGroup` implementado para histórico global, nem coleção duplicada de histórico, estatísticas ou exportações persistidas.

@@ -1,246 +1,38 @@
 # SGSA
 
-Sistema de Gestao dos Servidores do Altar
+Sistema de Gestão dos Servidores do Altar. Este documento descreve a arquitetura vigente; o histórico está em `docs/PROJECT_CONTEXT.md`.
 
-Version 2.0
+## Arquitetura atual
 
-Documento Maestro del Proyecto
+O SGSA é uma aplicação web em JavaScript ES Modules, sem framework de UI, apoiada por Firebase Authentication e Cloud Firestore. O Shell mantém Header, Sidebar e Workspace; a navegação troca o módulo ativo sem recarregar a aplicação.
 
-## Arquitectura general
+Módulos operativos:
 
-SGSA es una aplicacion web frontend basada en JavaScript modular (ES Modules), sin framework de UI, con Firebase como plataforma de autenticacion y persistencia. La aplicacion concentra la logica de interfaz en `js/main.js`, mientras que el acceso a datos se separa por dominio en modulos especificos.
+- **Dashboard:** consulta e gestão do cadastro de servidores.
+- **Formation:** Formations, Polos, Encounters, Participants e Attendance.
 
-El sistema se apoya en tres pilares:
+Cada módulo novo segue `index.js` com ciclo de vida `initialize()`, `refresh()` e `destroy()`. Internamente, Controller coordena fluxo e autorização de cliente, State mantém estado do domínio, Services acessam Firestore e Views renderizam/intermediam ações.
 
-- Firebase Authentication para autenticar usuarios.
-- Cloud Firestore para almacenar usuarios, servidores y capillas.
-- Una capa de datos modular para encapsular lecturas y escrituras por coleccion.
+`js/main.js` orquestra sessão, Shell e navegação entre módulos. Ainda contém compatibilidade e fluxos legacy do domínio de servidores; não é uma arquitetura monolítica completa nem todo o aplicativo já foi migrado para módulos.
 
-La autorizacion se resuelve principalmente a partir de la coleccion `users`, que actua como fuente de verdad para roles, estado y asociacion con capillas.
+## Identidade e autorização
 
-## Modulos
+Firebase Authentication identifica o usuário. O perfil canônico é `users/{uid}` e define `role`, `active` e `chapelId`; os papéis oficiais são `admin`, `coordinator` e `viewer`.
 
-### Nucleo
+Não há acesso anônimo como comportamento vigente, nem permissões baseadas em email. A compatibilidade com documentos históricos `users/{email}` existe somente para concluir migração controlada ao perfil canônico.
 
-- `js/firebase.js`
-  - inicializa una unica instancia de Firebase App.
-  - expone una unica instancia compartida de Authentication y Firestore.
+As Rules são a proteção final. A UI e os Controllers aplicam autorização de cliente; Firestore valida papel, usuário ativo, escopo de capela e, em Formation, contexto de Polo/Encounter e estado do recurso.
 
-- `js/auth.js`
-  - centraliza inicio de sesion, logout e inicializacion de auth.
-  - mantiene compatibilidad con el flujo heredado de acceso anonimo.
+## Dados e módulos
 
-- `js/session.js`
-  - conserva el estado de sesion en cliente.
-  - almacena usuario actual, perfil y rol actual.
+- `js/firebase.js`: instância compartilhada de Firebase e conexão explícita ao Emulator apenas em host local com `?emulator=1`.
+- `js/auth.js` e `js/session.js`: autenticação e sessão.
+- `js/data/*`: acesso ao domínio de usuários, servidores e capelas.
+- `js/modules/dashboard/*`: Dashboard modular.
+- `js/modules/formation/*`: domínio Formation, com serviços por entidade, Views e componentes de breadcrumb/status.
 
-### Datos
+O contrato Firestore atual está em `docs/DATABASE.md`; o contrato final de Formation está em `docs/M10_FORMATION_DATA_MODEL.md`.
 
-- `js/data/users.js`
-  - CRUD de usuarios.
-  - resolucion por UID y por email.
-  - vinculacion automatica entre documento Firestore y UID de Firebase Authentication.
+## Limites atuais
 
-- `js/data/servers.js`
-  - persistencia de servidores del altar.
-
-- `js/data/chapels.js`
-  - acceso a la coleccion de capillas.
-  - recuperacion de capillas activas para formularios y filtros.
-
-### Interfaz y orquestacion
-
-- `js/main.js`
-  - orquesta autenticacion, carga de datos, dashboard, filtros, formularios y modales.
-  - coordina el flujo entre UI y capa de datos.
-
-- `index.html`
-  - contiene la estructura principal de la interfaz.
-  - incluye dashboard, formularios, modales y navegacion lateral base.
-
-## Flujo de autenticacion
-
-El flujo actual de autenticacion y resolucion de perfil es:
-
-Firebase Authentication
-
-↓
-
-`resolveAuthenticatedProfile()`
-
-↓
-
-`getUserByUid()`
-
-↓
-
-`getUserByEmail()`
-
-↓
-
-`linkUserUid()`
-
-↓
-
-placeholder
-
-### Descripcion del flujo
-
-1. Firebase Authentication autentica al usuario.
-2. El sistema intenta resolver primero el perfil por `uid`.
-3. Si no existe coincidencia por `uid`, busca por `email`.
-4. Si encuentra un documento por `email` sin `uid` vinculado, asocia automaticamente el `uid` mediante `linkUserUid()`.
-5. Si no existe documento en Firestore, retorna un perfil placeholder sin permisos.
-
-### Criterio principal de identidad
-
-El `uid` de Firebase Authentication es el identificador principal del usuario autenticado. El `email` se usa como mecanismo de vinculacion y compatibilidad para el primer acceso.
-
-## Roles
-
-El sistema contempla actualmente tres roles:
-
-- `admin`
-- `coordinator`
-- `viewer`
-
-### Responsabilidad general por rol
-
-- `admin`
-  - acceso administrativo completo previsto para gestion y configuracion.
-
-- `coordinator`
-  - rol operativo asociado a una capilla.
-
-- `viewer`
-  - rol de visualizacion asociado a una capilla.
-
-La interfaz y la logica ya reconocen estos roles, aunque la matriz completa de permisos por rol sigue evolucionando.
-
-## Gestion de usuarios
-
-La gestion de usuarios ya forma parte estable de M6 y contempla:
-
-- listado de usuarios;
-- creacion de usuarios;
-- edicion de usuarios;
-- desactivacion logica;
-- estado de ciclo de vida;
-- vinculacion automatica UID-email;
-- asociacion opcional u obligatoria con capilla segun rol.
-
-### Campos principales de usuario
-
-- `uid`
-- `email`
-- `displayName`
-- `role`
-- `chapelId`
-- `active`
-- `status`
-
-### Estados de usuario
-
-- `pending`
-- `active`
-- `disabled`
-
-## Gestion de capillas
-
-Las capillas se gestionan como una coleccion independiente en Firestore.
-
-### Principios actuales
-
-- las capillas activas se cargan dinamicamente desde la coleccion `chapels`;
-- los formularios no dependen de listas hardcodeadas para la seleccion principal;
-- existe cache en memoria para evitar lecturas repetidas en el formulario de usuarios;
-- los filtros y formularios consumen la misma fuente de datos de capillas activas.
-
-### Uso actual en interfaz
-
-- `form-capela`
-  - selector del formulario de servidores.
-
-- `form-user-chapel`
-  - selector del formulario de usuarios.
-
-- `filter-capilla`
-  - filtro del dashboard de servidores.
-
-## Modelo de datos
-
-### Coleccion `users`
-
-Campos principales:
-
-- `id`
-- `uid`
-- `email`
-- `displayName`
-- `role`
-- `chapelId`
-- `active`
-- `status`
-- `createdAt`
-- `updatedAt`
-- `lastLogin`
-
-### Coleccion `servers`
-
-Campos principales:
-
-- `id`
-- `Nome`
-- `Data_nascimento`
-- `Idade`
-- `Sexo`
-- `Capela`
-- `Tipo`
-- `Estado`
-- `Horario_estudo`
-- campos sacramentales
-- campos de salud
-- campos familiares y de contacto
-
-### Coleccion `chapels`
-
-Campos principales:
-
-- `id`
-- `name`
-- `active`
-
-## Convenciones
-
-- una responsabilidad principal por archivo;
-- acceso a Firestore encapsulado en modulos `js/data/*`;
-- uso de ES Modules;
-- UI sin framework;
-- cambios acotados por tarea;
-- preferencia por soluciones simples y mantenibles;
-- reutilizacion antes que duplicacion;
-- compatibilidad temporal cuando una migracion de datos aun no ha concluido.
-
-## Decisiones de arquitectura
-
-- mantener una unica inicializacion de Firebase;
-- separar autenticacion, sesion, datos y UI en modulos distintos;
-- usar la coleccion `users` como fuente de verdad para autorizacion;
-- usar `uid` como identificador principal del usuario autenticado;
-- conservar compatibilidad con documentos heredados mientras se completa la migracion de modelo;
-- cargar capillas dinamicamente desde Firestore en lugar de mantener catalogos fijos en la interfaz.
-
-## Deuda tecnica
-
-- migracion pendiente de `Capela` (texto) hacia `capela_id` / `chapelId` en la coleccion de servidores;
-- coexistencia temporal entre modelo heredado y modelo objetivo durante la transicion;
-- persistencia del flujo anonimo heredado del proyecto base, aun presente por compatibilidad.
-
-## Roadmap tecnico
-
-### Objetivos de M7
-
-- eliminar el acceso anonimo;
-- autenticacion obligatoria;
-- permisos completos por rol;
-- avanzar la migracion de `Capela` hacia `capela_id` / `chapelId`.
+M10 não inclui exportação, histórico global por Server, estatísticas globais, ações massivas, offline real, multi-paróquia nem substituição autônoma por coordinator. Esses itens pertencem ao backlog, não são lacunas de autorização ou dados do fluxo atual.
