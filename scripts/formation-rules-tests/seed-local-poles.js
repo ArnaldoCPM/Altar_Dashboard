@@ -19,6 +19,7 @@ const EMULATOR_HOST = '127.0.0.1';
 const AUTH_PORT = 9099;
 const FIRESTORE_PORT = 8080;
 const LOCAL_PASSWORD = 'Test123456!';
+const LOCAL_ADMIN_PASSWORD = process.env.LOCAL_ADMIN_PASSWORD || 'local-admin-password';
 
 const CHAPELS = [
   { id: 'chapel-test-1', name: 'Capela Teste São José', active: true },
@@ -27,7 +28,7 @@ const CHAPELS = [
 ];
 
 const LOCAL_USERS = [
-  { email: 'admin.local@example.test', displayName: 'Administrador Local', role: 'admin', active: true, chapelId: '' },
+  { email: 'admin.local@example.test', password: LOCAL_ADMIN_PASSWORD, displayName: 'Administrador Local', role: 'admin', active: true, chapelId: '' },
   { email: 'coordinator.local@example.test', displayName: 'Coordenador Local', role: 'coordinator', active: true, chapelId: 'chapel-test-1' },
   { email: 'viewer.local@example.test', displayName: 'Visualizador Local', role: 'viewer', active: true, chapelId: 'chapel-test-2' },
   { email: 'coordinator.inactive@example.test', displayName: 'Coordenador Inativo', role: 'coordinator', active: false, chapelId: 'chapel-test-3' },
@@ -51,13 +52,13 @@ function assertLocalEndpoint(name, port) {
   });
 }
 
-async function getOrCreateLocalUser(auth, email) {
+async function getOrCreateLocalUser(auth, email, password = LOCAL_PASSWORD) {
   try {
-    const credential = await createUserWithEmailAndPassword(auth, email, LOCAL_PASSWORD);
+    const credential = await createUserWithEmailAndPassword(auth, email, password);
     return { user: credential.user, created: true };
   } catch (error) {
     if (error.code !== 'auth/email-already-in-use') throw error;
-    const credential = await signInWithEmailAndPassword(auth, email, LOCAL_PASSWORD);
+    const credential = await signInWithEmailAndPassword(auth, email, password);
     return { user: credential.user, created: false };
   }
 }
@@ -95,7 +96,7 @@ async function main() {
 
   const authenticatedUsers = [];
   for (const profile of LOCAL_USERS) {
-    const result = await getOrCreateLocalUser(auth, profile.email);
+    const result = await getOrCreateLocalUser(auth, profile.email, profile.password);
     authenticatedUsers.push({ ...profile, uid: result.user.uid, created: result.created });
   }
 
@@ -126,7 +127,7 @@ async function main() {
     await testEnv.cleanup();
   }
 
-  console.log('Local Emulator Poles seed ready. Password for every account: Test123456!');
+  console.log('Local Emulator Poles seed ready. Admin uses LOCAL_ADMIN_PASSWORD or its local default; other accounts use Test123456!.');
   for (const profile of authenticatedUsers) {
     console.log(`${profile.created ? 'Created' : 'Reused'}: ${profile.email} (${profile.uid})`);
   }
