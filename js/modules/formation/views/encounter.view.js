@@ -16,7 +16,7 @@ function form(state, actions) {
 }
 function statusActionLabel(status) { return ({ in_progress: "Iniciar encontro", completed: "Concluir encontro", cancelled: "Cancelar encontro" })[status] || statusLabel(status); }
 function statusActionClass(status) { return status === "cancelled" ? "border border-rose-200 text-rose-700 hover:bg-rose-50" : status === "in_progress" ? "border border-sky-200 text-sky-800 hover:bg-sky-50" : "border border-slate-300 text-slate-700 hover:bg-slate-50"; }
-function primaryAction(status) { return status === "scheduled" ? { label: "Gerenciar participantes" } : status === "in_progress" ? { label: "Registrar presença" } : null; }
+function primaryAction(status) { return status === "scheduled" ? { label: "Gerenciar participantes" } : status === "in_progress" ? { label: "Registrar presença" } : status === "completed" ? { label: "Consultar presenças" } : null; }
 function details(state, actions) {
     const e = state.data.currentEncounter;
     if (!e) return "";

@@ -593,3 +593,9 @@ M10-UX3-B contemplou exclusivamente melhorias de tabelas, responsividade e acess
 A operação de presença em Participants foi refinada visualmente para priorizar o status atual, as ações rápidas e a correção secundária. Os botões de presença receberam área tátil maior, wrap para telas estreitas e foco visível, enquanto notas e o retorno a pendente permanecem em ações discretas.
 
 Em Encontros concluídos, a correção autorizada permanece secundária e não apresenta a interface como uma operação em andamento. Não houve alteração de lógica funcional, permissões, regras, dados ou fluxos de Participants/Attendance.
+
+## M10-T4.6.1 — Consulta de Participants/Attendance concluído
+
+O detalhe de um Encounter `completed` passou a oferecer a ação principal **Consultar presenças**, reutilizando a mesma vista contextual de Participants, assinatura e breadcrumb de Formação → Polo → Encounter. A consulta mostra os participantes, seus estados de presença e notas existentes.
+
+Após a conclusão, Admin conserva exclusivamente a correção de attendance já autorizada; coordenadores, responsáveis efetivos e viewers ativos têm apenas consulta. A composição de Participants permanece estritamente `scheduled`-only: geração, inclusão manual, remoção e exclusions não são disponibilizadas nem permitidas fora desse status. Esta alteração fecha a lacuna de consulta posterior ao Encounter sem criar uma tela histórica ou alterar permissões.
