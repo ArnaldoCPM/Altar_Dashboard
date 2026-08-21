@@ -8,14 +8,13 @@ Este roadmap prioriza o estado atual do produto. Decisões e detalhes histórico
 - **M8 — Estabilização de experiência:** login, sessão, Dashboard e gestão de servidores/capelas estabilizados.
 - **M9 — Application Shell e Dashboard modular:** Shell, Workspace, navegação contextual e módulo Dashboard com Controller/State/Services/Views.
 - **M10 — Formação:** Formations, Polos, Encounters, Participants e Attendance operacionais. Inclui consulta contextual de presenças após `completed`, UX1–UX3 e regressão de Rules. A composição de Participants permanece exclusiva de Encounter `scheduled`.
+- **M11 — Relatório operacional de Encounter:** pré-visualização HTML contextual e impressão A4 a partir do detalhe do Encounter. Reutiliza Participants/Attendance existentes, com variantes para os quatro estados, sem escritas, CSV, PDF client-side ou alterações de Rules.
 
-## Próximo milestone proposto
+## Próximo milestone
 
-### M11 — Relatório operacional de Encounter
+Será definido após priorização funcional. CSV, histórico e estatísticas permanecem itens separados de backlog.
 
-Objetivo: gerar uma saída contextual imprimível/exportável de um Encounter e seus Participants/Attendance. O contrato técnico será definido quando o milestone for iniciado.
-
-## Backlog pós-M10
+## Backlog pós-M11
 
 ### Próximo
 

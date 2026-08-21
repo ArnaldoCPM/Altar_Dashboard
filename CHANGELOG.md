@@ -6,6 +6,21 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### Añadido
+
+- M11: vista contextual de reporte operacional de Encounter e impresión A4 mediante el diálogo nativo del navegador.
+- Variantes para estados agendado, en curso, concluido y cancelado; resumen local para presencia cuando corresponde.
+
+### Cambiado
+
+- El detalle de Encounter permite abrir el reporte, que espera el snapshot de Participants y ordena por capilla y servidor.
+
+### Seguridad
+
+- El reporte no muestra UID ni campos de auditoría; responsables sin nombre resoluble se omiten.
+
+> M11 fue validado funcionalmente, pero permanece sin nueva versión formal, commit, tag, push o despliegue.
+
 ## [v0.9.0] — 2026-08-21
 
 ### Añadido

@@ -35,4 +35,4 @@ O contrato Firestore atual está em `docs/DATABASE.md`; o contrato final de Form
 
 ## Limites atuais
 
-M10 não inclui exportação, histórico global por Server, estatísticas globais, ações massivas, offline real, multi-paróquia nem substituição autônoma por coordinator. Esses itens pertencem ao backlog, não são lacunas de autorização ou dados do fluxo atual.
+M11 inclui apenas o relatório HTML contextual e sua impressão A4. CSV, PDF client-side, histórico global por Server, estatísticas globais, ações massivas, offline real, multi-paróquia e substituição autônoma por coordinator continuam no backlog. O relatório reutiliza snapshots de Participants e não introduz escritas, coleções, consultas globais ou mudanças de autorização.

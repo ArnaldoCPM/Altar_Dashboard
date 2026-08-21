@@ -45,6 +45,7 @@ import { renderFormationView } from "./views/formation.view.js";
 import { renderPoleView } from "./views/pole.view.js";
 import { renderEncounterView } from "./views/encounter.view.js";
 import { renderParticipantsView } from "./views/participants.view.js";
+import { renderEncounterReportView } from "./views/report.view.js";
 import { mountBreadcrumb } from "./components/breadcrumb.js";
 
 const VALID_STAGES = new Set(["first", "second"]);
@@ -83,6 +84,11 @@ function render() {
     const state = getState();
     if (["participants", "participant-manual"].includes(state.navigation.currentView)) {
         renderParticipantsView(root, state, { action: handleParticipantAction, addManual: addManualParticipant, canManage: canManageParticipants(), canManageAttendance: canManageAttendance(), servers: participantResources.servers });
+        mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation);
+        return;
+    }
+    if (state.navigation.currentView === "encounter-report") {
+        renderEncounterReportView(root, state, { action: handleEncounterAction, userNames: encounterResources.userNames });
         mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation);
         return;
     }
@@ -135,14 +141,15 @@ function breadcrumbItems(state) {
     if (["poles", "pole-form"].includes(currentView)) {
         items.push({ label: currentPole?.name || "Polos", action: null });
     }
-    if (currentPole && ["encounter-list", "encounter-form", "encounter-details", "encounter-substitute", "participants", "participant-manual"].includes(currentView)) {
+    if (currentPole && ["encounter-list", "encounter-form", "encounter-details", "encounter-substitute", "encounter-report", "participants", "participant-manual"].includes(currentView)) {
         items.push({ label: currentPole.name, action: "pole" });
     }
     if (currentView === "encounter-list") items.push({ label: "Encontros", action: null });
-    if (["encounter-form", "encounter-details", "encounter-substitute", "participants", "participant-manual"].includes(currentView) && (currentEncounter || currentView === "encounter-form")) {
+    if (["encounter-form", "encounter-details", "encounter-substitute", "encounter-report", "participants", "participant-manual"].includes(currentView) && (currentEncounter || currentView === "encounter-form")) {
         items.push({ label: currentEncounter?.title || "Novo encontro", action: ["encounter-details", "encounter-substitute", "encounter-form"].includes(currentView) ? null : "encounter" });
     }
     if (["participants", "participant-manual"].includes(currentView)) items.push({ label: "Participantes", action: null });
+    if (currentView === "encounter-report") items.push({ label: "Relatório", action: null });
     return items;
 }
 
@@ -338,7 +345,9 @@ async function loadEncounterResources() {
     const designatedCoordinators = isAdmin()
         ? allCoordinators.filter((user) => (pole.coordinatorIds || []).includes(user.id))
         : [...visibleDesignatedIds].map((id) => ({ id, name: id === currentUser?.uid ? (currentUser.displayName || currentUser.email || id) : id }));
-    encounterResources = { chapels, designatedCoordinators, allCoordinators, userNames: Object.fromEntries(allCoordinators.map((user) => [user.id, user.name])) };
+    const userNames = Object.fromEntries(allCoordinators.map((user) => [user.id, user.name]));
+    if (currentUser?.uid && (currentUser.displayName || currentUser.email)) userNames[currentUser.uid] = currentUser.displayName || currentUser.email;
+    encounterResources = { chapels, designatedCoordinators, allCoordinators, userNames };
 }
 
 function loadEncounters() {
@@ -364,6 +373,20 @@ function loadParticipants() {
 
 async function showParticipants() {
     try { const encounter = getState().data.currentEncounter; if (!encounter) throw new Error("Selecione um encontro."); setNavigation({ currentView: "participants" }); setUiState({ loading: true, error: null, success: null }); participantResources = { servers: [] }; loadParticipants(); render(); } catch (error) { setUiState({ error: error.message }); render(); }
+}
+
+async function showEncounterReport() {
+    try {
+        const encounter = getState().data.currentEncounter;
+        if (!encounter) throw new Error("Selecione um encontro.");
+        setNavigation({ currentView: "encounter-report" });
+        setUiState({ loading: true, error: null, success: null });
+        loadParticipants();
+        render();
+    } catch (error) {
+        setUiState({ error: error.message || "Não foi possível abrir o relatório." });
+        render();
+    }
 }
 
 async function generateParticipants() {
@@ -831,6 +854,7 @@ function handlePoleAction(action, poleId, active) {
 
 function handleEncounterAction(action, encounterId, status) {
     if (action === "participants") showParticipants();
+    if (action === "report") showEncounterReport();
     if (action === "create") showEncounterForm();
     if (action === "details") showEncounterDetails(encounterId);
     if (action === "edit") showEncounterForm(encounterId);
@@ -845,6 +869,10 @@ function handleEncounterAction(action, encounterId, status) {
         } else if (currentView === "encounter-details") {
             setCurrentEncounter(null);
             setNavigation({ currentView: "encounter-list" });
+        } else if (currentView === "encounter-report") {
+            setSubscription("participants", null);
+            setParticipants([]);
+            setNavigation({ currentView: "encounter-details" });
         } else {
             setNavigation({ currentView: getState().data.currentEncounter ? "encounter-details" : "encounter-list" });
         }
