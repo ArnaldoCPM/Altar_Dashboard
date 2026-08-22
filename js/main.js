@@ -27,8 +27,8 @@ import {
     canEdit as canEditServer
 } from "./authorization.js";
 import { getActiveChapels } from "./data/chapels.js";
-import { initHeader, updateHeaderSession } from "./layout/header.js";
-import { initSidebar } from "./layout/sidebar.js";
+import { closeAccountMenu, initHeader, updateHeaderSession } from "./layout/header.js";
+import { closeSidebar, initSidebar, updateSidebar } from "./layout/sidebar.js";
 import { getWorkspaceElement } from "./layout/workspace.js";
 
 // import { renderTable } from "./table.js";
@@ -87,6 +87,7 @@ async function navigateToModule(moduleId) {
         setDashboardWorkspaceVisibility(false);
         initializeFormation({ mountElement: getWorkspaceElement() });
         activeModule = 'training';
+        updateSidebar({ moduleId: activeModule });
         return;
     }
 
@@ -100,14 +101,22 @@ async function navigateToModule(moduleId) {
         setDashboardWorkspaceVisibility(true);
         await initializeDashboard({ chapels: cachedActiveChapels });
         activeModule = 'dashboard';
+        updateSidebar({ moduleId: activeModule });
     }
 }
 
 document.addEventListener('shell:navigate', ({ detail }) => {
+    closeSidebar({ returnFocus: false });
+    if (detail.action === 'manage-users') {
+        document.dispatchEvent(new CustomEvent('shell:manage-users'));
+        return;
+    }
     navigateToModule(detail.moduleId);
 });
 
 function showLoginScreen(message = loginScreenMessage) {
+    closeSidebar({ returnFocus: false });
+    closeAccountMenu();
     stopServerSubscription();
     resetEmailLoginFields();
     updateHeaderSession(null, null);
@@ -273,11 +282,7 @@ setupAuthStateListener(async (u) => {
         const authUid = u.uid;
         setCurrentUser(user);
 
-        document.getElementById('db-status').innerHTML =
-            `<span class="w-2 h-2 bg-emerald-500 rounded-full"></span> Sincronizado`;
-
-        document.getElementById('db-status').className =
-            "text-xs px-3 py-1.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1.5";
+        document.getElementById('db-status').classList.add('hidden');
 
         console.log("1");
         console.log(user);
@@ -316,6 +321,7 @@ setupAuthStateListener(async (u) => {
                 chapelName: resolveSessionChapelName(profile, chapels)
             });
             updateHeaderSession(getCurrentProfile(), user);
+            updateSidebar({ moduleId: activeModule, role: getCurrentProfile()?.role });
 
             console.log("3");
             await loadChapelsIntoForm(chapels);
@@ -326,6 +332,7 @@ setupAuthStateListener(async (u) => {
             console.log("5");
             await initializeDashboard({ chapels });
             activeModule = 'dashboard';
+            updateSidebar({ moduleId: activeModule, role: getCurrentProfile()?.role });
             console.log("6");
         }
 
@@ -405,10 +412,6 @@ function updateAdminUI(renderDashboard = true) {
     const profileRole = getCurrentProfile()?.role;
     const isAdminProfile = profileRole === 'admin';
     const isCoordinatorProfile = profileRole === 'coordinator';
-    const hasAuthenticatedProfile = isAdminProfile
-        || isCoordinatorProfile
-        || profileRole === 'viewer';
-
     document.getElementById('btn-add-manual').classList.toggle(
         'hidden',
         !(isAdminProfile || isCoordinatorProfile)
@@ -417,10 +420,7 @@ function updateAdminUI(renderDashboard = true) {
         'hidden',
         !isAdminProfile
     );
-    document.getElementById('btn-logout').classList.toggle(
-        'hidden',
-        !hasAuthenticatedProfile
-    );
+    updateSidebar({ moduleId: activeModule, role: profileRole });
 
     if (isAdminProfile) {
         document.getElementById('admin-banner').classList.remove('hidden');
@@ -483,6 +483,8 @@ btnLoginGoogle.addEventListener('click', async () => {
 
 // LOGOUT: cerrar sesión en Firebase Authentication
 async function performLogout() {
+    closeSidebar({ returnFocus: false });
+    closeAccountMenu();
     try {
         await performFirebaseLogout();
     } catch (err) {
@@ -646,6 +648,7 @@ document.getElementById('btn-manage-users').addEventListener('click', async () =
         return;
     }
 
+    closeAccountMenu();
     usersManagementModal.classList.remove('hidden');
     await loadUsersTable();
 });
@@ -911,6 +914,13 @@ document.addEventListener('dashboard:server-action', ({ detail }) => {
     } else if (detail.action === 'delete') {
         deleteServer(detail.serverId, detail.serverName);
     }
+});
+
+document.addEventListener('shell:manage-users', async () => {
+    if (!canManageUsers()) return;
+    closeAccountMenu();
+    usersManagementModal.classList.remove('hidden');
+    await loadUsersTable();
 });
 
 // CARGA MASIVA CSV (Conexión directa, única y robusta al input)

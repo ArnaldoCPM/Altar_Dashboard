@@ -9,12 +9,13 @@ Este roadmap prioriza o estado atual do produto. Decisões e detalhes histórico
 - **M9 — Application Shell e Dashboard modular:** Shell, Workspace, navegação contextual e módulo Dashboard com Controller/State/Services/Views.
 - **M10 — Formação:** Formations, Polos, Encounters, Participants e Attendance operacionais. Inclui consulta contextual de presenças após `completed`, UX1–UX3 e regressão de Rules. A composição de Participants permanece exclusiva de Encounter `scheduled`.
 - **M11 — Relatório operacional de Encounter:** pré-visualização HTML contextual e impressão A4 a partir do detalhe do Encounter. Reutiliza Participants/Attendance existentes, com variantes para os quatro estados, sem escritas, CSV, PDF client-side ou alterações de Rules.
+- **M12 — Shell responsivo e navegação:** Header compacto com menu de conta, Sidebar colapsável em desktop e drawer acessível em tablet/móvel. A navegação agora expõe somente módulos funcionais e deriva o estado ativo do módulo real; as ações legacy preservadas ficam no seu contexto operacional e continuam protegidas pelas verificações existentes.
 
 ## Próximo milestone
 
 Será definido após priorização funcional. CSV, histórico e estatísticas permanecem itens separados de backlog.
 
-## Backlog pós-M11
+## Backlog pós-M12
 
 ### Próximo
 

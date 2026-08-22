@@ -47,47 +47,42 @@
 
     <!-- NAVBAR -->
     <header class="sticky top-0 z-40 bg-liturgical-blue text-white shadow-lg border-b-4 border-liturgical-gold">
-        <div class="max-w-[90rem] mx-auto px-4 py-3 sm:px-6 lg:px-8 flex flex-col xl:flex-row justify-between items-center gap-3">
+        <div class="max-w-[90rem] mx-auto px-4 py-3 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
             <div class="flex items-center space-x-3">
+                <button id="sidebar-toggle" type="button" aria-controls="app-sidebar" aria-expanded="false" aria-label="Abrir menu de navegação" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-liturgical-blue">
+                    <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                </button>
                 <div class="p-2.5 bg-white/10 rounded-xl border border-white/20">
                     <svg class="w-8 h-8 text-liturgical-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m-6-12h12M5 21h14"></path>
                     </svg>
                 </div>
-                <div>
-                    <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight">SGSA</h1>
-                    <p class="text-xs sm:text-sm text-blue-200">Painel de Controle e Monitoramento Paroquial</p>
-                </div>
+                <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight">SGSA</h1>
             </div>
             
             <!-- PANEL DE CONTROL DE ACCESO -->
-            <div class="flex items-center justify-center gap-3 flex-wrap">
-                <div id="session-info" class="hidden items-center gap-2 border-l border-white/20 pl-3">
-                    <div id="session-avatar" class="w-9 h-9 rounded-full bg-white/15 border border-white/25 flex items-center justify-center text-xs font-extrabold text-liturgical-gold">
-                        <img id="session-photo" class="hidden w-full h-full rounded-full object-cover" alt="Foto do usuario" />
-                        <span id="session-initials">SG</span>
-                    </div>
-                    <div class="leading-tight text-left">
-                        <p id="session-name" class="text-xs font-bold text-white">Sessao ativa</p>
-                        <p id="session-role" class="text-[10px] text-blue-200"></p>
-                        <p id="session-chapel" class="text-[10px] text-blue-200"></p>
-                    </div>
-                </div>
-                <!-- Indicador de Sincronización de Base de Datos -->
-                <span id="db-status" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1.5">
+            <div class="flex items-center gap-3">
+                <span id="db-status" role="status" aria-live="polite" class="hidden text-xs px-3 py-1.5 rounded-full bg-amber-950 text-amber-200 border border-amber-800 items-center gap-1.5">
                     <span class="w-2 h-2 bg-amber-500 rounded-full animate-ping"></span>
                     Conectando à nuvem...
                 </span>
-                
-                <button id="btn-add-manual" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all">
-                    + Novo Servidor
-                </button>
-                <button id="btn-manage-users" class="hidden bg-liturgical-blue hover:bg-liturgical-blue/90 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all">
-                    Usuários
-                </button>
-                <button id="btn-logout" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl transition-all">
-                    Sair
-                </button>
+                <div id="session-info" class="hidden relative">
+                    <button id="account-menu-toggle" type="button" aria-controls="account-menu" aria-expanded="false" aria-label="Abrir menu da conta" class="flex items-center gap-2 rounded-xl p-1 text-left transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-liturgical-blue">
+                    <span id="session-avatar" class="w-9 h-9 rounded-full bg-white/15 border border-white/25 flex items-center justify-center text-xs font-extrabold text-liturgical-gold">
+                        <img id="session-photo" class="hidden w-full h-full rounded-full object-cover" alt="Foto do usuario" />
+                        <span id="session-initials">SG</span>
+                    </span>
+                    <span class="hidden sm:block leading-tight text-left">
+                        <p id="session-name" class="text-xs font-bold text-white">Sessao ativa</p>
+                        <p id="session-role" class="text-[10px] text-blue-200"></p>
+                    </span>
+                    </button>
+                    <div id="account-menu" class="hidden absolute right-0 top-full mt-2 w-64 rounded-xl border border-slate-200 bg-white p-2 text-slate-700 shadow-xl">
+                        <div class="border-b border-slate-100 px-3 py-2"><p id="account-menu-name" class="text-sm font-bold"></p><p id="session-chapel" class="mt-1 text-xs text-slate-500"></p></div>
+                        <button id="btn-manage-users" type="button" class="hidden mt-1 w-full rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-slate-100">Usuários</button>
+                        <button id="btn-logout" type="button" class="mt-1 w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50">Sair</button>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
@@ -100,16 +95,17 @@
     </div>
 
     <main id="app-content" class="hidden flex-grow w-full">
-        <div class="max-w-[90rem] mx-auto px-4 py-6 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-[16rem_minmax(0,1fr)] gap-6 lg:gap-8">
+        <div id="app-shell" class="max-w-[90rem] mx-auto px-4 py-6 sm:px-6 lg:px-8 grid grid-cols-1 gap-6 lg:gap-8">
+            <div id="sidebar-overlay" class="sidebar-overlay hidden fixed inset-0 z-50" aria-hidden="true"></div>
             <!-- APPLICATION SIDEBAR -->
             <aside id="app-sidebar" class="lg:sticky lg:top-6 lg:self-start bg-white border border-slate-200 rounded-2xl shadow-sm p-3">
                 <div class="px-3 py-3 border-b border-slate-100">
-                    <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Navegacao</p>
-                    <p class="mt-1 text-sm font-bold text-slate-700">Modulos do sistema</p>
+                    <p class="sidebar-section-label text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Navegacao</p>
+                    <p class="sidebar-heading mt-1 text-sm font-bold text-slate-700">Modulos do sistema</p>
                 </div>
                 <nav id="sidebar-navigation" aria-label="Modulos do SGSA" class="mt-3 space-y-4"></nav>
-                <p class="px-3 pt-4 text-[11px] leading-relaxed text-slate-400">A navegacao disponivel depende dos modulos implementados.</p>
-                <div class="mt-5 border-t border-slate-100 px-3 pt-4 text-xs text-slate-400">
+                <p class="sidebar-footer px-3 pt-4 text-[11px] leading-relaxed text-slate-400">A navegacao disponivel depende dos modulos implementados.</p>
+                <div class="sidebar-footer mt-5 border-t border-slate-100 px-3 pt-4 text-xs text-slate-400">
                     <p class="font-bold tracking-wide text-slate-600">SGSA</p>
                     <p class="mt-1">Versao v0.8.0</p>
                 </div>
@@ -160,6 +156,9 @@
 
         <!-- DASHBOARD CONTAINER -->
         <div id="dashboard-content" class="space-y-8">
+            <div class="flex justify-end">
+                <button id="btn-add-manual" type="button" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2">+ Novo Servidor</button>
+            </div>
             
             <!-- KPI CARDS (6 columns layout) -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">

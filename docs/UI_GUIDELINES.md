@@ -26,10 +26,10 @@ El patrón vigente es:
 Header + Sidebar + Workspace
 ```
 
-- El **Header** y el **Sidebar** pertenecen al sistema y aportan identidad, sesión, acciones globales y navegación.
+- El **Header** y el **Sidebar** pertenecen al sistema y aportan identidad, sesión y navegación.
 - Los módulos renderizan su contenido dentro del **Workspace** (`#workspace`).
 - Un módulo no debe alterar directamente la estructura global del Shell ni recrear Header o Sidebar.
-- La navegación debe conservar una experiencia visual consistente. En el estado actual, el Sidebar se genera desde su configuración, pero sus enlaces siguen siendo estáticos; el Router y la navegación funcional pertenecen a una etapa posterior.
+- La navegación debe conservar una experiencia visual consistente. El Sidebar se genera desde su configuración y el estado activo se deriva del módulo que el Shell está mostrando; no se deben agregar destinos inertes.
 
 El Footer existente permanece como parte del marco visual actual. Su evolución funcional no queda definida por esta guía.
 
@@ -164,10 +164,9 @@ La identidad gráfica existente se conserva en `assets/icons/`. Esta guía no au
 
 Los patrones actuales usan Tailwind y los breakpoints ya presentes:
 
-- **Desktop:** Shell en dos columnas (`lg:grid-cols-[16rem_minmax(0,1fr)]`), Sidebar visible y sticky, tablas completas y acciones en línea.
-- **Tablet:** grids intermedios con `sm:` y `md:`; formularios pasan de una a dos o tres columnas según su grupo.
-- **Móvil:** cards, filtros y formularios comienzan en `grid-cols-1`; el Header pasa a disposición vertical y las acciones pueden ocupar todo el ancho.
-- **Sidebar:** los enlaces se organizan en grid en tamaños menores y en columna a partir de `lg`.
+- **Desktop:** Shell en dos columnas, Sidebar visible y sticky; puede recolher a ícones durante a carga atual.
+- **Tablet y móvil:** el Sidebar es un drawer cerrado por defecto, abierto desde la izquierda con overlay; cards, filtros y formularios comienzan en `grid-cols-1`.
+- **Sidebar:** el drawer debe cerrar al navegar o con Escape, contener el foco mientras esté abierto y devolverlo a su disparador al cerrar. Los iconos del Sidebar colapsado mantienen texto accesible y tooltip.
 - **Tablas:** no se eliminan columnas; se conservan mediante `overflow-x-auto`.
 - **Cards:** los KPIs pasan de una a seis columnas de forma progresiva.
 
@@ -207,7 +206,6 @@ Las siguientes inconsistencias se detectaron durante la auditoría y no se corri
 - Los labels existentes no están asociados sistemáticamente a sus campos mediante el atributo `for`; los controles de cierre basados solo en icono tampoco tienen `aria-label` de forma consistente.
 - No existe un patrón visual único para acciones destructivas, confirmaciones de éxito, “sin permisos” o “datos no disponibles”.
 - Los tamaños y detalles de algunos botones primarios y secundarios varían entre Header, modales, login y paginación.
-- El Header conserva acciones heredadas del flujo de Dashboard; la frontera entre acciones globales y acciones de módulo requiere revisión en un refactor futuro.
 - El ancho máximo del Footer (`max-w-7xl`) no coincide con el del Shell (`max-w-[90rem]`).
 - El Blueprint reserva el Footer para evolución futura, mientras que la interfaz actual ya muestra un Footer informativo; su papel final requiere confirmación arquitectónica.
 

@@ -10,16 +10,21 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 - M11: vista contextual de reporte operacional de Encounter e impresión A4 mediante el diálogo nativo del navegador.
 - Variantes para estados agendado, en curso, concluido y cancelado; resumen local para presencia cuando corresponde.
+- M12: Sidebar colapsable a iconos en desktop y drawer accesible en tablet/móvil, con overlay, Escape y gestión de foco.
+- Menú de cuenta accesible para sesión, gestión de usuarios (Admin) y cierre de sesión.
 
 ### Cambiado
 
 - El detalle de Encounter permite abrir el reporte, que espera el snapshot de Participants y ordena por capilla y servidor.
+- Header simplificado y acciones legacy reubicadas en su contexto: `Novo Servidor` permanece en Dashboard y `Usuários` reutiliza su modal existente.
+- La navegación sólo presenta destinos funcionales; el estado activo se deriva del módulo real.
 
 ### Seguridad
 
 - El reporte no muestra UID ni campos de auditoría; responsables sin nombre resoluble se omiten.
+- M12 no modifica Rules, modelo de datos ni verificaciones de cliente existentes.
 
-> M11 fue validado funcionalmente, pero permanece sin nueva versión formal, commit, tag, push o despliegue.
+> M12 fue validado funcionalmente. Permanece sin nueva versión formal, tag, push o despliegue.
 
 ## [v0.9.0] — 2026-08-21
 

@@ -3,25 +3,21 @@ export const NAVIGATION_SECTIONS = [
         id: 'general',
         label: 'GERAL',
         items: [
-            { id: 'dashboard', label: 'Dashboard', href: '#dashboard', isActive: true },
-            { id: 'servers', label: 'Servidores', href: '#servers' },
-            { id: 'chapels', label: 'Capelas', href: '#chapels' }
+            { id: 'dashboard', label: 'Dashboard', href: '#dashboard', icon: 'dashboard' }
         ]
     },
     {
         id: 'training',
         label: 'FORMAÇÃO',
         items: [
-            { id: 'training', label: 'Formação', href: '#training' }
+            { id: 'training', label: 'Formações', href: '#training', icon: 'training' }
         ]
     },
     {
         id: 'administration',
         label: 'ADMINISTRAÇÃO',
         items: [
-            { id: 'users', label: 'Usuários', href: '#users' },
-            { id: 'reports', label: 'Relatórios', href: '#reports' },
-            { id: 'settings', label: 'Configurações', href: '#settings' }
+            { id: 'users', label: 'Usuários', href: '#users', icon: 'users', action: 'manage-users', roles: ['admin'] }
         ]
     }
 ];

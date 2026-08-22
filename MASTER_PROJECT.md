@@ -33,6 +33,14 @@ As Rules são a proteção final. A UI e os Controllers aplicam autorização de
 
 O contrato Firestore atual está em `docs/DATABASE.md`; o contrato final de Formation está em `docs/M10_FORMATION_DATA_MODEL.md`.
 
+## Shell responsivo (M12)
+
+O Header é compacto e concentra identidade e o menu de conta. `Sair` permanece exclusivo desse menu; `Usuários` é uma ação administrativa disponível somente para Admin e reutiliza o modal legacy existente. O estado normal de sincronização é silencioso.
+
+O Sidebar é gerado a partir do contrato de navegação e reflete somente destinos reais: Dashboard e Formation, além de Usuários para Admin. O módulo ativo é derivado da navegação em execução. Em desktop começa expandido e pode ser recolhido a ícones durante a carga atual; em tablet e móvel funciona como drawer com overlay, Escape, foco contido e retorno do foco. A preferência não é persistida.
+
+`Novo Servidor` permanece no contexto operacional do Dashboard e conserva as verificações de autorização existentes. A ocultação da interface não substitui as Rules nem as verificações de cliente.
+
 ## Limites atuais
 
-M11 inclui apenas o relatório HTML contextual e sua impressão A4. CSV, PDF client-side, histórico global por Server, estatísticas globais, ações massivas, offline real, multi-paróquia e substituição autônoma por coordinator continuam no backlog. O relatório reutiliza snapshots de Participants e não introduz escritas, coleções, consultas globais ou mudanças de autorização.
+M11 inclui apenas o relatório HTML contextual e sua impressão A4. M12 não cria Router global, nem modulariza os fluxos legacy de Servidores ou Usuários. CSV, PDF client-side, histórico global por Server, estatísticas globais, ações massivas, offline real, multi-paróquia e substituição autônoma por coordinator continuam no backlog. O relatório reutiliza snapshots de Participants e não introduz escritas, coleções, consultas globais ou mudanças de autorização.
