@@ -14,9 +14,11 @@ const {
   doc,
   getDoc,
   getDocs,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } = require('firebase/firestore');
 
@@ -84,6 +86,23 @@ function encounterRef(db, formationId = 'formation-1', poleId = 'pole-1', encoun
 }
 function participantRef(db, serverId = 'server-1', encounterId = 'encounter-1') { return doc(db, 'formations', 'formation-1', 'poles', 'pole-1', 'encounters', encounterId, 'participants', serverId); }
 function exclusionRef(db, serverId = 'server-1', encounterId = 'encounter-1') { return doc(db, 'formations', 'formation-1', 'poles', 'pole-1', 'encounters', encounterId, 'participantExclusions', serverId); }
+function chapelRef(db, id = 'chapel-a') { return doc(db, 'chapels', id); }
+function serverRef(db, id = 'server-1') { return doc(db, 'artifacts', 'default-app-id', 'public', 'data', 'servers', id); }
+function validChapel(overrides = {}) { return { name: 'Capela São José', active: true, address: 'Rua Central', notes: 'Uso administrativo.', createdAt: serverTimestamp(), updatedAt: serverTimestamp(), ...overrides }; }
+const RENAME_TEST_BATCH_SIZE = 2;
+
+async function renameChapelAndSyncServerNames(db, chapelId, name) {
+  const servers = await getDocs(query(collection(db, 'artifacts', 'default-app-id', 'public', 'data', 'servers'), where('chapelId', '==', chapelId)));
+  let completed = 0;
+  for (let offset = 0; offset < servers.docs.length; offset += RENAME_TEST_BATCH_SIZE) {
+    const batch = writeBatch(db);
+    servers.docs.slice(offset, offset + RENAME_TEST_BATCH_SIZE).forEach((server) => batch.update(server.ref, { Capela: name }));
+    await batch.commit();
+    completed += Math.min(RENAME_TEST_BATCH_SIZE, servers.docs.length - offset);
+  }
+  await updateDoc(chapelRef(db, chapelId), { name, address: '', notes: '', createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  return completed;
+}
 function validParticipant(overrides = {}) { return { serverId: 'server-1', serverName: 'Servidor', chapelId: 'chapel-a', chapelName: 'Capela A', participationType: 'regular', attendanceStatus: 'pending', addedManually: false, addedBy: users.admin.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), ...overrides }; }
 function validExclusion(overrides = {}) { return { serverId: 'server-1', excludedBy: users.admin.uid, createdAt: serverTimestamp(), ...overrides }; }
 
@@ -157,6 +176,81 @@ test.beforeEach(async () => {
 
 test.after(async () => {
   await testEnv?.cleanup();
+});
+
+test('chapels: active authenticated roles can read, but only admin can create', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => setDoc(chapelRef(context.firestore()), { name: 'Capela A', active: true }));
+  await assertSucceeds(getDoc(chapelRef(dbFor(users.viewer))));
+  await assertSucceeds(setDoc(chapelRef(dbFor(users.admin), 'chapel-create'), validChapel()));
+  await assertFails(setDoc(chapelRef(dbFor(users.coordinator), 'chapel-forbidden'), validChapel()));
+});
+
+test('chapels: schema and server timestamps are required on create', async () => {
+  await assertFails(setDoc(chapelRef(dbFor(users.admin), 'chapel-invalid'), validChapel({ notes: 'x'.repeat(501) })));
+  await assertFails(setDoc(chapelRef(dbFor(users.admin), 'chapel-invalid-time'), { name: 'Capela X', active: true, createdAt: Timestamp.now(), updatedAt: Timestamp.now() }));
+});
+
+test('chapels: legacy document can be updated and receive its first createdAt safely', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => setDoc(chapelRef(context.firestore(), 'chapel-legacy'), { name: 'Capela Legacy', active: true }));
+  await assertSucceeds(updateDoc(chapelRef(dbFor(users.admin), 'chapel-legacy'), { address: 'Rua antiga', createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+});
+
+test('chapels: legacy redundant id matching the document remains updateable', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => setDoc(chapelRef(context.firestore(), 'chapel-legacy-id'), { id: 'chapel-legacy-id', name: 'Capela Legacy', active: true }));
+  await assertSucceeds(updateDoc(chapelRef(dbFor(users.admin), 'chapel-legacy-id'), { name: 'Capela Atualizada', address: '', notes: '', createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+});
+
+test('chapels: a redundant id different from the document remains rejected', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => setDoc(chapelRef(context.firestore(), 'chapel-wrong-id'), { id: 'another-id', name: 'Capela Legacy', active: true }));
+  await assertFails(updateDoc(chapelRef(dbFor(users.admin), 'chapel-wrong-id'), { name: 'Capela Atualizada', address: '', notes: '', createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+});
+
+test('chapels: delete is rejected for admin', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => setDoc(chapelRef(context.firestore(), 'chapel-delete'), { name: 'Capela A', active: true }));
+  await assertFails(deleteDoc(chapelRef(dbFor(users.admin), 'chapel-delete')));
+});
+
+test('chapels: admin rename workflow updates linked servers without touching historical snapshots', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await setDoc(chapelRef(db, 'chapel-rename'), { name: 'Capela Antiga', active: true });
+    await setDoc(serverRef(db, 'server-rename'), { chapelId: 'chapel-rename', Capela: 'Capela Antiga' });
+    await setDoc(doc(db, 'history', 'snapshot-1'), { chapelId: 'chapel-rename', chapelName: 'Capela Antiga' });
+  });
+  const db = dbFor(users.admin);
+  const batch = writeBatch(db);
+  batch.update(serverRef(db, 'server-rename'), { Capela: 'Capela Nova' });
+  batch.update(chapelRef(db, 'chapel-rename'), { name: 'Capela Nova', address: '', notes: '', createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  await assertSucceeds(batch.commit());
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const raw = context.firestore();
+    assert.equal((await getDoc(serverRef(raw, 'server-rename'))).data().Capela, 'Capela Nova');
+    assert.equal((await getDoc(doc(raw, 'history', 'snapshot-1'))).data().chapelName, 'Capela Antiga');
+  });
+});
+
+test('chapels: sequential rename completes with 0, 1, 2, and multiple linked servers only', async () => {
+  const db = dbFor(users.admin);
+  for (const total of [0, 1, 2, 5]) {
+    const chapelId = `chapel-sequential-${total}`;
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const raw = context.firestore();
+      await setDoc(chapelRef(raw, chapelId), { name: `Capela Antiga ${total}`, active: true });
+      await Promise.all(Array.from({ length: total }, (_, index) => setDoc(serverRef(raw, `linked-${total}-${index}`), { chapelId, Capela: `Capela Antiga ${total}` })));
+      await setDoc(serverRef(raw, `unlinked-${total}`), { chapelId: 'another-chapel', Capela: 'Outra Capela' });
+      await setDoc(doc(raw, 'history', `snapshot-${total}`), { chapelId, chapelName: `Capela Antiga ${total}` });
+    });
+
+    const name = `Capela Nova ${total}`;
+    assert.equal(await renameChapelAndSyncServerNames(db, chapelId, name), total);
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const raw = context.firestore();
+      assert.equal((await getDoc(chapelRef(raw, chapelId))).data().name, name);
+      for (let index = 0; index < total; index += 1) assert.equal((await getDoc(serverRef(raw, `linked-${total}-${index}`))).data().Capela, name);
+      assert.equal((await getDoc(serverRef(raw, `unlinked-${total}`))).data().Capela, 'Outra Capela');
+      assert.equal((await getDoc(doc(raw, 'history', `snapshot-${total}`))).data().chapelName, `Capela Antiga ${total}`);
+    });
+  }
 });
 
 test('admin can read formations', async () => {

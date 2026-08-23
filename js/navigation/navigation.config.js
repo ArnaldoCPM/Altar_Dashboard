@@ -18,7 +18,8 @@ export const NAVIGATION_SECTIONS = [
         id: 'administration',
         label: 'ADMINISTRAÇÃO',
         items: [
-            { id: 'users', label: 'Usuários', href: '#users', icon: 'users', roles: ['admin'] }
+            { id: 'users', label: 'Usuários', href: '#users', icon: 'users', roles: ['admin'] },
+            { id: 'chapels', label: 'Capelas', href: '#chapels', icon: 'chapels', roles: ['admin'] }
         ]
     }
 ];

@@ -7,13 +7,19 @@ Esta é a referência do modelo atual. As Rules em `firestore.rules` são a font
 | Rota | Propósito e ID |
 | --- | --- |
 | `users/{uid}` | Perfil canônico do usuário autenticado. O ID é o Firebase Auth UID. Campos principais: `uid`, `email`, `displayName`, `role`, `chapelId`, `active`. Documentos históricos por email existem somente para migração controlada. |
-| `chapels/{chapelId}` | Catálogo de capelas. Campos principais: `name`, `active`. |
+| `chapels/{chapelId}` | Catálogo de capelas. Campos: `name`, `active`, `address?`, `notes?`, `createdAt?`, `updatedAt?`. |
 | `artifacts/{appId}/public/data/servers/{serverId}` | Cadastro de servidores. `serverId` é o ID do registro; `chapelId` é a referência canônica de autorização e `Capela` pode permanecer como descrição legacy. |
 | `formations/{formationId}` | Formação com `name`, `description`, `stage`, `modalities`, datas, `status` e auditoria. |
 | `formations/{formationId}/poles/{poleId}` | Polo contextual à Formação: `name`, `baseChapelId`, `chapelIds`, `coordinatorIds`, `active` e auditoria. |
 | `.../encounters/{encounterId}` | Encontro: `title`, `description`, `startAt`, `endAt`, `location`, `status`, `coordinatorIds`, `responsibilities` e auditoria. |
 
 `location` é um snapshot `{ chapelId, name }`. `responsibilities` mantém designações/substituições e `coordinatorIds` é a projeção operacional usada para autorização contextual.
+
+## Capelas (M14)
+
+`name` é único na interface após normalização de maiúsculas, espaços e acentos. `address` é opcional; `notes` é opcional, administrativo, limitado a 500 caracteres e não deve conter dados sensíveis. Não há exclusão: uma capela é ativada ou desativada.
+
+Ao renomear uma capela, o sistema sincroniza em lotes o campo legado `servers.Capela` dos servidores com o mesmo `chapelId`. Isso não altera snapshots históricos (`participants.chapelName` e `encounters.location.name`). Os documentos legacy `{name, active}` continuam válidos para leitura. Em sua primeira atualização, o aplicativo pode inicializar `createdAt` com o timestamp do servidor; ele não tenta inventar uma data histórica.
 
 ## Participants e attendance
 

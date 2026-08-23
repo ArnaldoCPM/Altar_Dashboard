@@ -4,6 +4,7 @@ import { destroy as destroyDashboard, initialize as initializeDashboard, refresh
 import { destroy as destroyFormation, initialize as initializeFormation, refresh as refreshFormation } from "./modules/formation/index.js";
 import { destroy as destroyServers, initialize as initializeServers, refresh as refreshServers } from "./modules/servers/index.js";
 import { destroy as destroyUsers, initialize as initializeUsers, refresh as refreshUsers } from "./modules/users/index.js";
+import { destroy as destroyChapels, initialize as initializeChapels, refresh as refreshChapels } from "./modules/chapels/index.js";
 import {
     setCurrentUser,
     setCurrentProfile,
@@ -40,6 +41,7 @@ function stopServerSubscription() {
     destroyFormation();
     destroyServers();
     destroyUsers();
+    destroyChapels();
     activeModule = null;
 }
 
@@ -50,9 +52,19 @@ function setDashboardWorkspaceVisibility(isVisible) {
 }
 
 async function navigateToModule(moduleId) {
+    if (moduleId === 'chapels') {
+        if (!canManageUsers()) return;
+        if (activeModule === 'chapels') { await refreshChapels(); return; }
+        destroyDashboard(); destroyFormation(); destroyServers(); destroyUsers();
+        setDashboardWorkspaceVisibility(false);
+        await initializeChapels({ mountElement: getWorkspaceElement() });
+        activeModule = 'chapels';
+        updateSidebar({ moduleId: activeModule });
+        return;
+    }
     if (moduleId === 'servers') {
         if (activeModule === 'servers') { refreshServers(); return; }
-        destroyDashboard(); destroyFormation(); destroyUsers();
+        destroyDashboard(); destroyFormation(); destroyUsers(); destroyChapels();
         setDashboardWorkspaceVisibility(false);
         await initializeServers({ mountElement: getWorkspaceElement() });
         activeModule = 'servers';
@@ -63,7 +75,7 @@ async function navigateToModule(moduleId) {
     if (moduleId === 'users') {
         if (!canManageUsers()) return;
         if (activeModule === 'users') { await refreshUsers(); return; }
-        destroyDashboard(); destroyFormation(); destroyServers();
+        destroyDashboard(); destroyFormation(); destroyServers(); destroyChapels();
         setDashboardWorkspaceVisibility(false);
         await initializeUsers({ mountElement: getWorkspaceElement() });
         activeModule = 'users';
@@ -77,7 +89,7 @@ async function navigateToModule(moduleId) {
             return;
         }
 
-        destroyDashboard(); destroyServers(); destroyUsers();
+        destroyDashboard(); destroyServers(); destroyUsers(); destroyChapels();
         setDashboardWorkspaceVisibility(false);
         initializeFormation({ mountElement: getWorkspaceElement() });
         activeModule = 'training';
@@ -91,7 +103,7 @@ async function navigateToModule(moduleId) {
             return;
         }
 
-        destroyFormation(); destroyServers(); destroyUsers();
+        destroyFormation(); destroyServers(); destroyUsers(); destroyChapels();
         setDashboardWorkspaceVisibility(true);
         await initializeDashboard({ chapels: cachedActiveChapels });
         activeModule = 'dashboard';

@@ -8,7 +8,8 @@ const icons = {
     dashboard: '<path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />',
     servers: '<path d="M4 6h16M4 12h16M4 18h10" /><circle cx="18" cy="18" r="2" />',
     training: '<path d="M4 19.5V6.25L12 3l8 3.25V19.5L12 22z" /><path d="M8 8.25 12 10l4-1.75M12 10v8" />',
-    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />'
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />',
+    chapels: '<path d="M3 21h18M5 21V10l7-6 7 6v11M9 21v-6h6v6M3 10h18" />'
 };
 
 function isDrawerViewport() {

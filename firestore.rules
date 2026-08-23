@@ -207,6 +207,19 @@ service cloud.firestore {
      * Solo admin puede modificarlo.
      */
     match /chapels/{chapelIdDoc} {
+      function hasValidChapelFields(data) {
+        return data.keys().hasOnly(["name", "active", "address", "notes", "createdAt", "updatedAt", "id"])
+          && data.keys().hasAll(["name", "active", "updatedAt"])
+          && data.name is string && data.name.size() > 0 && data.name.size() <= 120
+          && data.active is bool
+          // Some pre-M14 emulator seeds persist the redundant document id.
+          // Keep those documents updateable without allowing arbitrary ids.
+          && (!data.keys().hasAny(["id"]) || (data.id is string && data.id == chapelIdDoc))
+          && (!data.keys().hasAny(["address"]) || (data.address is string && data.address.size() <= 250))
+          && (!data.keys().hasAny(["notes"]) || (data.notes is string && data.notes.size() <= 500))
+          && (!data.keys().hasAny(["createdAt"]) || data.createdAt is timestamp)
+          && data.updatedAt is timestamp;
+      }
       /**
        * Read:
        * - cualquier usuario autenticado y activo
@@ -217,7 +230,22 @@ service cloud.firestore {
        * Write:
        * - únicamente admin
        */
-      allow create, update, delete: if isAdmin();
+      // Creates carry both server timestamps. Legacy {name, active} documents
+      // remain readable; their first update may initialize createdAt safely.
+      allow create: if isAdmin()
+        && hasValidChapelFields(request.resource.data)
+        && request.resource.data.keys().hasAll(["createdAt"])
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin()
+        && hasValidChapelFields(request.resource.data)
+        && request.resource.data.updatedAt == request.time
+        && (
+          (!resource.data.keys().hasAny(["createdAt"])
+            && (!request.resource.data.keys().hasAny(["createdAt"]) || request.resource.data.createdAt == request.time))
+          || (resource.data.keys().hasAny(["createdAt"]) && request.resource.data.createdAt == resource.data.createdAt)
+        );
+      allow delete: if false;
     }
 
     /**
