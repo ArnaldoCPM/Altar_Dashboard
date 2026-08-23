@@ -1,8 +1,8 @@
-import { collection } from "./firebase.js";
+import { db as defaultDb, collection } from "./firebase.js";
 
 const appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
 
-function buildServersQuery(db) {
+function buildServersQuery(db = defaultDb) {
   return collection(
     db,
     "artifacts",

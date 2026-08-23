@@ -1,56 +1,9 @@
-import { getActiveChapels } from "../../../data/chapels.js";
 import { cleanStr } from "../../../utils.js";
 import { getServerAge, updateKPIs } from "./kpis.view.js";
-import { applyFilters, destroyCharts, getData as getDashboardData, goToPage, nextPage, previousPage, setChart } from "../controller.js";
+import { destroyCharts, setChart } from "../controller.js";
 function updateUI(data) {
     updateKPIs(data);
     renderCharts(data);
-    setupInteractiveEvents();
-}
-
-// Llenado de filtros dinámicos
-async function populateFilters(chapelsList = null, authorizedData = getDashboardData()) {
-
-    const selectCapilla = document.getElementById('filter-capilla');
-    const savedVal = selectCapilla.value;
-
-    try {
-
-        const chapels = chapelsList || await getActiveChapels();
-        const visibleChapelNames = new Set(
-            (authorizedData || [])
-                .map(item => (item.Capela || "").trim())
-                .filter(Boolean)
-        );
-
-        selectCapilla.innerHTML =
-            '<option value="all">Todas</option>';
-
-        chapels.forEach(chapel => {
-            if (visibleChapelNames.size > 0 && !visibleChapelNames.has(chapel.name)) {
-                return;
-            }
-
-            const opt = document.createElement('option');
-
-            opt.value = chapel.id;
-            opt.textContent = chapel.name;
-
-            selectCapilla.appendChild(opt);
-        });
-
-        selectCapilla.value = savedVal || "all";
-
-    } catch (error) {
-
-        console.error(
-            "Erro ao carregar capelas:",
-            error
-        );
-
-        selectCapilla.innerHTML =
-            '<option value="all">Todas</option>';
-    }
 }
 
 // Generar Gráficos Estadísticos con ChartJS
@@ -230,47 +183,4 @@ function renderCharts(data) {
     }));
 
     }
-// Funciones de navegación (expuestas globalmente)
-window.goToPage = function(pageNum) {
-    goToPage(pageNum);
-}
-
-window.nextPage = function() {
-    nextPage();
-}
-
-window.previousPage = function() {
-    previousPage();
-}
-
-// Configuración de eventos interactivos y filtros
-function setupInteractiveEvents() {
-    const searchInput = document.getElementById('search-input');
-    const filterCapilla = document.getElementById('filter-capilla');
-    const filterEstado = document.getElementById('filter-estado');
-    const filterAlergias = document.getElementById('filter-alergias');
-    const filterTipo = document.getElementById('filter-tipo');
-
-    function notifyFilters() {
-        const capillaVal = filterCapilla.value;
-        const selectedChapelName =
-            capillaVal === 'all'
-                ? 'all'
-                : filterCapilla.options[filterCapilla.selectedIndex]?.textContent?.trim() || '';
-
-        applyFilters({
-            query: searchInput.value.toLowerCase(),
-            chapelName: selectedChapelName,
-            estado: filterEstado.value,
-            alergias: filterAlergias.value,
-            tipo: filterTipo.value
-        });
-    }
-    // Asignar listeners directamente para evitar solapamientos
-    searchInput.oninput = notifyFilters;
-    filterCapilla.onchange = notifyFilters;
-    filterEstado.onchange = notifyFilters;
-    filterAlergias.onchange = notifyFilters;
-    filterTipo.onchange = notifyFilters;
-}
-export { populateFilters, updateUI };
+export { updateUI };

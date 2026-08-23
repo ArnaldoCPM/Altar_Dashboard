@@ -3,7 +3,8 @@ export const NAVIGATION_SECTIONS = [
         id: 'general',
         label: 'GERAL',
         items: [
-            { id: 'dashboard', label: 'Dashboard', href: '#dashboard', icon: 'dashboard' }
+            { id: 'dashboard', label: 'Dashboard', href: '#dashboard', icon: 'dashboard' },
+            { id: 'servers', label: 'Servidores', href: '#servers', icon: 'servers' }
         ]
     },
     {
@@ -17,7 +18,7 @@ export const NAVIGATION_SECTIONS = [
         id: 'administration',
         label: 'ADMINISTRAÇÃO',
         items: [
-            { id: 'users', label: 'Usuários', href: '#users', icon: 'users', action: 'manage-users', roles: ['admin'] }
+            { id: 'users', label: 'Usuários', href: '#users', icon: 'users', roles: ['admin'] }
         ]
     }
 ];

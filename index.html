@@ -123,43 +123,8 @@
             <button onclick="document.getElementById('error-alert').classList.add('hidden')" class="text-rose-500 hover:text-rose-700 font-bold px-2 py-1">✕</button>
         </div>
 
-        <!-- ZONE DE NOTIFICACIÓN DE MODO ADMIN -->
-        <div id="admin-banner" class="hidden bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-            <div class="flex items-center space-x-3">
-                <span class="text-2xl">🔓</span>
-                <div>
-                    <h4 class="font-bold text-sm">Modo Administrador Ativo</h4>
-                    <p class="text-xs text-emerald-600">Você possui permissão para editar, excluir, adicionar servidores e enviar arquivos CSV.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- DROPZONE / UPLOAD AREA (Solo visible para administradores) -->
-        <section id="upload-section" class="hidden bg-white rounded-3xl border-2 border-dashed border-slate-300 p-8 text-center transition-all hover:border-liturgical-blue relative overflow-hidden group shadow-sm">
-            <input type="file" id="csv-file-input" accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-            <div class="flex flex-col items-center justify-center space-y-4">
-                <div class="p-4 bg-blue-50 text-liturgical-blue rounded-full group-hover:scale-110 transition-transform">
-                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V4a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
-                    </svg>
-                </div>
-                <div>
-                    <h3 class="text-lg font-bold text-slate-800">Atualizar Banco de Dados Completo (CSV)</h3>
-                    <p class="text-sm text-slate-500 max-w-md mx-auto mt-1">Arraste o arquivo aqui ou clique para selecioná-lo.</p>
-                </div>
-                <div class="text-xs text-slate-400">Esta ação atualizará e consolidará permanentemente os registros existentes na nuvem.</div>
-                <div id="upload-progress" class="hidden w-64 bg-slate-100 rounded-full h-2 mt-2 overflow-hidden">
-                    <div id="upload-progress-bar" class="bg-emerald-500 h-full w-0 transition-all duration-300"></div>
-                </div>
-            </div>
-        </section>
-
         <!-- DASHBOARD CONTAINER -->
         <div id="dashboard-content" class="space-y-8">
-            <div class="flex justify-end">
-                <button id="btn-add-manual" type="button" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2">+ Novo Servidor</button>
-            </div>
-            
             <!-- KPI CARDS (6 columns layout) -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                 <!-- KPI 1: Total de Registros -->
@@ -307,100 +272,6 @@
                 -->
             </div>
 
-            <!-- SEARCH, FILTERS & TABLE SECTION -->
-            <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                <!-- Header / Filtros -->
-                <div class="p-6 border-b border-slate-100 space-y-4">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <h3 class="text-lg font-bold text-slate-800">Lista de servidores</h3>
-                            <p class="text-xs text-slate-500 mt-1">Pesquise, filtre e interaja com os contactos dos servidores e tutores</p>
-                        </div>
-                        <!-- Buscador -->
-                        <div class="w-full md:w-80 relative">
-                            <input type="text" id="search-input" placeholder="Buscar por nombre o ID..." class="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue transition-all" />
-                            <svg class="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        </div>
-                    </div>
-
-                    <!-- Filtros select -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
-                        <div>
-                            <label class="text-xs font-semibold text-slate-500 block mb-1">Capela</label>
-                            <select id="filter-capilla" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-liturgical-blue">
-                                <option value="all">Todas</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold text-slate-500 block mb-1">Estado</label>
-                            <select id="filter-estado" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-liturgical-blue">
-                                <option value="all">Todos</option>
-                                <option value="Ativo">Ativo</option>
-                                <option value="Inativo">Inativo</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold text-slate-500 block mb-1">Alergias / Doenças</label>
-                            <select id="filter-alergias" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-liturgical-blue">
-                                <option value="all">Todos</option>
-                                <option value="Sim">Sim (tem alergias ou doenças)</option>
-                                <option value="Não">Não (sem alergias ou doenças)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold text-slate-500 block mb-1">Tipo de registo</label>
-                            <select id="filter-tipo" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-liturgical-blue">
-                                <option value="all">Todos</option>
-                                <option value="Candidato">Candidato</option>
-                                <option value="Formando">Formando</option>
-                                <option value="Instituído">Instituído</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tabla -->
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-500 text-xs font-semibold uppercase tracking-wider">
-                                <th class="py-4 px-6">ID / Nome</th>
-                                <th class="py-4 px-6">Idade/Sexo</th>
-                                <th class="py-4 px-6">Capela / Origem</th>
-                                <th class="py-4 px-6">Sacramental</th>
-                                <th class="py-4 px-6">Alergias / Doenças</th>
-                                <th class="py-4 px-6">Contatos</th>
-                                <th class="py-4 px-6">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-body" class="divide-y divide-slate-100 text-sm text-slate-600">
-                            <!-- Rows injected dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Empty state -->
-                <div id="empty-state" class="hidden text-center py-12">
-                    <svg class="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0V9a2 2 0 00-2-2H6a2 2 0 00-2 2v4.5m12+3.5h.01M5.071 19.293a10 10 0 1114.142 0M12 11h.01"></path></svg>
-                    <p class="text-slate-500 font-medium">Não foram encontrados servidores com os filtros selecionados</p>
-                </div>
-
-                <!-- Pagination Controls -->
-                <div id="pagination-container" class="hidden flex items-center justify-between py-4 px-6 border-t border-slate-100">
-                    <div class="text-xs text-slate-500 font-medium">
-                        Mostrando <span id="pagination-info"></span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button id="pagination-prev" onclick="previousPage()" class="p-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                            ← Anterior
-                        </button>
-                        <div class="flex items-center gap-1" id="pagination-buttons"></div>
-                        <button id="pagination-next" onclick="nextPage()" class="p-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                            Próxima →
-                        </button>
-                    </div>
-                </div>
-            </div>
         </div>
             </section>
         </div>

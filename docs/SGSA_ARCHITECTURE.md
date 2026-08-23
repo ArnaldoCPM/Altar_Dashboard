@@ -94,7 +94,9 @@ Este principio evita inconsistencias y elimina la necesidad de procesos periódi
 - **Workspace:** área central donde se presenta el módulo activo y sus datos.
 - **Modales:** contienen formularios y confirmaciones de acciones puntuales; validan antes de escribir, sin reemplazar la autorización.
 - **Tabla:** presenta el padrón, contactos y acciones disponibles para cada registro.
-- **Dashboard:** resume el estado parroquial mediante indicadores, filtros y gráficos a partir del dataset completo visible.
+- **Dashboard:** resume el estado parroquial mediante indicadores y gráficos a partir del dataset completo visible.
+- **Servidores:** concentra búsqueda, filtros, tabla, paginación, contactos, CRUD e importación CSV; el panel de importación es exclusivamente Admin.
+- **Usuários:** es un módulo Workspace exclusivo de Admin; mantiene los modales globales únicamente como adaptadores temporales de crear y editar.
 
 ## 8. Organización de módulos JavaScript
 
@@ -108,7 +110,7 @@ Todo módulo funcional nuevo debe organizarse bajo `js/modules/<module>/` y expo
 - `views/` se limita al renderizado.
 - `components/` concentra piezas reutilizables cuando el módulo las necesite.
 
-Dashboard y Formation aplican este patrón. `main.js` conserva la orquestación global de sesión y el inicio de módulos; no debe contener el estado o ciclo de vida interno de un módulo, aunque mantiene compatibilidad con flujos legacy de servidores.
+Dashboard, Servidores, Usuários y Formation aplican este patrón. `main.js` conserva la orquestación global de sesión y navegación temporal; no contiene ciclos de vida operativos. Los modales globales de Servidor y Usuario se reutilizan mientras se completa su extracción.
 
 - **`auth`**: integra Firebase Authentication y comunica cambios de sesión.
 - **`authorization`**: decide si una operación sobre un servidor concreto está permitida según rol y capilla.

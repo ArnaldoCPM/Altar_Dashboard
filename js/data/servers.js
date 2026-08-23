@@ -1,4 +1,4 @@
-import { db, doc, setDoc } from "../firebase.js";
+import { db, doc, setDoc, deleteDoc } from "../firebase.js";
 import { getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { buildServersQuery } from "../serverQuery.js";
 
@@ -59,9 +59,9 @@ async function createServer(serverData) {
  * @returns {Promise<Object|null>} Servidor actualizado o resultado esperado de la operación.
  */
 async function updateServer(serverId, serverData) {
-  void serverId;
-  void serverData;
-  throw new Error("Not implemented");
+  if (!serverId) throw new Error("updateServer requires serverId");
+  await setDoc(doc(db, "artifacts", appId, "public", "data", "servers", serverId), serverData, { merge: true });
+  return { id: serverId, ...serverData };
 }
 
 /**
@@ -70,8 +70,9 @@ async function updateServer(serverId, serverData) {
  * @returns {Promise<Object|null>} Resultado esperado de la eliminación o metadatos asociados.
  */
 async function deleteServer(serverId) {
-  void serverId;
-  throw new Error("Not implemented");
+  if (!serverId) throw new Error("deleteServer requires serverId");
+  await deleteDoc(doc(db, "artifacts", appId, "public", "data", "servers", serverId));
+  return { id: serverId };
 }
 
 /**

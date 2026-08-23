@@ -1,8 +1,8 @@
 # SGSA — Estado de versão
 
 - **Versão atual formal:** `v0.9.0` (tag ainda não criado).
-- **Milestone fechado:** M11 — Relatório operacional de Encounter.
-- **Estado do produto:** M11 implementado e validado funcionalmente no repositório; a próxima versão formal ainda não foi definida.
+- **Milestone em validação:** M13 — Modularização operacional.
+- **Estado do produto:** M13 implementado tecnicamente no repositório e pendente de validação funcional final; a próxima versão formal ainda não foi definida.
 - **Publicação:** M11 permanece sem commit, tag, push ou deploy.
 
 ## Evidência de validação

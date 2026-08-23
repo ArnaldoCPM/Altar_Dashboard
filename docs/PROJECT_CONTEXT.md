@@ -2,11 +2,11 @@
 
 - **Versão formal atual:** `v0.9.0` (tag ainda não criado).
 - **Branch de trabalho:** `main`.
-- **Milestone fechado:** M12 — Shell responsivo e navegação.
-- **Arquitetura:** Shell/Workspace com módulos Dashboard e Formation. Cada módulo usa Controller, State, Services e Views; `main.js` orquestra sessão, Shell, navegação e fluxos legacy ainda existentes.
+- **Milestone em validação:** M13 — Modularização operacional.
+- **Arquitetura:** Shell/Workspace com módulos Dashboard, Servidores, Usuários e Formation. `main.js` orquestra sessão, Shell e navegação; Servidores mantém CRUD e importação CSV, e Usuários mantém os modais globais como adaptadores temporários.
 - **Auth e roles:** Firebase Auth, perfis canônicos em `users/{uid}` e papéis `admin`, `coordinator` e `viewer`. A compatibilidade por email é exclusivamente legado de migração.
 - **Firestore:** Rules protegem usuário ativo, papel, escopo de capela e contexto de Formation. Participants são snapshots contextuais; a composição é somente `scheduled`.
-- **M10/M11/M12:** Formations, Polos, Encounters, Participants, Attendance e consulta de presenças em Encounter `completed` estão implementados. M11 acrescenta preview HTML e impressão A4 contextual de Encounter. M12 fecha o Shell responsivo: Header compacto, menu de conta, Sidebar colapsável em desktop e drawer acessível em tablet/móvel; a navegação apresenta somente destinos funcionais e mantém ações legacy em seu contexto.
+- **M10/M11/M12/M13:** Formations, Polos, Encounters, Participants, Attendance e consulta de presenças em Encounter `completed` estão implementados. M11 acrescenta preview HTML e impressão A4 contextual de Encounter. M12 fecha o Shell responsivo. M13 separa o padrón operacional e a importação no módulo Servidores e move Usuários para Workspace, sem alterar Rules, modelo de dados ou a migração pendente `users/{email}` → `users/{uid}`.
 - **Validação:** 95/95 testes automatizados de Rules aprovados, `node --check` e `git diff --check` aprovados, além da validação manual de M11 e M12. UI/rendering, lifecycle de Controller, seeds e deploy não possuem cobertura automatizada específica.
 - **Produção:** implementado e validado localmente; não há evidência suficiente para afirmar deploy de M10, M11 ou M12 em produção.
 - **Diferidos:** CSV, PDF client-side, histórico global por Server, filtros de Encounter, KPIs/estatísticas, ações massivas, offline real, multi-paróquia e substituição autônoma por coordinator.

@@ -1,10 +1,8 @@
 import { db } from "../../firebase.js";
 import { getActiveChapels } from "../../data/chapels.js";
-import { canDelete, canEdit } from "../../authorization.js";
 import { cleanStr } from "../../utils.js";
 import { subscribeToDashboardData } from "./services/dashboard.service.js";
-import { populateFilters, updateUI } from "./views/dashboard.view.js";
-import { renderTable } from "./views/table.view.js";
+import { updateUI } from "./views/dashboard.view.js";
 import {
     clearSubscription,
     destroyChartInstances,
@@ -32,24 +30,6 @@ function handleDashboardError(error) {
     alertBox.scrollIntoView({ behavior: 'smooth' });
 }
 
-function getTableActions(server) {
-    return {
-        mayEditServer: canEdit(server),
-        mayDeleteServer: canDelete(server)
-    };
-}
-
-function handleTableAction(action, server) {
-    document.dispatchEvent(new CustomEvent('dashboard:server-action', {
-        detail: { action, serverId: server.id, serverName: server.Nome }
-    }));
-}
-
-function renderDashboardTable(data = getPagination().filteredItems) {
-    const pagination = getPagination();
-    renderTable(data, pagination, getTableActions, handleTableAction);
-}
-
 async function loadData(chapels) {
     const generation = ++loadGeneration;
 
@@ -74,12 +54,9 @@ async function loadData(chapels) {
 
         setData(data);
         setFilteredItems(data);
-        await populateFilters(activeChapels, getDashboardData());
-        if (generation !== loadGeneration) return;
 
         setUiState({ status: "loaded", error: null });
         updateUI(getDashboardData());
-        renderDashboardTable();
         document.getElementById('dashboard-content')?.classList.remove('hidden');
         document.getElementById('loading-overlay').classList.add('opacity-0');
         document.getElementById('loading-overlay').classList.add('hidden');
@@ -97,7 +74,6 @@ function refresh() {
 
     setFilteredItems(getDashboardData());
     updateUI(getDashboardData());
-    renderDashboardTable();
 }
 
 function destroy() {
@@ -122,7 +98,6 @@ function getPagination() {
 
 function updateFilteredItems(items) {
     setFilteredItems(items, true);
-    renderDashboardTable();
 }
 
 function applyFilters({ query, chapelName, estado, alergias, tipo }) {
@@ -144,7 +119,6 @@ function applyFilters({ query, chapelName, estado, alergias, tipo }) {
 
 function goToPage(page) {
     setCurrentPage(page);
-    renderDashboardTable();
 }
 
 function nextPage() {
@@ -155,7 +129,6 @@ function nextPage() {
         setCurrentPage(pagination.currentPage + 1);
     }
 
-    renderDashboardTable();
 }
 
 function previousPage() {
@@ -165,7 +138,6 @@ function previousPage() {
         setCurrentPage(pagination.currentPage - 1);
     }
 
-    renderDashboardTable();
 }
 
 function setChart(name, instance) {
