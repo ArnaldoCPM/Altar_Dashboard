@@ -1,4 +1,4 @@
-import { initAuth, setupAuthStateListener, loginWithEmailPassword, loginWithGoogle, performLogout as performFirebaseLogout } from "./auth.js";
+import { initAuth, setupAuthStateListener, loginWithEmailPassword, loginWithGoogle, requestPasswordReset, performLogout as performFirebaseLogout } from "./auth.js";
 import { getAllUsers, resolveUserProfile, updateUser, createUser } from "./data/users.js";
 import { destroy as destroyDashboard, initialize as initializeDashboard, refresh as refreshDashboard } from "./modules/dashboard/index.js";
 import { destroy as destroyFormation, initialize as initializeFormation, refresh as refreshFormation } from "./modules/formation/index.js";
@@ -308,6 +308,7 @@ const btnShowEmailLogin = document.getElementById('btn-show-email-login');
 const emailLoginFields = document.getElementById('email-login-fields');
 const adminEmailInput = document.getElementById('admin-email-input');
 const adminPasswordInput = document.getElementById('admin-password-input');
+const btnPasswordReset = document.getElementById('btn-password-reset');
 const loginError = document.getElementById('login-error');
 
 function resetEmailLoginFields() {
@@ -352,13 +353,7 @@ btnLoginSubmit.addEventListener('click', async () => {
         adminLoginModal.classList.add('hidden');
         loginError.classList.add('hidden');
     } catch (err) {
-        let msg = "Credenciais incorretas.";
-        if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-            msg = "Email ou palavra-passe inválidos. Verifique e tente novamente.";
-        } else if (err.code === 'auth/too-many-requests') {
-            msg = "Muitas tentativas. Aguarde alguns instantes e tente novamente.";
-        }
-        loginError.textContent = msg;
+        loginError.textContent = "E-mail ou senha inválidos.";
         loginError.classList.remove('hidden');
     }
 });
@@ -391,6 +386,28 @@ async function performLogout() {
 
 document.addEventListener('shell:confirm', ({ detail }) => {
     showConfirm(detail.title, detail.message, detail.onConfirm, detail);
+});
+
+btnPasswordReset?.addEventListener('click', async () => {
+    const email = adminEmailInput.value.trim();
+    if (!email) {
+        loginError.textContent = 'Informe seu e-mail para continuar.';
+        loginError.classList.remove('hidden');
+        adminEmailInput.focus();
+        return;
+    }
+
+    btnPasswordReset.disabled = true;
+    try {
+        await requestPasswordReset(email);
+    } catch (error) {
+        // The public flow must never disclose whether this address has an Auth account.
+        console.warn('Password reset request could not be completed.', error.code);
+    } finally {
+        btnPasswordReset.disabled = false;
+        loginError.textContent = 'Se existir uma conta com este e-mail, enviaremos as instruções para definir ou recuperar sua senha.';
+        loginError.classList.remove('hidden');
+    }
 });
 
 // FORMULARIO MANUAL DE AGREGAR / EDITAR

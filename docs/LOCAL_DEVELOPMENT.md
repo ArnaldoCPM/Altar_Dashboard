@@ -2,17 +2,19 @@
 
 ## Requisitos
 
-Firebase CLI, Node.js e as dependências em `scripts/formation-rules-tests`.
+Firebase CLI, Node.js e as dependências em `scripts/formation-rules-tests` e `functions`.
 
 ## Iniciar os Emulators
 
 Na raiz do repositório:
 
 ```powershell
-firebase emulators:start --only auth,firestore
+firebase emulators:start --only auth,firestore,functions
 ```
 
-Portas configuradas: Auth `9099`, Firestore `8080` e Emulator UI `4000`.
+Portas configuradas: Auth `9099`, Firestore `8080`, Functions `5001` e Emulator UI `4000`.
+
+Para o fluxo M15, instale as dependências de Functions uma vez com `cd functions; npm install`. Consulte [M15_EMAIL_ACCESS.md](M15_EMAIL_ACCESS.md) para o roteiro de acesso por e-mail e senha.
 
 ## Abrir a aplicação no modo Emulator
 

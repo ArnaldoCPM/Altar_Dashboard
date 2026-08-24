@@ -1,4 +1,4 @@
-import { auth, db, signOut } from "../firebase.js";
+import { auth, db, functions, httpsCallable, signOut } from "../firebase.js";
 import { collection, doc, getDoc, getDocs, limit, query, runTransaction, serverTimestamp, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /**
@@ -75,6 +75,20 @@ async function createUser(userData) {
     id: userData.id,
     ...payload
   };
+}
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+async function sendUserAccess(email) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) {
+    throw new Error("sendUserAccess requires email");
+  }
+  const sendAccess = httpsCallable(functions, "sendUserAccess");
+  const result = await sendAccess({ email: normalizedEmail });
+  return result.data;
 }
 
 /**
@@ -256,6 +270,8 @@ export {
   getUserByUid,
   getUserByEmail,
   createUser,
+  normalizeEmail,
+  sendUserAccess,
   updateUser,
   disableUser,
   getAllUsers,

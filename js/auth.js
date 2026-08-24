@@ -1,4 +1,4 @@
-import { auth, GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut } from "./firebase.js";
+import { auth, GoogleAuthProvider, onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signOut } from "./firebase.js";
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -30,6 +30,8 @@ const loginWithGoogle = () => {
     return signInWithPopup(auth, googleProvider);
 };
 
+const requestPasswordReset = (email) => sendPasswordResetEmail(auth, email);
+
 async function performLogout() {
     try {
         await signOut(auth);
@@ -44,5 +46,6 @@ export {
     setupAuthStateListener,
     loginWithEmailPassword,
     loginWithGoogle,
+    requestPasswordReset,
     performLogout
 };
