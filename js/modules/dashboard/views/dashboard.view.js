@@ -1,8 +1,11 @@
 import { cleanStr } from "../../../utils.js";
 import { getServerAge, updateKPIs } from "./kpis.view.js";
 import { destroyCharts, setChart } from "../controller.js";
+import { getCurrentProfile } from "../../../session.js";
 function updateUI(data) {
     updateKPIs(data);
+    const profile = getCurrentProfile(); const card = document.getElementById('my-chapel-card');
+    if (profile?.role === 'coordinator' && profile.chapelId) { const own = data.filter(server => server.chapelId === profile.chapelId); const count = term => own.filter(server => cleanStr(server.Tipo).includes(term)).length; const active = own.filter(server => cleanStr(server.Estado) !== 'inativo').length; card.classList.remove('hidden'); document.getElementById('my-chapel-summary').textContent = `${own.length} no total · ${active} ativos · ${own.length - active} inativos · ${count('candidato')} candidatos · ${count('formando')} formandos · ${count('institu')} instituídos`; document.getElementById('my-chapel-manage').onclick = () => document.dispatchEvent(new CustomEvent('shell:navigate', { detail: { moduleId: 'servers', context: 'my-chapel' } })); document.getElementById('my-chapel-new').onclick = () => document.dispatchEvent(new CustomEvent('shell:navigate', { detail: { moduleId: 'servers', context: 'my-chapel', action: 'new' } })); } else card.classList.add('hidden');
     renderCharts(data);
 }
 

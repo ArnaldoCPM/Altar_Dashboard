@@ -51,7 +51,7 @@ function setDashboardWorkspaceVisibility(isVisible) {
     });
 }
 
-async function navigateToModule(moduleId) {
+async function navigateToModule(moduleId, context = null, action = null) {
     if (moduleId === 'chapels') {
         if (!canManageUsers()) return;
         if (activeModule === 'chapels') { await refreshChapels(); return; }
@@ -66,9 +66,10 @@ async function navigateToModule(moduleId) {
         if (activeModule === 'servers') { refreshServers(); return; }
         destroyDashboard(); destroyFormation(); destroyUsers(); destroyChapels();
         setDashboardWorkspaceVisibility(false);
-        await initializeServers({ mountElement: getWorkspaceElement() });
+        await initializeServers({ mountElement: getWorkspaceElement(), context });
         activeModule = 'servers';
         updateSidebar({ moduleId: activeModule });
+        if (action === 'new') document.getElementById('servers-add')?.click();
         return;
     }
 
@@ -113,7 +114,7 @@ async function navigateToModule(moduleId) {
 
 document.addEventListener('shell:navigate', ({ detail }) => {
     closeSidebar({ returnFocus: false });
-    navigateToModule(detail.moduleId);
+    navigateToModule(detail.moduleId, detail.context, detail.action);
 });
 
 function showLoginScreen(message = loginScreenMessage) {
