@@ -5,7 +5,8 @@ import { createServer, deleteServer, getServerById } from "../../data/servers.js
 import { canAccessAdminMode } from "../../permissions.js";
 import { canCreateServer, canDelete, canEdit, canChangeChapel } from "../../authorization.js";
 import { getCurrentChapelId, getCurrentProfile } from "../../session.js";
-import { calculateAge, cleanStr, generateWpLink } from "../../utils.js";
+import { calculateAge, cleanStr } from "../../utils.js";
+import { paginate } from "../../pagination.js";
 import { renderServersWorkspace } from "./views/servers.view.js";
 import { csvToObjects, importServers } from "./services/import.service.js";
 import { loadServerHistory } from "./services/server-history.service.js";
@@ -15,8 +16,10 @@ let unsubscribe = null, data = [], chapels = [], allChapels = [], mount = null;
 let selectedServerId = null, history = null, historyStatus = "idle", historyError = null, historyVersion = 0;
 let visibleHistorical = 10;
 let listFilters = { search: "", chapel: "all", state: "all", allergy: "all", type: "all" };
+let currentPage = 1;
 const age = s => calculateAge(s?.Data_nascimento) ?? (Number.isNaN(parseInt(s?.Idade)) ? null : parseInt(s?.Idade));
 const error = message => { document.getElementById('error-alert-text').textContent=message; document.getElementById('error-alert').classList.remove('hidden'); };
+const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
 const chapelByName = (name, list = chapels) => list.find((chapel) => normalizeChapelName(chapel.name) === normalizeChapelName(name));
 const scoped = (payload, existing=null) => canAccessAdminMode() ? {...payload, chapelId: payload.chapelId ?? chapelByName(payload.Capela)?.id ?? existing?.chapelId ?? null} : {...payload, chapelId:getCurrentChapelId() ?? existing?.chapelId ?? null, Capela:getCurrentProfile()?.chapelName ?? existing?.Capela ?? payload.Capela};
 function ensureHistoricalChapelOption(chapelId) { const select = document.getElementById('form-capela'); const chapel = allChapels.find((item) => item.id === chapelId); if (!chapel || [...select.options].some((option) => option.value === chapel.name)) return; const option = new Option(`${chapel.name} (inativa)`, chapel.name); option.disabled = true; select.add(option); }
@@ -31,21 +34,25 @@ function render() {
         .filter((s) => state === 'all' || s.Estado === state)
         .filter((s) => allergy === 'all' || (['sim', 'si', 's'].includes(cleanStr(s.Possui_alergia_doenca)) ? 'Sim' : 'Não') === allergy)
         .filter((s) => type === 'all' || cleanStr(s.Tipo) === cleanStr(type));
+    const page = paginate(filtered, currentPage);
+    currentPage = page.currentPage;
     const body = document.getElementById('servers-table-body');
     body.innerHTML = '';
     document.getElementById('servers-empty').classList.toggle('hidden', filtered.length > 0);
-    filtered.forEach((server) => {
+    page.items.forEach((server) => {
         const row = document.createElement('tr');
         row.className = 'border-t text-sm text-slate-600';
-        const candidate = server.Whatsapp_candidato
-            ? `<a target="_blank" class="text-emerald-600" href="${generateWpLink(server.Whatsapp_candidato, `Olá ${server.Nome}, tudo bem? Aqui é da coordenação...`)}">📲 Candidato</a>`
-            : '—';
-        row.innerHTML = `<td class="p-4"><b>${server.Nome || 'Sem nome'}</b><div class="text-xs text-slate-400">${server.id}</div></td><td class="p-4">${age(server) ?? '—'} anos<br><span class="text-xs">${server.Sexo || '—'}</span></td><td class="p-4">${server.Capela || 'S/D'}</td><td class="p-4">${candidate}</td><td class="p-4"><button data-open class="text-slate-700 font-bold">Abrir</button>${canEdit(server) ? '<button data-edit class="text-amber-600 font-bold ml-2">Editar</button>' : ''} ${canDelete(server) ? '<button data-delete class="text-rose-600 font-bold ml-2">Apagar</button>' : ''}</td>`;
+        row.innerHTML = `<td class="p-4"><b>${escapeHtml(server.Nome || 'Sem nome')}</b><div class="text-xs text-slate-400">${escapeHtml(server.id)}</div></td><td class="p-4">${age(server) ?? '—'} anos<br><span class="text-xs">${escapeHtml(server.Sexo || '—')}</span></td><td class="p-4">${escapeHtml(server.Capela || 'S/D')}</td><td class="p-4"><button data-open class="text-slate-700 font-bold">Abrir</button>${canEdit(server) ? '<button data-edit class="text-amber-600 font-bold ml-2">Editar</button>' : ''} ${canDelete(server) ? '<button data-delete class="text-rose-600 font-bold ml-2">Apagar</button>' : ''}</td>`;
         row.querySelector('[data-open]')?.addEventListener('click', () => openDetail(server.id));
         row.querySelector('[data-edit]')?.addEventListener('click', () => openEdit(server));
         row.querySelector('[data-delete]')?.addEventListener('click', () => remove(server));
         body.append(row);
     });
+    const pagination = mount.querySelector('#servers-pagination');
+    pagination.classList.toggle('hidden', filtered.length <= 20);
+    mount.querySelector('#servers-page-info').textContent = `Página ${page.currentPage} de ${page.totalPages}`;
+    mount.querySelector('#servers-prev').disabled = page.currentPage <= 1;
+    mount.querySelector('#servers-next').disabled = page.currentPage >= page.totalPages;
 }
 function captureListFilters() {
     if (!mount || selectedServerId) return;
@@ -70,8 +77,10 @@ function mountListWorkspace() {
     Object.entries({ 'servers-search': 'search', 'servers-filter-chapel': 'chapel', 'servers-filter-state': 'state', 'servers-filter-allergy': 'allergy', 'servers-filter-type': 'type' }).forEach(([id, key]) => {
         const control = mount.querySelector(`#${id}`);
         control.value = listFilters[key];
-        control.addEventListener(id === 'servers-search' ? 'input' : 'change', () => { captureListFilters(); render(); });
+        control.addEventListener(id === 'servers-search' ? 'input' : 'change', () => { captureListFilters(); currentPage = 1; render(); });
     });
+    mount.querySelector('#servers-prev').addEventListener('click', () => { currentPage -= 1; render(); });
+    mount.querySelector('#servers-next').addEventListener('click', () => { currentPage += 1; render(); });
     mount.querySelector('#servers-add')?.addEventListener('click', openNew);
     mount.querySelector('#servers-import-toggle')?.addEventListener('click', () => mount.querySelector('#servers-import-panel').classList.toggle('hidden'));
     mount.querySelector('#servers-csv-file')?.addEventListener('change', (event) => {
@@ -111,5 +120,5 @@ function openEdit(s){if(!canEdit(s))return;document.getElementById('edit-modal-t
 function remove(s){ if(!canDelete(s))return; document.dispatchEvent(new CustomEvent('shell:confirm',{detail:{title:'Eliminar Servidor',message:`Tem a certeza absoluta de que deseja eliminar "${s.Nome}" (${s.id})?`,onConfirm:async()=>{try{await deleteServer(s.id)}catch(e){error('Não foi possível eliminar o registo: '+e.message)}}}})); }
 function bindModal(){const form=document.getElementById('server-form');form.onsubmit=async e=>{e.preventDefault();const id=document.getElementById('form-id').value, existing=data.find(s=>s.id===id);if(existing?!canEdit(existing):!canCreateServer(getCurrentChapelId()))return;const value=i=>document.getElementById(i).value;const payload=scoped({id,Nome:value('form-nome').trim(),Data_nascimento:value('form-data-nasc'),Sexo:value('form-sexo'),Capela:value('form-capela').trim(),Tipo:value('form-tipo'),Estado:value('form-estado'),Horario_estudo:[...document.querySelectorAll('input[name="form-horario-estudo"]:checked')].map(i=>i.value).join(';'),Batizado:document.getElementById('form-batizado').checked?'Sim':'Não',Primeira_eucaristia:document.getElementById('form-comunion').checked?'Sim':'Não',Crismado:document.getElementById('form-crisma').checked?'Sim':'Não',Possui_alergia_doenca:value('form-tem-alergia'),Descricao_alergia_doenca:value('form-desc-alergia').trim(),Nome_mae:value('form-nome-mae').trim(),Whatsapp_candidato:value('form-wp-candidato').replace(/\D/g,''),Whatsapp_mae:value('form-wp-mae').replace(/\D/g,''),Nome_pai:value('form-nome-pai').trim(),Whatsapp_pai:value('form-wp-pai').replace(/\D/g,''),Nome_tutor_guardiao:value('form-nome-tutor').trim(),Whatsapp_tutor_guardiao:value('form-wp-tutor').replace(/\D/g,'')},existing);if(existing&&!canChangeChapel(existing,payload.chapelId))return;try{await createServer(payload);document.getElementById('edit-server-modal').classList.add('hidden')}catch(err){error('Não foi possível guardar o registo: '+err.message)}};}
 export async function initialize({mountElement}){destroy();mount=document.createElement('div');mount.dataset.moduleRoot='servers';mountElement.append(mount);[chapels,allChapels]=await Promise.all([getActiveChapels(),getAllChapels()]);mountListWorkspace();bindModal();unsubscribe=onSnapshot(buildServersQuery(),snap=>{data=snap.docs.map(d=>({id:d.id,...d.data()}));render()},err=>error('Erro ao carregar servidores: '+err.message));}
-export function destroy(){unsubscribe?.();unsubscribe=null;historyVersion += 1;selectedServerId=null;history=null;historyStatus='idle';historyError=null;visibleHistorical=10;listFilters={search:'',chapel:'all',state:'all',allergy:'all',type:'all'};document.getElementById('server-form')&&(document.getElementById('server-form').onsubmit=null);document.getElementById('edit-server-modal')?.classList.add('hidden');mount?.remove();mount=null;data=[];chapels=[];allChapels=[];}
+export function destroy(){unsubscribe?.();unsubscribe=null;historyVersion += 1;selectedServerId=null;history=null;historyStatus='idle';historyError=null;visibleHistorical=10;listFilters={search:'',chapel:'all',state:'all',allergy:'all',type:'all'};currentPage=1;document.getElementById('server-form')&&(document.getElementById('server-form').onsubmit=null);document.getElementById('edit-server-modal')?.classList.add('hidden');mount?.remove();mount=null;data=[];chapels=[];allChapels=[];}
 export function refresh(){render();}

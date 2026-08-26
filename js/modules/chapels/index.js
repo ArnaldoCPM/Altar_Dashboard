@@ -1,9 +1,11 @@
 import { createChapel, getAllChapels, countServersByChapel, normalizeChapelName, renameChapelAndSyncServers, updateChapel } from "../../data/chapels.js";
 import { canManageUsers } from "../../permissions.js";
+import { paginate } from "../../pagination.js";
 
 let mount = null;
 let chapels = [];
 let successMessage = "";
+let currentPage = 1;
 const showError = (message) => { const node = document.getElementById("error-alert-text"); if (node) node.textContent = message; document.getElementById("error-alert")?.classList.remove("hidden"); };
 const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
 
@@ -14,12 +16,24 @@ function render() {
   const status = mount.querySelector("[data-chapel-status]")?.value || "active";
   const needle = normalizeChapelName(search);
   const list = chapels.filter((chapel) => (status === "all" || (status === "active") === (chapel.active !== false)) && (!needle || normalizeChapelName(chapel.name).includes(needle) || normalizeChapelName(chapel.address).includes(needle)));
-  mount.innerHTML = `<section class="space-y-6"><div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 class="text-2xl font-black text-slate-800">Capelas</h2><p class="text-sm text-slate-500">Catálogo administrativo de capelas.</p></div><button data-chapel-new class="rounded-xl bg-liturgical-blue px-4 py-2 text-xs font-bold text-white">+ Nova capela</button></div>${successMessage ? `<p role="status" class="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">${escapeHtml(successMessage)}</p>` : ""}<section class="overflow-hidden rounded-3xl border border-slate-100 bg-white"><div class="flex flex-col gap-3 border-b p-5 sm:flex-row"><input data-chapel-search value="${escapeHtml(search)}" placeholder="Buscar por nome ou endereço..." class="w-full rounded-xl border bg-slate-50 px-4 py-2 text-sm sm:max-w-md"><select data-chapel-status class="rounded-xl border bg-slate-50 px-3 py-2 text-sm"><option value="active" ${status === "active" ? "selected" : ""}>Ativas</option><option value="inactive" ${status === "inactive" ? "selected" : ""}>Inativas</option><option value="all" ${status === "all" ? "selected" : ""}>Todas</option></select></div><div class="overflow-x-auto"><table class="w-full text-left"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="p-4">Nome</th><th class="p-4">Endereço</th><th class="p-4">Estado</th><th class="p-4"></th></tr></thead><tbody>${list.map((chapel) => `<tr class="border-t text-sm text-slate-600"><td class="p-4 font-semibold">${escapeHtml(chapel.name)}</td><td class="p-4">${escapeHtml(chapel.address || "—")}</td><td class="p-4">${chapel.active !== false ? "🟢 Ativa" : "⚪ Inativa"}</td><td class="p-4 text-right"><button data-chapel-edit="${chapel.id}" class="font-bold text-liturgical-blue">Editar</button> <button data-chapel-toggle="${chapel.id}" class="ml-3 font-bold ${chapel.active !== false ? "text-amber-600" : "text-emerald-600"}">${chapel.active !== false ? "Desativar" : "Ativar"}</button></td></tr>`).join("") || '<tr><td colspan="4" class="p-8 text-center text-sm text-slate-500">Nenhuma capela encontrada.</td></tr>'}</tbody></table></div></section></section>`;
-  mount.querySelector("[data-chapel-search]").addEventListener("input", render);
-  mount.querySelector("[data-chapel-status]").addEventListener("change", render);
+  const page = paginate(list, currentPage);
+  currentPage = page.currentPage;
+  const rows = page.items.map((chapel) => `<tr class="border-t text-sm text-slate-600"><td class="p-4 font-semibold">${escapeHtml(chapel.name)}</td><td class="p-4">${escapeHtml(chapel.address || "—")}</td><td class="p-4">${chapel.active !== false ? "🟢 Ativa" : "⚪ Inativa"}</td><td class="p-4 text-right"><button data-chapel-edit="${chapel.id}" class="font-bold text-liturgical-blue">Editar</button> <button data-chapel-toggle="${chapel.id}" class="ml-3 font-bold ${chapel.active !== false ? "text-amber-600" : "text-emerald-600"}">${chapel.active !== false ? "Desativar" : "Ativar"}</button></td></tr>`).join("");
+  const pagination = list.length > 20 ? `<div class="flex items-center justify-between p-4 text-xs"><button data-chapel-prev class="font-semibold disabled:cursor-not-allowed disabled:opacity-40">← Anterior</button><span>Página ${page.currentPage} de ${page.totalPages}</span><button data-chapel-next class="font-semibold disabled:cursor-not-allowed disabled:opacity-40">Próxima →</button></div>` : "";
+  mount.innerHTML = `<section class="space-y-6"><div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 class="text-2xl font-black text-slate-800">Capelas</h2><p class="text-sm text-slate-500">Catálogo administrativo de capelas.</p></div><button data-chapel-new class="rounded-xl bg-liturgical-blue px-4 py-2 text-xs font-bold text-white">+ Nova capela</button></div>${successMessage ? `<p role="status" class="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">${escapeHtml(successMessage)}</p>` : ""}<section class="overflow-hidden rounded-3xl border border-slate-100 bg-white"><div class="flex flex-col gap-3 border-b p-5 sm:flex-row"><input data-chapel-search value="${escapeHtml(search)}" placeholder="Buscar por nome ou endereço..." class="w-full rounded-xl border bg-slate-50 px-4 py-2 text-sm sm:max-w-md"><select data-chapel-status class="rounded-xl border bg-slate-50 px-3 py-2 text-sm"><option value="active" ${status === "active" ? "selected" : ""}>Ativas</option><option value="inactive" ${status === "inactive" ? "selected" : ""}>Inativas</option><option value="all" ${status === "all" ? "selected" : ""}>Todas</option></select></div><div class="overflow-x-auto"><table class="w-full text-left"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="p-4">Nome</th><th class="p-4">Endereço</th><th class="p-4">Estado</th><th class="p-4"></th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="p-8 text-center text-sm text-slate-500">Nenhuma capela encontrada.</td></tr>'}</tbody></table></div>${pagination}</section></section>`;
+  mount.querySelector("[data-chapel-search]").addEventListener("input", () => { currentPage = 1; render(); });
+  mount.querySelector("[data-chapel-status]").addEventListener("change", () => { currentPage = 1; render(); });
   mount.querySelector("[data-chapel-new]").addEventListener("click", () => openForm());
   mount.querySelectorAll("[data-chapel-edit]").forEach((button) => button.addEventListener("click", () => openForm(chapels.find((chapel) => chapel.id === button.dataset.chapelEdit))));
   mount.querySelectorAll("[data-chapel-toggle]").forEach((button) => button.addEventListener("click", () => toggle(chapels.find((chapel) => chapel.id === button.dataset.chapelToggle))));
+  const previous = mount.querySelector("[data-chapel-prev]");
+  const next = mount.querySelector("[data-chapel-next]");
+  if (previous && next) {
+    previous.disabled = page.currentPage <= 1;
+    next.disabled = page.currentPage >= page.totalPages;
+    previous.addEventListener("click", () => { currentPage -= 1; render(); });
+    next.addEventListener("click", () => { currentPage += 1; render(); });
+  }
 }
 function openForm(chapel = null) {
   const dialog = document.createElement("dialog");
@@ -32,4 +46,4 @@ function openForm(chapel = null) {
 function toggle(chapel) { if (!chapel) return; const action = chapel.active !== false ? "desativar" : "ativar"; document.dispatchEvent(new CustomEvent("shell:confirm", { detail: { title: `${action[0].toUpperCase()}${action.slice(1)} capela`, message: `Deseja ${action} “${chapel.name}”? Não há exclusão de dados.`, onConfirm: async () => { try { await updateChapel(chapel.id, { ...chapel, active: chapel.active === false }); await refresh(); } catch (error) { showError(`Não foi possível atualizar a capela: ${error.message}`); } } } })); }
 export async function initialize({ mountElement }) { if (!canManageUsers()) return; destroy(); mount = document.createElement("div"); mount.dataset.moduleRoot = "chapels"; mountElement.append(mount); await refresh(); }
 export async function refresh() { if (!mount) return; chapels = await getAllChapels(); render(); }
-export function destroy() { mount?.remove(); mount = null; chapels = []; successMessage = ""; }
+export function destroy() { mount?.remove(); mount = null; chapels = []; successMessage = ""; currentPage = 1; }

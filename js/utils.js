@@ -1,11 +1,15 @@
 const cleanStr = (s) => (s || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+function normalizeWpNumber(number) {
+    const cleanNum = String(number || '').replace(/\D/g, '');
+    if (/^55\d{10,11}$/.test(cleanNum)) return cleanNum;
+    if (/^\d{10,11}$/.test(cleanNum)) return `55${cleanNum}`;
+    return null;
+}
+
 function generateWpLink(number, text) {
-    let cleanNum = number.toString().replace(/\D/g, '');
-    if (!cleanNum.startsWith('55') && cleanNum.length <= 11) {
-        cleanNum = '55' + cleanNum;
-    }
-    return `https://api.whatsapp.com/send?phone=${cleanNum}&text=${encodeURIComponent(text)}`;
+    const cleanNum = normalizeWpNumber(number);
+    return cleanNum ? `https://api.whatsapp.com/send?phone=${cleanNum}&text=${encodeURIComponent(text || '')}` : null;
 }
 
 function parseStoredDate(value) {
@@ -46,4 +50,4 @@ function calculateAge(date) {
     return age >= 0 ? age : null;
 }
 
-export { cleanStr, generateWpLink, calculateAge };
+export { cleanStr, generateWpLink, normalizeWpNumber, calculateAge };
