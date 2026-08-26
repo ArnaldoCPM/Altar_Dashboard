@@ -305,7 +305,6 @@ function showConfirm(title, message, onConfirm, { cancelLabel = "Cancelar", conf
 const adminLoginModal = document.getElementById('admin-login-modal');
 const btnLoginSubmit = document.getElementById('btn-login-submit');
 const btnLoginGoogle = document.getElementById('btn-login-google');
-const btnShowEmailLogin = document.getElementById('btn-show-email-login');
 const emailLoginFields = document.getElementById('email-login-fields');
 const adminEmailInput = document.getElementById('admin-email-input');
 const adminPasswordInput = document.getElementById('admin-password-input');
@@ -313,17 +312,9 @@ const btnPasswordReset = document.getElementById('btn-password-reset');
 const loginError = document.getElementById('login-error');
 
 function resetEmailLoginFields() {
-    emailLoginFields?.classList.add('hidden');
-    btnShowEmailLogin?.classList.remove('hidden');
+    emailLoginFields?.classList.remove('hidden');
     loginError?.classList.add('hidden');
 }
-
-btnShowEmailLogin.addEventListener('click', () => {
-    emailLoginFields.classList.remove('hidden');
-    btnShowEmailLogin.classList.add('hidden');
-    loginError.classList.add('hidden');
-    adminEmailInput.focus();
-});
 
 // Actualiza los controles del header según profile.role.
 function updateAdminUI(renderDashboard = true) {

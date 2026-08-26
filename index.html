@@ -282,14 +282,28 @@
 
     <!-- LOGIN MODAL -->
     <div id="admin-login-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <div class="bg-white rounded-3xl p-6 max-w-sm w-full max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain shadow-2xl border border-slate-100 space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <div class="bg-white rounded-3xl p-7 max-w-sm w-full max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain shadow-2xl border border-slate-100 space-y-5">
+            <div class="border-b border-slate-100 pb-4">
                 <div>
-                    <h3 class="text-lg font-bold text-slate-800">Entrar no SGSA</h3>
-                    <p class="text-xs text-slate-500 mt-1">Utilize sua conta autorizada para acessar o sistema.</p>
+                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-liturgical-blue">SGSA</p>
+                    <h3 class="mt-1 text-xl font-black text-slate-800">Bem-vindo de volta</h3>
+                    <p class="mt-1 text-xs leading-relaxed text-slate-500">Acesse com sua conta autorizada para gerir sua comunidade.</p>
                 </div>
             </div>
-            <button id="btn-login-google" class="w-full py-2 bg-liturgical-blue text-white text-xs font-bold rounded-xl hover:bg-liturgical-blue/90 transition-colors flex items-center justify-center gap-2">
+            <div id="email-login-fields" class="space-y-4">
+                <div class="space-y-1.5">
+                    <label for="admin-email-input" class="text-xs font-bold text-slate-600 block">E-mail</label>
+                    <input type="email" id="admin-email-input" autocomplete="email" placeholder="seuemail@paroquia.com" class="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue focus:bg-white transition-colors" />
+                </div>
+                <div class="space-y-1.5">
+                    <label for="admin-password-input" class="text-xs font-bold text-slate-600 block">Senha</label>
+                    <input type="password" id="admin-password-input" autocomplete="current-password" placeholder="Digite sua senha" class="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue focus:bg-white transition-colors" />
+                </div>
+                <button id="btn-login-submit" class="w-full py-3 bg-liturgical-blue text-white text-sm font-bold rounded-xl hover:bg-liturgical-blue/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-liturgical-blue transition-colors">Entrar</button>
+                <button type="button" id="btn-password-reset" class="w-full text-xs font-semibold text-liturgical-blue hover:text-liturgical-blue/80 transition-colors">Definir / Esqueci minha senha</button>
+            </div>
+            <div class="flex items-center gap-3"><span class="h-px flex-1 bg-slate-100"></span><span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">ou</span><span class="h-px flex-1 bg-slate-100"></span></div>
+            <button id="btn-login-google" class="w-full py-3 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
                     <path fill="#4285F4" d="M21.35 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.24a4.48 4.48 0 0 1-1.94 2.94v2.51h3.14c1.84-1.7 2.91-4.2 2.91-7.28Z"/>
                     <path fill="#34A853" d="M12 21.75c2.63 0 4.84-.87 6.45-2.36l-3.14-2.39c-.87.59-1.98.94-3.31.94-2.54 0-4.7-1.72-5.47-4.03H3.29v2.47A9.75 9.75 0 0 0 12 21.75Z"/>
@@ -298,21 +312,6 @@
                 </svg>
                 Continuar com Google
             </button>
-            <button type="button" id="btn-show-email-login" class="w-full text-xs font-semibold text-liturgical-blue hover:text-liturgical-blue/80 transition-colors">Entrar com e-mail e senha</button>
-            <div id="email-login-fields" class="hidden space-y-4">
-                <div class="space-y-2">
-                    <label class="text-xs font-semibold text-slate-500 block">Email</label>
-                    <input type="email" id="admin-email-input" placeholder="seuemail@paroquia.com" class="w-full px-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue" />
-                </div>
-                <div class="space-y-2">
-                    <label class="text-xs font-semibold text-slate-500 block">Senha</label>
-                    <input type="password" id="admin-password-input" placeholder="Digite sua senha" class="w-full px-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-liturgical-blue" />
-                </div>
-                <div class="flex gap-2 pt-2">
-                    <button id="btn-login-submit" class="w-full py-2 bg-liturgical-blue text-white text-xs font-bold rounded-xl hover:bg-liturgical-blue/90 transition-colors">Entrar</button>
-                </div>
-                <button type="button" id="btn-password-reset" class="w-full text-xs font-semibold text-liturgical-blue hover:text-liturgical-blue/80 transition-colors">Definir / Esqueci minha senha</button>
-            </div>
             <p id="login-error" class="hidden text-xs text-rose-600 font-medium">E-mail ou senha inválidos.</p>
             <p class="text-xs text-slate-400 text-center">Ainda não tem acesso?<br>Entre em contato com o administrador da sua comunidade.</p>
         </div>
