@@ -1,5 +1,5 @@
 import { db } from "../../../firebase.js";
-import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 function encountersCollection(formationId, poleId) {
     return collection(db, "formations", formationId, "poles", poleId, "encounters");
@@ -22,6 +22,11 @@ async function getEncounter(formationId, poleId, encounterId) {
     return snapshot.exists() ? toEncounter(snapshot) : null;
 }
 
+async function getEncounters(formationId, poleId) {
+    const snapshot = await getDocs(query(encountersCollection(formationId, poleId), orderBy("startAt", "asc")));
+    return snapshot.docs.map(toEncounter);
+}
+
 function createEncounter(formationId, poleId, encounter) {
     return addDoc(encountersCollection(formationId, poleId), { ...encounter, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 }
@@ -38,4 +43,4 @@ function updateResponsibilities(formationId, poleId, encounterId, responsibiliti
     return updateDoc(encounterRef(formationId, poleId, encounterId), { responsibilities, coordinatorIds, updatedAt: serverTimestamp() });
 }
 
-export { subscribeToEncounters, getEncounter, createEncounter, updateEncounter, updateEncounterStatus, updateResponsibilities };
+export { subscribeToEncounters, getEncounter, getEncounters, createEncounter, updateEncounter, updateEncounterStatus, updateResponsibilities };

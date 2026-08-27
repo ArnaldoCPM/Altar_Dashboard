@@ -10,6 +10,7 @@ function toData(snapshot) { return { id: snapshot.id, ...snapshot.data() }; }
 function subscribeToParticipants(formationId, poleId, encounterId, onData, onError) { return onSnapshot(query(participantsCollection(formationId, poleId, encounterId), orderBy("serverName", "asc")), (snapshot) => onData(snapshot.docs.map(toData)), onError); }
 async function getParticipant(formationId, poleId, encounterId, serverId) { const snapshot = await getDoc(participantRef(formationId, poleId, encounterId, serverId)); return snapshot.exists() ? toData(snapshot) : null; }
 async function hasParticipants(formationId, poleId, encounterId) { const snapshot = await getDocs(query(participantsCollection(formationId, poleId, encounterId), limit(1))); return !snapshot.empty; }
+async function countPendingParticipants(formationId, poleId, encounterId) { const snapshot = await getDocs(participantsCollection(formationId, poleId, encounterId)); return snapshot.docs.filter((item) => item.data().attendanceStatus === "pending").length; }
 async function getParticipantExclusions(formationId, poleId, encounterId) { const snapshot = await getDocs(exclusionsCollection(formationId, poleId, encounterId)); return new Set(snapshot.docs.map((item) => item.id)); }
 async function createPreparedParticipants(formationId, poleId, encounterId, participants) { for (let index = 0; index < participants.length; index += 400) { const batch = writeBatch(db); participants.slice(index, index + 400).forEach((participant) => batch.set(participantRef(formationId, poleId, encounterId, participant.serverId), { ...participant, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })); await batch.commit(); } }
 async function addParticipant(formationId, poleId, encounterId, participant) { const batch = writeBatch(db); batch.delete(exclusionRef(formationId, poleId, encounterId, participant.serverId)); batch.set(participantRef(formationId, poleId, encounterId, participant.serverId), { ...participant, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }); await batch.commit(); }
@@ -29,4 +30,4 @@ function updateAttendance(formationId, poleId, encounterId, serverId, { attendan
   return updateDoc(participantRef(formationId, poleId, encounterId, serverId), updates);
 }
 
-export { subscribeToParticipants, getParticipant, hasParticipants, getParticipantExclusions, createPreparedParticipants, addParticipant, removeParticipant, updateAttendance };
+export { subscribeToParticipants, getParticipant, hasParticipants, countPendingParticipants, getParticipantExclusions, createPreparedParticipants, addParticipant, removeParticipant, updateAttendance };

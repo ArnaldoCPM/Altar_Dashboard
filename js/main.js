@@ -86,13 +86,16 @@ async function navigateToModule(moduleId, context = null, action = null) {
 
     if (moduleId === 'training') {
         if (activeModule === 'training') {
-            refreshFormation();
+            if (context?.type === 'my-encounters' || context?.type === 'operational-encounter') {
+                destroyFormation();
+                initializeFormation({ mountElement: getWorkspaceElement(), context });
+            } else refreshFormation();
             return;
         }
 
         destroyDashboard(); destroyServers(); destroyUsers(); destroyChapels();
         setDashboardWorkspaceVisibility(false);
-        initializeFormation({ mountElement: getWorkspaceElement() });
+        initializeFormation({ mountElement: getWorkspaceElement(), context });
         activeModule = 'training';
         updateSidebar({ moduleId: activeModule });
         return;

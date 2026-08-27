@@ -3,6 +3,7 @@ import { getActiveChapels } from "../../data/chapels.js";
 import { cleanStr } from "../../utils.js";
 import { subscribeToDashboardData } from "./services/dashboard.service.js";
 import { updateUI } from "./views/dashboard.view.js";
+import { getOperationalEncounters } from "../formation/services/operational-encounters.service.js";
 import {
     clearSubscription,
     destroyChartInstances,
@@ -56,7 +57,10 @@ async function loadData(chapels) {
         setFilteredItems(data);
 
         setUiState({ status: "loaded", error: null });
-        updateUI(getDashboardData());
+        let operationalEncounters = [];
+        try { operationalEncounters = await getOperationalEncounters(); } catch (error) { console.warn("Operational encounters could not be loaded.", error); }
+        if (generation !== loadGeneration) return;
+        updateUI(getDashboardData(), operationalEncounters);
         document.getElementById('dashboard-content')?.classList.remove('hidden');
         document.getElementById('loading-overlay').classList.add('opacity-0');
         document.getElementById('loading-overlay').classList.add('hidden');

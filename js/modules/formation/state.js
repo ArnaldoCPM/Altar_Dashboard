@@ -7,6 +7,7 @@ const initialState = () => ({
         poleSummaryByFormationId: {},
         currentPole: null,
         encounters: [],
+        operationalEncounters: [],
         currentEncounter: null,
         participants: []
     },
@@ -81,6 +82,7 @@ function getState() {
             poleSummaryByFormationId: Object.fromEntries(Object.entries(formationState.data.poleSummaryByFormationId).map(([formationId, summary]) => [formationId, { ...summary }])),
             currentPole: copyPole(formationState.data.currentPole),
             encounters: formationState.data.encounters.map(copyEncounter),
+            operationalEncounters: formationState.data.operationalEncounters.map((item) => ({ ...item, formation: copyFormation(item.formation), pole: copyPole(item.pole), encounter: copyEncounter(item.encounter) })),
             currentEncounter: copyEncounter(formationState.data.currentEncounter),
             participants: formationState.data.participants.map(copyParticipant)
         },
@@ -142,6 +144,10 @@ function setEncounters(encounters) {
     formationState.data.encounters = encounters.map(copyEncounter);
 }
 
+function setOperationalEncounters(encounters) {
+    formationState.data.operationalEncounters = encounters.map((item) => ({ ...item, formation: copyFormation(item.formation), pole: copyPole(item.pole), encounter: copyEncounter(item.encounter) }));
+}
+
 function setCurrentEncounter(encounter) {
     formationState.data.currentEncounter = copyEncounter(encounter);
 }
@@ -191,6 +197,7 @@ export {
     setCurrentEncounter,
     setCurrentPole,
     setEncounters,
+    setOperationalEncounters,
     setParticipants,
     setFilteredFormations,
     setFilters,

@@ -15,12 +15,14 @@ import {
     createPole,
     countPoles,
     getPole,
+    getPoles,
     subscribeToPoles,
     updatePole,
     updatePoleActive
 } from "./services/pole.service.js";
 import { createEncounter, getEncounter, subscribeToEncounters, updateEncounter, updateEncounterStatus, updateResponsibilities } from "./services/encounter.service.js";
-import { addParticipant, createPreparedParticipants, getParticipantExclusions, hasParticipants, removeParticipant, subscribeToParticipants, updateAttendance } from "./services/participant.service.js";
+import { addParticipant, countPendingParticipants, createPreparedParticipants, getParticipantExclusions, hasParticipants, removeParticipant, subscribeToParticipants, updateAttendance } from "./services/participant.service.js";
+import { getOperationalEncounters } from "./services/operational-encounters.service.js";
 import {
     clearSubscriptions,
     getState,
@@ -29,6 +31,7 @@ import {
     setCurrentEncounter,
     setCurrentPole,
     setEncounters,
+    setOperationalEncounters,
     setParticipants,
     setFilteredFormations,
     setFilters,
@@ -46,6 +49,7 @@ import { renderPoleView } from "./views/pole.view.js";
 import { renderEncounterView } from "./views/encounter.view.js";
 import { renderParticipantsView } from "./views/participants.view.js";
 import { renderEncounterReportView } from "./views/report.view.js";
+import { renderMyEncountersView } from "./views/my-encounters.view.js";
 import { mountBreadcrumb } from "./components/breadcrumb.js";
 
 const VALID_STAGES = new Set(["first", "second"]);
@@ -83,12 +87,17 @@ function render() {
 
     const state = getState();
     if (["participants", "participant-manual"].includes(state.navigation.currentView)) {
-        renderParticipantsView(root, state, { action: handleParticipantAction, addManual: addManualParticipant, canManage: canManageParticipants(), canManageAttendance: canManageAttendance(), servers: participantResources.servers });
+        renderParticipantsView(root, state, { action: handleParticipantAction, addManual: addManualParticipant, canManage: canManageParticipants(), canManageAttendance: canManageAttendance(), canClose: availableEncounterStatuses(state.data.currentEncounter).includes("completed"), servers: participantResources.servers });
         mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation);
         return;
     }
     if (state.navigation.currentView === "encounter-report") {
         renderEncounterReportView(root, state, { action: handleEncounterAction, userNames: encounterResources.userNames });
+        mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation);
+        return;
+    }
+    if (state.navigation.currentView === "my-encounters") {
+        renderMyEncountersView(root, state, { open: openOperationalEncounter });
         mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation);
         return;
     }
@@ -144,6 +153,7 @@ function breadcrumbItems(state) {
     if (currentPole && ["encounter-list", "encounter-form", "encounter-details", "encounter-substitute", "encounter-report", "participants", "participant-manual"].includes(currentView)) {
         items.push({ label: currentPole.name, action: "pole" });
     }
+    if (currentView === "my-encounters") items.push({ label: "Meus encontros", action: null });
     if (currentView === "encounter-list") items.push({ label: "Encontros", action: null });
     if (["encounter-form", "encounter-details", "encounter-substitute", "encounter-report", "participants", "participant-manual"].includes(currentView) && (currentEncounter || currentView === "encounter-form")) {
         items.push({ label: currentEncounter?.title || "Novo encontro", action: ["encounter-details", "encounter-substitute", "encounter-form"].includes(currentView) ? null : "encounter" });
@@ -457,7 +467,11 @@ function validateEncounter(input, existing = null) {
     const startAt = new Date(input.startAt);
     const endAt = input.endAt ? new Date(input.endAt) : null;
     const chapel = encounterResources.chapels.find((item) => item.id === input.chapelId);
-    const designatedIds = [...new Set(input.designatedIds || [])];
+    // Rules allow a non-admin Polo Coordinator to create only an encounter
+    // assigned to themself. The field is intentionally read-only in that form.
+    const designatedIds = !existing && isCoordinator() && !isAdmin()
+        ? [getCurrentUser().uid]
+        : [...new Set(input.designatedIds || [])];
     if (!title) throw new Error("Informe o título do encontro.");
     if (Number.isNaN(startAt.getTime()) || (endAt && Number.isNaN(endAt.getTime()))) throw new Error("Informe data e horário válidos.");
     if (endAt && endAt < startAt) throw new Error("O horário final não pode ser anterior ao inicial.");
@@ -478,6 +492,33 @@ async function showEncounters(poleId) {
 
 async function showEncounterDetails(encounterId) {
     try { const { currentFormation, currentPole, encounters } = getState().data; const encounter = encounters.find((item) => item.id === encounterId) || await getEncounter(currentFormation.id, currentPole.id, encounterId); if (!encounter) throw new Error("Encontro não encontrado."); setCurrentEncounter(encounter); setNavigation({ currentView: "encounter-details" }); await loadEncounterResources(); setUiState({ error: null, success: null }); render(); } catch (error) { setUiState({ error: error.message }); render(); }
+}
+
+async function showMyEncounters() {
+    try {
+        setNavigation({ currentView: "my-encounters" });
+        setUiState({ loading: true, error: null, success: null }); render();
+        setOperationalEncounters(await getOperationalEncounters());
+        setUiState({ loading: false });
+    } catch (error) { setUiState({ loading: false, error: error.message || "Não foi possível carregar seus encontros." }); }
+    render();
+}
+
+async function openOperationalEncounter(context) {
+    try {
+        if (!context?.formationId || !context?.poleId || !context?.encounterId) throw new Error("Encontro não informado.");
+        setUiState({ loading: true, error: null, success: null }); render();
+        const formation = await getFormation(context.formationId);
+        const pole = formation && await getPole(context.formationId, context.poleId);
+        const encounter = pole && await getEncounter(context.formationId, context.poleId, context.encounterId);
+        if (!formation || !pole || !encounter) throw new Error("Encontro não encontrado.");
+        setCurrentFormation(formation); setCurrentPole(pole); setCurrentEncounter(encounter); setEncounters([encounter]);
+        setNavigation({ currentView: "encounter-details" }); await loadEncounterResources(); loadEncounters();
+        setUiState({ loading: false });
+    } catch (error) { setUiState({ loading: false, error: error.message || "Não foi possível abrir o encontro." }); }
+    render();
+    if (context?.operation === "start") changeEncounterStatus("in_progress");
+    if (context?.operation === "participants") showParticipants();
 }
 
 async function showEncounterForm(encounterId = null) {
@@ -501,6 +542,9 @@ function clearStatusConfirmation() {
 
 function openStatusConfirmation(confirmation) {
     const copy = statusConfirmationCopy(confirmation.status);
+    if (confirmation.status === "completed" && confirmation.pendingCount > 0) {
+        copy.message = `Ainda há ${confirmation.pendingCount} participante${confirmation.pendingCount === 1 ? "" : "s"} sem presença. Deseja concluir mesmo assim?`;
+    }
     document.dispatchEvent(new CustomEvent("shell:confirm", {
         detail: {
             ...copy,
@@ -525,7 +569,10 @@ async function changeEncounterStatus(status) {
             }
         }
 
-        const confirmation = { formationId: currentFormation.id, poleId: currentPole.id, encounterId: currentEncounter.id, status };
+        const pendingCount = status === "completed"
+            ? await countPendingParticipants(currentFormation.id, currentPole.id, currentEncounter.id)
+            : 0;
+        const confirmation = { formationId: currentFormation.id, poleId: currentPole.id, encounterId: currentEncounter.id, status, pendingCount };
         setUiState({ pendingStatusConfirmation: confirmation, error: null, success: null });
         render();
         openStatusConfirmation(confirmation);
@@ -558,7 +605,12 @@ async function confirmEncounterStatusChange(confirmation) {
             throw new Error("Não é possível iniciar o encontro sem participantes. Adicione ou gere os participantes antes de iniciar.");
         }
         await updateEncounterStatus(confirmation.formationId, confirmation.poleId, confirmation.encounterId, confirmation.status);
-        setUiState({ success: "Status do encontro atualizado." });
+        if (confirmation.status === "in_progress") {
+            setUiState({ success: "Encontro iniciado." });
+            await showParticipants();
+            return;
+        }
+        setUiState({ success: confirmation.status === "completed" ? "Encontro concluído." : "Encontro cancelado." });
     } catch (error) {
         setUiState({ error: error.message });
     } finally {
@@ -853,6 +905,7 @@ function handlePoleAction(action, poleId, active) {
 }
 
 function handleEncounterAction(action, encounterId, status) {
+    if (action === "my-encounters") showMyEncounters();
     if (action === "participants") showParticipants();
     if (action === "report") showEncounterReport();
     if (action === "create") showEncounterForm();
@@ -885,6 +938,7 @@ function handleParticipantAction(action, serverId, input) {
     if (action === "manual") showManualParticipantForm();
     if (action === "remove") removeParticipantFromEncounter(serverId);
     if (action === "attendance") saveAttendance(serverId, input);
+    if (action === "conclude") changeEncounterStatus("completed");
     if (action === "back") {
         if (getState().navigation.currentView === "participant-manual") setNavigation({ currentView: "participants" });
         else { setSubscription("participants", null); setParticipants([]); setNavigation({ currentView: "encounter-details" }); }
@@ -905,7 +959,7 @@ function loadFormations() {
     }));
 }
 
-function initialize({ mountElement } = {}) {
+function initialize({ mountElement, context } = {}) {
     if (initialized) return;
 
     lifecycleVersion += 1;
@@ -918,6 +972,8 @@ function initialize({ mountElement } = {}) {
     setUiState({ loading: true });
     render();
     loadFormations();
+    if (context?.type === "my-encounters") showMyEncounters();
+    if (context?.type === "operational-encounter") openOperationalEncounter(context);
 }
 
 function refresh() {

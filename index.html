@@ -125,6 +125,14 @@
 
         <!-- DASHBOARD CONTAINER -->
         <div id="dashboard-content" class="space-y-8">
+            <section id="next-encounter-card" class="hidden rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-5">
+                <p class="text-xs font-bold uppercase tracking-wider text-emerald-800">Próximo encontro</p>
+                <h2 id="next-encounter-title" class="mt-1 text-xl font-black text-slate-900"></h2>
+                <p id="next-encounter-context" class="mt-1 text-sm text-slate-700"></p>
+                <p id="next-encounter-meta" class="mt-1 text-sm text-slate-600"></p>
+                <p id="next-encounter-source" class="mt-3 text-sm font-semibold text-emerald-900"></p>
+                <div class="mt-4 flex flex-wrap gap-2"><button id="next-encounter-action" class="min-h-11 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white"></button><button id="my-encounters-link" class="min-h-11 rounded-xl border border-emerald-300 bg-white px-4 py-2 text-sm font-bold text-emerald-900">Ver meus encontros</button></div>
+            </section>
             <section id="my-chapel-card" class="hidden rounded-2xl border border-blue-100 bg-blue-50 p-5">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p class="text-xs font-bold uppercase tracking-wider text-blue-700">Minha capela</p><h2 class="text-lg font-black text-slate-900">Servidores da minha capela</h2><p id="my-chapel-summary" class="mt-1 text-sm text-slate-600"></p></div><div class="flex gap-2"><button id="my-chapel-manage" class="rounded-xl bg-liturgical-blue px-4 py-2 text-xs font-bold text-white">Gerir servidores</button><button id="my-chapel-new" class="rounded-xl bg-white px-4 py-2 text-xs font-bold text-liturgical-blue">+ Novo servidor</button></div></div>
             </section>
