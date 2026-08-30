@@ -148,7 +148,7 @@ function breadcrumbItems(state) {
 
     if (currentFormation && currentView !== "list") items.push({ label: currentFormation.name, action: ["details", "form"].includes(currentView) ? null : "formation" });
     if (["poles", "pole-form"].includes(currentView)) {
-        items.push({ label: currentPole?.name || "Polos", action: null });
+        items.push({ label: currentPole?.name || "Grupos de formação", action: null });
     }
     if (currentPole && ["encounter-list", "encounter-form", "encounter-details", "encounter-substitute", "encounter-report", "participants", "participant-manual"].includes(currentView)) {
         items.push({ label: currentPole.name, action: "pole" });
@@ -263,7 +263,7 @@ function requirePermission(permission) {
 
 function currentPoleFormationId() {
     const formationId = getState().data.currentFormation?.id;
-    if (!formationId) throw new Error("Selecione uma formação antes de gerenciar polos.");
+    if (!formationId) throw new Error("Selecione uma formação antes de gerenciar grupos.");
     return formationId;
 }
 
@@ -328,7 +328,7 @@ function manualInclusionWarnings(server) {
     const modality = type.includes("instit") ? "permanent" : type.includes("candidato") || type.includes("formando") ? "initial" : null;
     if (!modality) warnings.push("Tipo não classificável");
     else if (!currentFormation.modalities.includes(modality)) warnings.push("Modalidade não contemplada");
-    if (!currentPole.chapelIds.includes(server.chapelId)) warnings.push("Capela fora do Polo");
+    if (!currentPole.chapelIds.includes(server.chapelId)) warnings.push("Capela fora do grupo");
     return warnings;
 }
 
@@ -343,7 +343,7 @@ function availableEncounterStatuses(encounter) {
 
 async function loadEncounterResources() {
     const pole = getState().data.currentPole;
-    if (!pole) throw new Error("Selecione um polo antes de gerenciar encontros.");
+    if (!pole) throw new Error("Selecione um grupo antes de gerenciar encontros.");
     const chapels = (await getActiveChapels()).filter((chapel) => (pole.chapelIds || []).includes(chapel.id));
     const users = isAdmin() ? await getAllUsers() : [];
     const allCoordinators = users.filter((user) => user.documentId === user.uid && user.role === "coordinator" && user.active === true).map((user) => ({ id: user.uid, name: user.displayName || user.email || user.uid }));
@@ -475,8 +475,8 @@ function validateEncounter(input, existing = null) {
     if (!title) throw new Error("Informe o título do encontro.");
     if (Number.isNaN(startAt.getTime()) || (endAt && Number.isNaN(endAt.getTime()))) throw new Error("Informe data e horário válidos.");
     if (endAt && endAt < startAt) throw new Error("O horário final não pode ser anterior ao inicial.");
-    if (!chapel || !(pole.chapelIds || []).includes(chapel.id)) throw new Error("Selecione uma capela ativa atendida pelo polo.");
-    if (designatedIds.some((id) => !encounterResources.designatedCoordinators.some((user) => user.id === id))) throw new Error("Selecione apenas coordenadores ativos do polo.");
+    if (!chapel || !(pole.chapelIds || []).includes(chapel.id)) throw new Error("Selecione uma capela ativa atendida pelo grupo.");
+    if (designatedIds.some((id) => !encounterResources.designatedCoordinators.some((user) => user.id === id))) throw new Error("Selecione apenas coordenadores ativos do grupo.");
     const responsibilities = normalizedResponsibilities(designatedIds, existing?.responsibilities || []);
     return { title, description: input.description?.trim() || "", startAt, ...(endAt ? { endAt } : {}), location: { chapelId: chapel.id, name: chapel.name }, responsibilities, coordinatorIds: coordinatorIdsFrom(responsibilities) };
 }
@@ -484,7 +484,7 @@ function validateEncounter(input, existing = null) {
 async function showEncounters(poleId) {
     try {
         const pole = getState().data.poles.find((item) => item.id === poleId);
-        if (!pole) throw new Error("Polo não encontrado.");
+        if (!pole) throw new Error("Grupo de formação não encontrado.");
         setCurrentPole(pole); setCurrentEncounter(null); setNavigation({ currentView: "encounter-list" }); setUiState({ loading: true, error: null, success: null });
         await loadEncounterResources(); loadEncounters(); render();
     } catch (error) { setUiState({ loading: false, error: error.message || "Não foi possível carregar os encontros." }); render(); }
@@ -624,14 +624,14 @@ async function addSubstitute(replacesUserId, substituteId) {
 }
 
 function requirePoleEditPermission(pole) {
-    if (!canEditPole(pole)) throw new Error("Você não possui permissão para editar este polo.");
+    if (!canEditPole(pole)) throw new Error("Você não possui permissão para editar este grupo.");
 }
 
 function validatePole(input, existingPole = null) {
     const name = input.name?.trim();
     const chapelIds = Array.from(new Set(input.chapelIds || []));
     const coordinatorIds = input.coordinatorIds === undefined ? [...(existingPole?.coordinatorIds || [])] : Array.from(new Set(input.coordinatorIds));
-    if (!name) throw new Error("Informe o nome do polo.");
+    if (!name) throw new Error("Informe o nome do grupo.");
     if (!input.baseChapelId) throw new Error("Selecione a capela base.");
     if (!chapelIds.length) throw new Error("Selecione ao menos uma capela atendida.");
     if (chapelIds.length !== (input.chapelIds || []).length) throw new Error("Não repita capelas atendidas.");
@@ -663,7 +663,7 @@ function loadPoles(formationId) {
         render();
     }, () => {
         setPoleLoadStatus(formationId, "error");
-        setUiState({ loading: false, error: "Não foi possível carregar os polos. Tente novamente." });
+        setUiState({ loading: false, error: "Não foi possível carregar os grupos. Tente novamente." });
         render();
     }));
 }
@@ -680,7 +680,7 @@ async function showPoles(formationId) {
         loadPoles(formation.id);
         render();
     } catch (error) {
-        setUiState({ loading: false, error: error.message || "Não foi possível carregar os polos." });
+        setUiState({ loading: false, error: error.message || "Não foi possível carregar os grupos." });
         render();
     }
 }
@@ -689,16 +689,16 @@ async function showPoleForm(poleId = null) {
     try {
         const formationId = currentPoleFormationId();
         const pole = poleId ? getState().data.poles.find((item) => item.id === poleId) || await getPole(formationId, poleId) : null;
-        if (poleId && !pole) throw new Error("Polo não encontrado.");
+        if (poleId && !pole) throw new Error("Grupo de formação não encontrado.");
         if (pole) requirePoleEditPermission(pole);
-        if (!pole && !isAdmin()) throw new Error("Você não possui permissão para criar polos.");
+        if (!pole && !isAdmin()) throw new Error("Você não possui permissão para criar grupos.");
         await loadPoleResources();
         setCurrentPole(pole || null);
         setNavigation({ currentView: "pole-form" });
         setUiState({ error: null, success: null });
         render();
     } catch (error) {
-        setUiState({ error: error.message || "Não foi possível abrir o formulário do polo." });
+        setUiState({ error: error.message || "Não foi possível abrir o formulário do grupo." });
         render();
     }
 }
@@ -707,23 +707,23 @@ async function savePole(input) {
     try {
         const formationId = currentPoleFormationId();
         const existingPole = input.id ? getState().data.poles.find((pole) => pole.id === input.id) : null;
-        if (input.id && !existingPole) throw new Error("Polo não encontrado.");
+        if (input.id && !existingPole) throw new Error("Grupo de formação não encontrado.");
         if (existingPole) requirePoleEditPermission(existingPole);
-        if (!existingPole && !isAdmin()) throw new Error("Você não possui permissão para criar polos.");
+        if (!existingPole && !isAdmin()) throw new Error("Você não possui permissão para criar grupos.");
         const pole = validatePole(input, existingPole);
         setUiState({ loading: true, error: null, success: null });
         render();
         if (existingPole) {
             await updatePole(formationId, existingPole.id, pole);
-            setUiState({ success: "Polo atualizado com sucesso." });
+            setUiState({ success: "Grupo atualizado com sucesso." });
         } else {
             await createPole(formationId, { ...pole, active: true });
-            setUiState({ success: "Polo criado com sucesso." });
+            setUiState({ success: "Grupo criado com sucesso." });
         }
         setCurrentPole(null);
         setNavigation({ currentView: "poles" });
     } catch (error) {
-        setUiState({ error: error.message || "Não foi possível salvar o polo." });
+        setUiState({ error: error.message || "Não foi possível salvar o grupo." });
     } finally {
         setUiState({ loading: false });
         render();
@@ -732,15 +732,15 @@ async function savePole(input) {
 
 async function togglePole(poleId, active) {
     try {
-        if (!isAdmin()) throw new Error("Você não possui permissão para alterar o status do polo.");
+        if (!isAdmin()) throw new Error("Você não possui permissão para alterar o status do grupo.");
         const formationId = currentPoleFormationId();
-        if (!getState().data.poles.some((item) => item.id === poleId)) throw new Error("Polo não encontrado.");
+        if (!getState().data.poles.some((item) => item.id === poleId)) throw new Error("Grupo de formação não encontrado.");
         setUiState({ loading: true, error: null, success: null });
         render();
         await updatePoleActive(formationId, poleId, active !== "true");
-        setUiState({ success: active === "true" ? "Polo desativado com sucesso." : "Polo ativado com sucesso." });
+        setUiState({ success: active === "true" ? "Grupo desativado com sucesso." : "Grupo ativado com sucesso." });
     } catch (error) {
-        setUiState({ error: error.message || "Não foi possível alterar o status do polo." });
+        setUiState({ error: error.message || "Não foi possível alterar o status do grupo." });
     } finally {
         setUiState({ loading: false });
         render();
@@ -748,6 +748,11 @@ async function togglePole(poleId, active) {
 }
 
 function backToFormationDetails() {
+    setSubscription("encounters", null);
+    setSubscription("participants", null);
+    setCurrentEncounter(null);
+    setEncounters([]);
+    setParticipants([]);
     setCurrentPole(null);
     setNavigation({ currentView: "details" });
     setUiState({ loading: false, error: null, success: null });
@@ -795,6 +800,12 @@ async function showDetails(formationId) {
 
         if (!formation) throw new Error("Formação não encontrada.");
 
+        setSubscription("encounters", null);
+        setSubscription("participants", null);
+        setCurrentEncounter(null);
+        setEncounters([]);
+        setParticipants([]);
+        setCurrentPole(null);
         setCurrentFormation(formation);
         setNavigation({ currentView: "details" });
         loadPoles(formation.id);
@@ -854,8 +865,13 @@ async function changeStatus(formationId, status) {
 
 function backToList() {
     setSubscription("poles", null);
+    setSubscription("encounters", null);
+    setSubscription("participants", null);
     setCurrentFormation(null);
     setCurrentPole(null);
+    setCurrentEncounter(null);
+    setEncounters([]);
+    setParticipants([]);
     setNavigation({ currentView: "list" });
     render();
 }
@@ -893,6 +909,7 @@ function handleViewAction(action, formationId, status) {
     if (action === "details") showDetails(formationId);
     if (action === "status") changeStatus(formationId, status);
     if (action === "poles") showPoles(formationId);
+    if (action === "group") showEncounters(formationId);
     if (action === "back") backToList();
 }
 
@@ -916,9 +933,8 @@ function handleEncounterAction(action, encounterId, status) {
     if (action === "back") {
         const currentView = getState().navigation.currentView;
         if (currentView === "encounter-list") {
-            setSubscription("encounters", null);
-            setCurrentEncounter(null);
-            setNavigation({ currentView: "poles" });
+            backToFormationDetails();
+            return;
         } else if (currentView === "encounter-details") {
             setCurrentEncounter(null);
             setNavigation({ currentView: "encounter-list" });
