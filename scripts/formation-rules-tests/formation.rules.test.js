@@ -132,15 +132,15 @@ function validEncounter(overrides = {}) {
   };
 }
 
-async function seedEncounter(overrides = {}) {
-  await seedPole();
+async function seedEncounter(overrides = {}, formationStatus = 'active') {
+  await seedPole({}, 'formation-1', 'pole-1', formationStatus);
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(encounterRef(context.firestore()), { ...validEncounter(overrides), createdAt: Timestamp.fromDate(new Date('2026-01-01T00:00:00.000Z')), updatedAt: Timestamp.fromDate(new Date('2026-01-01T00:00:00.000Z')) });
   });
 }
 
-async function seedParticipant(overrides = {}, encounter = {}) {
-  await seedEncounter(encounter);
+async function seedParticipant(overrides = {}, encounter = {}, formationStatus = 'active') {
+  await seedEncounter(encounter, formationStatus);
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(participantRef(context.firestore(), overrides.serverId || 'server-1', encounter.id || 'encounter-1'), {
       ...validParticipant(overrides),
@@ -168,8 +168,8 @@ async function seedFormation(status = 'draft', id = 'formation-1') {
   });
 }
 
-async function seedPole(overrides = {}, formationId = 'formation-1', poleId = 'pole-1') {
-  await seedFormation('draft', formationId);
+async function seedPole(overrides = {}, formationId = 'formation-1', poleId = 'pole-1', formationStatus = 'active') {
+  await seedFormation(formationStatus, formationId);
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(poleRef(context.firestore(), formationId, poleId), {
       ...validPole(overrides),
@@ -290,8 +290,8 @@ test('admin can update a valid formation', async () => {
 });
 
 for (const [from, to] of [
-  ['draft', 'active'], ['active', 'completed'], ['active', 'archived'],
-  ['completed', 'archived'], ['draft', 'archived'], ['active', 'active'], ['archived', 'archived'],
+  ['draft', 'active'], ['active', 'completed'],
+  ['completed', 'archived'], ['draft', 'archived'], ['active', 'active'],
 ]) {
   test(`admin permits status transition ${from} → ${to}`, async () => {
     await seedFormation(from);
@@ -300,7 +300,7 @@ for (const [from, to] of [
 }
 
 for (const [from, to] of [
-  ['draft', 'completed'], ['active', 'draft'], ['completed', 'active'],
+  ['draft', 'completed'], ['active', 'draft'], ['active', 'archived'], ['completed', 'active'], ['archived', 'archived'],
   ['completed', 'draft'], ['archived', 'active'], ['archived', 'completed'],
 ]) {
   test(`admin rejects invalid status transition ${from} → ${to}`, async () => {
@@ -326,6 +326,40 @@ for (const role of ['coordinator', 'viewer']) {
     await assertFails(updateDoc(formationRef(db), { status: 'active', updatedAt: serverTimestamp() }));
   });
 }
+
+test('draft permits preparation but rejects encounter operation and attendance', async () => {
+  await seedPole({}, 'formation-1', 'pole-1', 'draft');
+  const admin = dbFor(users.admin);
+  await assertSucceeds(setDoc(rosterRef(admin), validRoster()));
+  await assertSucceeds(setDoc(encounterRef(admin), validEncounter()));
+  await assertFails(updateDoc(encounterRef(admin), { status: 'in_progress', updatedAt: serverTimestamp() }));
+  await seedParticipant({}, { status: 'in_progress' }, 'draft');
+  await assertFails(updateDoc(participantRef(admin), { attendanceStatus: 'present', recordedBy: users.admin.uid, recordedAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+});
+
+test('completed allows only the exact archive transition and completed attendance correction by admin', async () => {
+  await seedPole({}, 'formation-1', 'pole-1', 'completed');
+  const admin = dbFor(users.admin);
+  await assertFails(updateDoc(formationRef(admin), { name: 'Bloqueada', updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(formationRef(admin), { status: 'archived', updatedAt: serverTimestamp() }));
+  await seedPole({}, 'formation-1', 'pole-1', 'completed');
+  await assertFails(setDoc(rosterRef(admin), validRoster()));
+  await assertFails(setDoc(encounterRef(admin), validEncounter()));
+  await seedParticipant({}, { status: 'completed' }, 'completed');
+  await assertSucceeds(updateDoc(participantRef(admin), { attendanceStatus: 'present', recordedBy: users.admin.uid, recordedAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+});
+
+test('archived formation remains readable and rejects descendant writes', async () => {
+  await seedPole({}, 'formation-1', 'pole-1', 'archived');
+  const admin = dbFor(users.admin);
+  await assertSucceeds(getDoc(formationRef(dbFor(users.viewer))));
+  await assertFails(updateDoc(formationRef(admin), { name: 'Não pode', updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(poleRef(admin), { name: 'Não pode', updatedAt: serverTimestamp() }));
+  await assertFails(setDoc(rosterRef(admin), validRoster()));
+  await assertFails(setDoc(encounterRef(admin), validEncounter()));
+  await seedParticipant({}, { status: 'completed' }, 'archived');
+  await assertFails(updateDoc(participantRef(admin), { attendanceStatus: 'present', recordedBy: users.admin.uid, recordedAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+});
 
 test('inactive user cannot read, create, or update formations', async () => {
   await seedFormation();

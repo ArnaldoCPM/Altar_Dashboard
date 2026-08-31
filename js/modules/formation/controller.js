@@ -13,6 +13,8 @@ import {
     updateFormationStatus
 } from "./services/formation.service.js";
 import { createGroup, getGroups, setGroupActive, updateGroup } from "./services/group-catalog.service.js";
+import { filterFormations } from "./services/formation-list.service.js";
+import { canCompleteWithEncounterCounts, completionBlockMessage, getFormationEncounterStatusCounts } from "./services/formation-lifecycle.service.js";
 import { eligibilityFor, SERVER_TYPES } from "./services/eligibility.service.js";
 import { addRosterMembers, getRoster, removeRosterMember, subscribeToRoster } from "./services/roster.service.js";
 import {
@@ -62,9 +64,9 @@ const VALID_MODALITIES = new Set(["initial", "permanent"]);
 const VALID_STATUSES = new Set(["draft", "active", "completed", "archived"]);
 const STATUS_TRANSITIONS = {
     draft: new Set(["active", "archived"]),
-    active: new Set(["completed", "archived"]),
+    active: new Set(["completed"]),
     completed: new Set(["archived"]),
-    archived: new Set(["archived"])
+    archived: new Set()
 };
 
 let initialized = false;
@@ -115,9 +117,9 @@ function render() {
     if (!root) return;
 
     const state = getState();
-    if (state.navigation.currentView === "roster") { renderRosterView(root, state, { data: rosterResources, canManage: isAdmin(), add: addRosterSelection, remove: removeRosterSelection, prepare: prepareRoster, back: () => showEncounters(state.data.currentPole?.id) }); mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation); return; }
+    if (state.navigation.currentView === "roster") { renderRosterView(root, state, { data: rosterResources, canManage: isAdmin() && canConfigureCurrentFormation(), add: addRosterSelection, remove: removeRosterSelection, prepare: prepareRoster, back: () => showEncounters(state.data.currentPole?.id) }); mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation); return; }
     if (["participants", "participant-manual"].includes(state.navigation.currentView)) {
-        renderParticipantsView(root, state, { action: handleParticipantAction, addManual: addManualParticipant, canManage: canManageParticipants(), canManageAttendance: canManageAttendance(), canClose: availableEncounterStatuses(state.data.currentEncounter).includes("completed"), servers: participantResources.servers });
+        renderParticipantsView(root, state, { action: handleParticipantAction, addManual: addManualParticipant, canManage: canManageParticipants(), canManageAttendance: canManageAttendance(), canClose: availableEncounterStatuses(state.data.currentEncounter).includes("completed"), legacyTools: !(state.data.currentPole?.groupId && state.data.currentPole?.rosterPreparedAt), servers: participantResources.servers });
         mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation);
         return;
     }
@@ -136,10 +138,13 @@ function render() {
             action: handleEncounterAction,
             save: saveEncounter,
             addSubstitute,
-            canManage: canManageCurrentPole(),
+            canManage: canManageEncounterStructure(),
             canEdit: canEditCurrentEncounter(),
             canManageResponsibilities: isAdmin(),
-            canAddSubstitute: isAdmin() && state.navigation.currentView !== "encounter-substitute",
+            canAddSubstitute: isAdmin() && canManageEncounterStructure() && state.navigation.currentView !== "encounter-substitute",
+            canStart: availableEncounterStatuses(state.data.currentEncounter).includes("in_progress"),
+            canRegisterAttendance: canManageAttendance(),
+            canConsultAttendance: Boolean(state.data.currentEncounter),
             rosterCount: rosterResources.members.length,
             statusActions: availableEncounterStatuses(state.data.currentEncounter),
             ...encounterResources
@@ -151,10 +156,10 @@ function render() {
         renderPoleView(root, state, {
             action: handlePoleAction,
             savePole,
-            canCreatePole: isAdmin(),
-            canTogglePole: isAdmin(),
+            canCreatePole: isAdmin() && canConfigureCurrentFormation(),
+            canTogglePole: isAdmin() && canConfigureCurrentFormation(),
             canManageCoordinators: isAdmin(),
-            editablePoleIds: state.data.poles.filter(canEditPole).map((pole) => pole.id),
+            editablePoleIds: canConfigureCurrentFormation() ? state.data.poles.filter(canEditPole).map((pole) => pole.id) : [],
             chapelNameById: Object.fromEntries(poleResources.chapels.map((chapel) => [chapel.id, chapel.name])),
             chapels: poleResources.chapels,
             coordinators: poleResources.coordinators
@@ -204,19 +209,13 @@ function applyFilters(filters = {}) {
         query: filters.query ?? "",
         status: filters.status || null,
         stage: filters.stage || null,
-        modality: filters.modality || null
+        modality: filters.modality || null,
+        period: filters.period || null,
+        year: filters.year || null
     });
 
     const { data, filters: currentFilters } = getState();
-    const query = currentFilters.query.trim().toLocaleLowerCase();
-    const filtered = data.formations.filter((formation) => {
-        const matchesQuery = !query || formation.name.toLocaleLowerCase().includes(query);
-        const matchesStatus = !currentFilters.status || formation.status === currentFilters.status;
-        const matchesStage = !currentFilters.stage || formation.stage === currentFilters.stage;
-        const matchesModality = !currentFilters.modality || formation.modalities.includes(currentFilters.modality);
-
-        return matchesQuery && matchesStatus && matchesStage && matchesModality;
-    });
+    const filtered = filterFormations(data.formations, currentFilters);
 
     setFilteredFormations(filtered);
     render();
@@ -321,20 +320,34 @@ function canManageCurrentPole() {
     return Boolean(pole) && (isAdmin() || canEditPole(pole));
 }
 
+function canConfigureFormation(formation = getState().data.currentFormation) {
+    return Boolean(formation) && ["draft", "active"].includes(formation.status);
+}
+
+function canConfigureCurrentFormation() {
+    return canConfigureFormation(getState().data.currentFormation);
+}
+
+function canManageEncounterStructure() {
+    return canConfigureCurrentFormation() && canManageCurrentPole();
+}
+
 function canEditCurrentEncounter() {
     const encounter = getState().data.currentEncounter;
-    return Boolean(encounter) && canManageCurrentPole() && (isAdmin() || encounter.status === "scheduled");
+    return Boolean(encounter) && canManageEncounterStructure() && (isAdmin() || encounter.status === "scheduled");
 }
 
 function canManageParticipants() {
     const encounter = getState().data.currentEncounter;
-    return Boolean(encounter) && encounter.status === "scheduled" && canManageCurrentPole();
+    return Boolean(encounter) && encounter.status === "scheduled" && canManageEncounterStructure();
 }
 
 function canManageAttendance() {
-    const { currentEncounter, currentPole } = getState().data;
+    const { currentFormation, currentEncounter, currentPole } = getState().data;
     const user = getCurrentUser();
     if (!currentEncounter || !user?.uid) return false;
+    if (currentFormation?.status === "completed") return currentEncounter.status === "completed" && isAdmin();
+    if (currentFormation?.status !== "active") return false;
     if (currentEncounter.status === "completed") return isAdmin();
     if (currentEncounter.status !== "in_progress") return false;
     return isAdmin()
@@ -377,6 +390,7 @@ function manualInclusionWarnings(server) {
 
 function availableEncounterStatuses(encounter) {
     if (!encounter) return [];
+    if (getState().data.currentFormation?.status !== "active") return [];
     const user = getCurrentUser();
     const operational = isCoordinator() && (encounter.coordinatorIds || []).includes(user?.uid);
     if (encounter.status === "scheduled" && (canManageCurrentPole() || operational)) return ["in_progress", ...(canManageCurrentPole() ? ["cancelled"] : [])];
@@ -563,11 +577,11 @@ async function openOperationalEncounter(context) {
 }
 
 async function showEncounterForm(encounterId = null) {
-    try { if (!canManageCurrentPole()) throw new Error("Você não possui permissão para administrar encontros."); const encounter = encounterId ? getState().data.encounters.find((item) => item.id === encounterId) : null; if (encounter && !canEditCurrentEncounter()) throw new Error("Este encontro não pode mais ter sua agenda editada."); await loadEncounterResources(); encounterResources.roster = encounter ? null : await getRoster(getState().data.currentFormation.id, getState().data.currentPole.id); setCurrentEncounter(encounter || null); setNavigation({ currentView: "encounter-form" }); setUiState({ error: null, success: null }); render(); } catch (error) { setUiState({ error: error.message }); render(); }
+    try { if (!canManageEncounterStructure()) throw new Error("Esta formação está disponível somente para consulta."); const encounter = encounterId ? getState().data.encounters.find((item) => item.id === encounterId) : null; if (encounter && !canEditCurrentEncounter()) throw new Error("Este encontro não pode mais ter sua agenda editada."); await loadEncounterResources(); encounterResources.roster = encounter ? null : await getRoster(getState().data.currentFormation.id, getState().data.currentPole.id); setCurrentEncounter(encounter || null); setNavigation({ currentView: "encounter-form" }); setUiState({ error: null, success: null }); render(); } catch (error) { setUiState({ error: error.message }); render(); }
 }
 
 async function saveEncounter(input) {
-    try { const { currentFormation, currentPole, currentEncounter } = getState().data; if (!canManageCurrentPole()) throw new Error("Você não possui permissão para administrar encontros."); if (currentEncounter && !canEditCurrentEncounter()) throw new Error("Este encontro não pode mais ter sua agenda editada."); const encounter = validateEncounter(input, currentEncounter); setUiState({ loading: true, error: null }); render(); if (currentEncounter) await updateEncounter(currentFormation.id, currentPole.id, currentEncounter.id, encounter); else if (currentPole.rosterPreparedAt) await createEncounterWithParticipants(currentFormation.id, currentPole.id, { ...encounter, status: "scheduled", createdBy: getCurrentUser().uid }, encounterResources.roster || []); else await createEncounter(currentFormation.id, currentPole.id, { ...encounter, status: "scheduled", createdBy: getCurrentUser().uid }); setNavigation({ currentView: "encounter-list" }); setCurrentEncounter(null); setUiState({ success: "Encontro criado com participantes preparados." }); } catch (error) { setUiState({ error: error.message || "Não foi possível salvar o encontro." }); } finally { setUiState({ loading: false }); render(); }
+    try { const { currentFormation, currentPole, currentEncounter } = getState().data; if (!canManageEncounterStructure()) throw new Error("Esta formação está disponível somente para consulta."); if (currentEncounter && !canEditCurrentEncounter()) throw new Error("Este encontro não pode mais ter sua agenda editada."); const encounter = validateEncounter(input, currentEncounter); setUiState({ loading: true, error: null }); render(); if (currentEncounter) await updateEncounter(currentFormation.id, currentPole.id, currentEncounter.id, encounter); else if (currentPole.rosterPreparedAt) await createEncounterWithParticipants(currentFormation.id, currentPole.id, { ...encounter, status: "scheduled", createdBy: getCurrentUser().uid }, encounterResources.roster || []); else await createEncounter(currentFormation.id, currentPole.id, { ...encounter, status: "scheduled", createdBy: getCurrentUser().uid }); setNavigation({ currentView: "encounter-list" }); setCurrentEncounter(null); setUiState({ success: "Encontro criado com participantes preparados." }); } catch (error) { setUiState({ error: error.message || "Não foi possível salvar o encontro." }); } finally { setUiState({ loading: false }); render(); }
 }
 
 function statusConfirmationCopy(status) {
@@ -661,7 +675,7 @@ async function confirmEncounterStatusChange(confirmation) {
 }
 
 async function addSubstitute(replacesUserId, substituteId) {
-    try { if (!isAdmin()) throw new Error("A atribuição de substitutos é temporariamente exclusiva do administrador."); const { currentFormation, currentPole, currentEncounter } = getState().data; const designated = (currentEncounter.responsibilities || []).find((item) => item.type === "designated" && item.userId === replacesUserId && item.status === "confirmed"); if (!designated || !encounterResources.allCoordinators.some((user) => user.id === substituteId) || substituteId === replacesUserId || (currentEncounter.responsibilities || []).some((item) => item.type === "substitute" && item.status === "confirmed" && item.userId === substituteId)) throw new Error("Substituição inválida."); const responsibilities = [...currentEncounter.responsibilities, { userId: substituteId, type: "substitute", replacesUserId, status: "confirmed" }]; await updateResponsibilities(currentFormation.id, currentPole.id, currentEncounter.id, responsibilities, coordinatorIdsFrom(responsibilities)); setNavigation({ currentView: "encounter-details" }); } catch (error) { setUiState({ error: error.message }); } finally { render(); }
+    try { if (!isAdmin()) throw new Error("A atribuição de substitutos é temporariamente exclusiva do administrador."); if (!canManageEncounterStructure()) throw new Error("Esta formação está disponível somente para consulta."); const { currentFormation, currentPole, currentEncounter } = getState().data; const designated = (currentEncounter.responsibilities || []).find((item) => item.type === "designated" && item.userId === replacesUserId && item.status === "confirmed"); if (!designated || !encounterResources.allCoordinators.some((user) => user.id === substituteId) || substituteId === replacesUserId || (currentEncounter.responsibilities || []).some((item) => item.type === "substitute" && item.status === "confirmed" && item.userId === substituteId)) throw new Error("Substituição inválida."); const responsibilities = [...currentEncounter.responsibilities, { userId: substituteId, type: "substitute", replacesUserId, status: "confirmed" }]; await updateResponsibilities(currentFormation.id, currentPole.id, currentEncounter.id, responsibilities, coordinatorIdsFrom(responsibilities)); setNavigation({ currentView: "encounter-details" }); } catch (error) { setUiState({ error: error.message }); } finally { render(); }
 }
 
 function requirePoleEditPermission(pole) {
@@ -729,6 +743,7 @@ async function showPoles(formationId) {
 async function showPoleForm(poleId = null) {
     try {
         const formationId = currentPoleFormationId();
+        if (!canConfigureCurrentFormation()) throw new Error("Esta formação está disponível somente para consulta.");
         const pole = poleId ? getState().data.poles.find((item) => item.id === poleId) || await getPole(formationId, poleId) : null;
         if (poleId && !pole) throw new Error("Grupo de formação não encontrado.");
         if (pole) requirePoleEditPermission(pole);
@@ -747,6 +762,7 @@ async function showPoleForm(poleId = null) {
 async function savePole(input) {
     try {
         const formationId = currentPoleFormationId();
+        if (!canConfigureCurrentFormation()) throw new Error("Esta formação está disponível somente para consulta.");
         const existingPole = input.id ? getState().data.poles.find((pole) => pole.id === input.id) : null;
         if (input.id && !existingPole) throw new Error("Grupo de formação não encontrado.");
         if (existingPole) requirePoleEditPermission(existingPole);
@@ -774,6 +790,7 @@ async function savePole(input) {
 async function togglePole(poleId, active) {
     try {
         if (!isAdmin()) throw new Error("Você não possui permissão para alterar o status do grupo.");
+        if (!canConfigureCurrentFormation()) throw new Error("Esta formação está disponível somente para consulta.");
         const formationId = currentPoleFormationId();
         if (!getState().data.poles.some((item) => item.id === poleId)) throw new Error("Grupo de formação não encontrado.");
         setUiState({ loading: true, error: null, success: null });
@@ -805,6 +822,8 @@ async function saveFormation(input) {
     try {
         const formation = validateFormation(input);
         requirePermission(input.id ? "canEdit" : "canCreate");
+        const existingFormation = input.id ? getState().data.formations.find((item) => item.id === input.id) : null;
+        if (existingFormation && !canConfigureFormation(existingFormation)) throw new Error("Esta formação está disponível somente para consulta.");
         setUiState({ loading: true, error: null, success: null });
         render();
 
@@ -876,6 +895,7 @@ async function showForm(formationId = null) {
 
     try {
         requirePermission(formationId ? "canEdit" : "canCreate");
+        if (formation && !canConfigureFormation(formation)) throw new Error("Esta formação está disponível somente para consulta.");
         await loadPoleResources();
         await refreshGroupCatalog();
         if (formation) loadPoles(formation.id);
@@ -899,11 +919,27 @@ async function changeStatus(formationId, status) {
         if (!STATUS_TRANSITIONS[formation.status].has(status)) {
             throw new Error("Esta transição de status não é permitida.");
         }
+        if (status === "completed") {
+            const counts = await getFormationEncounterStatusCounts(formationId);
+            if (!canCompleteWithEncounterCounts(counts)) throw new Error(completionBlockMessage(counts));
+        }
+        const confirmation = {
+            active: "Deseja ativar esta formação?",
+            completed: "Deseja concluir esta formação?",
+            archived: formation.status === "draft"
+                ? "Deseja arquivar esta formação? Ela ficará fora do fluxo operativo."
+                : "Deseja arquivar esta formação?"
+        }[status];
+        if (!window.confirm(confirmation)) return;
 
         setUiState({ loading: true, error: null, success: null });
         render();
         await updateFormationStatus(formationId, status);
-        setUiState({ success: "Status atualizado com sucesso." });
+        const updated = { ...formation, status };
+        setFormations(getState().data.formations.map((item) => item.id === formationId ? updated : item));
+        if (getState().data.currentFormation?.id === formationId) setCurrentFormation(updated);
+        applyFilters(getState().filters);
+        setUiState({ success: { active: "Formação ativada.", completed: "Formação concluída.", archived: "Formação arquivada." }[status] });
     } catch (error) {
         setUiState({ error: error.message || "Não foi possível atualizar o status." });
     } finally {
@@ -944,9 +980,9 @@ async function loadRosterScreen() {
 }
 
 async function showRoster() { try { setUiState({ loading: true, error: null, success: null }); await loadRosterScreen(); setNavigation({ currentView: "roster" }); } catch (error) { setUiState({ error: error.message || "Não foi possível carregar participantes." }); } finally { setUiState({ loading: false }); render(); } }
-async function addRosterSelection(ids) { try { if (!isAdmin()) throw new Error("Apenas administradores podem alterar a lista."); if (!ids.length) throw new Error("Selecione ao menos um servidor."); const { currentFormation: formation, currentPole: pole } = getState().data; const servers = await getAllServers(); const criteria = { ...formation.eligibilityCriteria, referenceDate: formation.referenceDate?.toDate ? formation.referenceDate.toDate() : formation.referenceDate }; const selected = servers.filter((server) => ids.includes(server.id)).filter((server) => eligibilityFor(server, criteria, pole.chapelIds || []).eligible).map((server) => rosterMember(server, formation, pole, "manual")); await addRosterMembers(formation.id, pole.id, selected, getCurrentUser().uid); setUiState({ success: selected.length ? `${selected.length} participante(s) adicionado(s).` : "Nenhum selecionado permanece elegível." }); await loadRosterScreen(); } catch (error) { setUiState({ error: error.message }); } render(); }
-async function removeRosterSelection(serverId) { try { if (!isAdmin()) throw new Error("Apenas administradores podem alterar a lista."); const { currentFormation, currentPole } = getState().data; await removeRosterMember(currentFormation.id, currentPole.id, serverId); setUiState({ success: "Participante retirado da lista." }); await loadRosterScreen(); } catch (error) { setUiState({ error: error.message }); } render(); }
-async function prepareRoster() { try { if (!isAdmin()) throw new Error("Apenas administradores podem preparar a lista."); const { currentFormation, currentPole } = getState().data; if (!currentFormation.eligibilityCriteria || !currentFormation.referenceDate) throw new Error("Configure os critérios de participação antes de preparar a lista."); await addRosterSelection(rosterResources.candidates.map((server) => server.id)); const { id, ...pole } = currentPole; await updatePole(currentFormation.id, id, { ...pole, rosterPreparedAt: new Date() }); await loadRosterScreen(); setUiState({ success: "Lista de participantes preparada." }); } catch (error) { setUiState({ error: error.message }); render(); } }
+async function addRosterSelection(ids) { try { if (!isAdmin() || !canConfigureCurrentFormation()) throw new Error("Esta formação está disponível somente para consulta."); if (!ids.length) throw new Error("Selecione ao menos um servidor."); const { currentFormation: formation, currentPole: pole } = getState().data; const servers = await getAllServers(); const criteria = { ...formation.eligibilityCriteria, referenceDate: formation.referenceDate?.toDate ? formation.referenceDate.toDate() : formation.referenceDate }; const selected = servers.filter((server) => ids.includes(server.id)).filter((server) => eligibilityFor(server, criteria, pole.chapelIds || []).eligible).map((server) => rosterMember(server, formation, pole, "manual")); await addRosterMembers(formation.id, pole.id, selected, getCurrentUser().uid); setUiState({ success: selected.length ? `${selected.length} participante(s) adicionado(s).` : "Nenhum selecionado permanece elegível." }); await loadRosterScreen(); } catch (error) { setUiState({ error: error.message }); } render(); }
+async function removeRosterSelection(serverId) { try { if (!isAdmin() || !canConfigureCurrentFormation()) throw new Error("Esta formação está disponível somente para consulta."); const { currentFormation, currentPole } = getState().data; await removeRosterMember(currentFormation.id, currentPole.id, serverId); setUiState({ success: "Participante retirado da lista." }); await loadRosterScreen(); } catch (error) { setUiState({ error: error.message }); } render(); }
+async function prepareRoster() { try { if (!isAdmin() || !canConfigureCurrentFormation()) throw new Error("Esta formação está disponível somente para consulta."); const { currentFormation, currentPole } = getState().data; if (!currentFormation.eligibilityCriteria || !currentFormation.referenceDate) throw new Error("Configure os critérios de participação antes de preparar a lista."); await addRosterSelection(rosterResources.candidates.map((server) => server.id)); const { id, ...pole } = currentPole; await updatePole(currentFormation.id, id, { ...pole, rosterPreparedAt: new Date() }); await loadRosterScreen(); setUiState({ success: "Lista de participantes preparada." }); } catch (error) { setUiState({ error: error.message }); render(); } }
 
 async function createCatalogGroup(input) {
     try {

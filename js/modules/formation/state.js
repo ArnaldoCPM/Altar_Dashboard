@@ -16,7 +16,8 @@ const initialState = () => ({
         status: null,
         stage: null,
         modality: null,
-        period: null
+        period: null,
+        year: null
     },
     navigation: {
         currentSection: "formations",

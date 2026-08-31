@@ -2,6 +2,7 @@ import { getCurrentUser } from "../../../session.js";
 import { getFormations } from "./operational-formations.service.js";
 import { getPoles } from "./pole.service.js";
 import { getEncounters } from "./encounter.service.js";
+import { activeOperationalFormations } from "./formation-lifecycle.logic.js";
 
 function toMillis(value) {
     const date = value?.toDate ? value.toDate() : new Date(value);
@@ -16,7 +17,7 @@ function compareOperational(left, right) {
 
 async function getOperationalEncounters(uid = getCurrentUser()?.uid) {
     if (!uid) return [];
-    const formations = await getFormations();
+    const formations = activeOperationalFormations(await getFormations());
     const contexts = [];
     for (const formation of formations) {
         const poles = await getPoles(formation.id);

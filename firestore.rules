@@ -302,9 +302,17 @@ service cloud.firestore {
       function hasValidStatusTransition(currentStatus, nextStatus) {
         return currentStatus == nextStatus
           || (currentStatus == "draft" && nextStatus in ["active", "archived"])
-          || (currentStatus == "active" && nextStatus in ["completed", "archived"])
+          || (currentStatus == "active" && nextStatus == "completed")
           || (currentStatus == "completed" && nextStatus == "archived")
           || (currentStatus == "archived" && nextStatus == "archived");
+      }
+
+      function canUpdateFormationLifecycle() {
+        return (resource.data.status == "draft" && request.resource.data.status in ["draft", "active", "archived"])
+          || (resource.data.status == "active" && request.resource.data.status in ["active", "completed"])
+          || (resource.data.status == "completed"
+            && request.resource.data.status == "archived"
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"]));
       }
 
       allow get, list: if isActive();
@@ -319,7 +327,8 @@ service cloud.firestore {
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.updatedAt == request.time
-        && hasValidStatusTransition(resource.data.status, request.resource.data.status);
+        && hasValidStatusTransition(resource.data.status, request.resource.data.status)
+        && canUpdateFormationLifecycle();
 
       match /poles/{poleId} {
         function formationExists() {
@@ -328,6 +337,22 @@ service cloud.firestore {
 
         function formationExistsAfterCreate() {
           return existsAfter(/databases/$(database)/documents/formations/$(formationId));
+        }
+
+        function formationStatus() {
+          return get(/databases/$(database)/documents/formations/$(formationId)).data.status;
+        }
+
+        function formationStatusAfterCreate() {
+          return getAfter(/databases/$(database)/documents/formations/$(formationId)).data.status;
+        }
+
+        function formationIsConfigurable() {
+          return formationStatus() in ["draft", "active"];
+        }
+
+        function formationIsConfigurableAfterCreate() {
+          return formationStatusAfterCreate() in ["draft", "active"];
         }
 
         function hasValidPoleFields(data) {
@@ -370,10 +395,12 @@ service cloud.firestore {
         allow get, list: if isActive() && formationExists();
         allow create: if isAdmin()
           && formationExistsAfterCreate()
+          && formationIsConfigurableAfterCreate()
           && hasValidPoleFields(request.resource.data)
           && request.resource.data.createdAt == request.time
           && request.resource.data.updatedAt == request.time;
         allow update: if formationExists()
+          && formationIsConfigurable()
           && hasValidPoleFields(request.resource.data)
           && request.resource.data.createdAt == resource.data.createdAt
           && request.resource.data.updatedAt == request.time
@@ -391,9 +418,11 @@ service cloud.firestore {
               && data.origin in ["eligible", "manual"] && data.addedBy is string && data.createdAt is timestamp && data.updatedAt is timestamp;
           }
           allow get, list: if isActive() && formationExists();
-          allow create: if isAdmin() && validRoster(request.resource.data) && request.resource.data.addedBy == request.auth.uid && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
-          allow update: if isAdmin() && validRoster(request.resource.data) && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.updatedAt == request.time;
-          allow delete: if isAdmin();
+          allow create: if isAdmin()
+            && (formationIsConfigurable() || (formationExistsAfterCreate() && formationIsConfigurableAfterCreate()))
+            && validRoster(request.resource.data) && request.resource.data.addedBy == request.auth.uid && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+          allow update: if isAdmin() && formationIsConfigurable() && validRoster(request.resource.data) && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.updatedAt == request.time;
+          allow delete: if isAdmin() && formationIsConfigurable();
         }
 
         match /encounters/{encounterId} {
@@ -480,28 +509,33 @@ service cloud.firestore {
           }
 
           allow get, list: if isActive() && formationExists() && poleExists();
-          allow create: if formationExists() && poleExists() && validEncounter(request.resource.data)
+          allow create: if formationExists() && formationIsConfigurable() && poleExists() && validEncounter(request.resource.data)
             && (isAdmin() || isSelfAssignedPoleCoordinatorEncounter(request.resource.data))
             && request.resource.data.status == "scheduled"
             && request.resource.data.createdBy == request.auth.uid
             && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
-          allow update: if formationExists() && poleExists() && validEncounter(request.resource.data)
+          allow update: if formationExists() && poleExists() && formationStatus() in ["draft", "active"] && validEncounter(request.resource.data)
             && request.resource.data.createdBy == resource.data.createdBy
             && request.resource.data.createdAt == resource.data.createdAt
             && request.resource.data.updatedAt == request.time
             && validTransition()
+            && (formationStatus() == "active" || (resource.data.status == "scheduled" && request.resource.data.status == "scheduled"))
             && (!(resource.data.status == "scheduled" && request.resource.data.status == "in_progress") || request.resource.data.coordinatorIds.size() > 0)
             && (adminCanUpdate() || canUpdateScheduledAgenda() || canManageStatus() || canOperateStatus());
 
-          function canManageParticipants() { return isAdmin() || isPoleCoordinator(); }
+          function canManageParticipants() { return formationIsConfigurable() && (isAdmin() || isPoleCoordinator()); }
           match /participants/{serverId} {
             function validParticipant(data) { return data.keys().hasOnly(["serverId", "serverName", "chapelId", "chapelName", "participationType", "attendanceStatus", "attendanceNote", "recordedBy", "recordedAt", "addedManually", "addedBy", "createdAt", "updatedAt"]) && data.keys().hasAll(["serverId", "serverName", "chapelId", "chapelName", "participationType", "attendanceStatus", "addedManually", "addedBy", "createdAt", "updatedAt"]) && data.serverId is string && data.serverId == serverId && data.serverName is string && data.serverName.size() > 0 && data.chapelId is string && data.chapelName is string && data.participationType in ["regular", "manual"] && data.attendanceStatus == "pending" && !data.keys().hasAny(["attendanceNote", "recordedBy", "recordedAt"]) && data.addedManually is bool && data.addedBy == request.auth.uid && data.createdAt is timestamp && data.updatedAt is timestamp; }
             function validAttendanceParticipant(data) { return data.keys().hasOnly(["serverId", "serverName", "chapelId", "chapelName", "participationType", "attendanceStatus", "attendanceNote", "recordedBy", "recordedAt", "addedManually", "addedBy", "createdAt", "updatedAt"]) && data.keys().hasAll(["serverId", "serverName", "chapelId", "chapelName", "participationType", "attendanceStatus", "addedManually", "addedBy", "createdAt", "updatedAt"]) && data.serverId is string && data.serverId == serverId && data.serverName is string && data.serverName.size() > 0 && data.chapelId is string && data.chapelName is string && data.participationType in ["regular", "manual"] && data.addedManually is bool && data.addedBy is string && data.createdAt is timestamp && data.updatedAt is timestamp && (data.attendanceStatus == "pending" ? !data.keys().hasAny(["attendanceNote", "recordedBy", "recordedAt"]) : data.attendanceStatus in ["present", "absent", "justified"] && data.recordedBy is string && data.recordedAt is timestamp && (!data.keys().hasAny(["attendanceNote"]) || (data.attendanceNote is string && data.attendanceNote.size() <= 500 && data.attendanceNote.matches(".*\\S.*"))) && (data.attendanceStatus != "justified" || (data.keys().hasAny(["attendanceNote"]) && data.attendanceNote.size() > 0))); }
             function encounterData() { return get(/databases/$(database)/documents/formations/$(formationId)/poles/$(poleId)/encounters/$(encounterId)).data; }
             function canUpdateAttendance() { return isAdmin() || isPoleCoordinator() || (isCoordinator() && request.auth.uid in encounterData().coordinatorIds); }
+            function canWriteAttendance() {
+              return (formationStatus() == "active" && ((encounterData().status == "in_progress" && canUpdateAttendance()) || (encounterData().status == "completed" && isAdmin())))
+                || (formationStatus() == "completed" && encounterData().status == "completed" && isAdmin());
+            }
             allow get, list: if isActive() && formationExists() && poleExists();
             allow create: if isActive() && formationExists() && poleExists() && validParticipant(request.resource.data) && canManageParticipants() && resource == null && getAfter(/databases/$(database)/documents/formations/$(formationId)/poles/$(poleId)/encounters/$(encounterId)).data.status == "scheduled" && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
-            allow update: if isActive() && formationExists() && poleExists() && validAttendanceParticipant(request.resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["attendanceStatus", "attendanceNote", "recordedBy", "recordedAt", "updatedAt"]) && request.resource.data.updatedAt == request.time && ((request.resource.data.attendanceStatus == "pending") || (request.resource.data.recordedBy == request.auth.uid && request.resource.data.recordedAt == request.time)) && ((encounterData().status == "in_progress" && canUpdateAttendance()) || (encounterData().status == "completed" && isAdmin()));
+            allow update: if isActive() && formationExists() && poleExists() && validAttendanceParticipant(request.resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["attendanceStatus", "attendanceNote", "recordedBy", "recordedAt", "updatedAt"]) && request.resource.data.updatedAt == request.time && ((request.resource.data.attendanceStatus == "pending") || (request.resource.data.recordedBy == request.auth.uid && request.resource.data.recordedAt == request.time)) && canWriteAttendance();
             allow delete: if isActive() && formationExists() && poleExists() && canManageParticipants() && get(/databases/$(database)/documents/formations/$(formationId)/poles/$(poleId)/encounters/$(encounterId)).data.status == "scheduled";
           }
           match /participantExclusions/{serverId} {
