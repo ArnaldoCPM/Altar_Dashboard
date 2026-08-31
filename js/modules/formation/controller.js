@@ -6,11 +6,13 @@ import { cleanStr } from "../../utils.js";
 import { isAdmin, isCoordinator } from "../../permissions.js";
 import {
     createFormation,
+    createFormationWithGroups,
     getFormation,
     subscribeToFormations,
     updateFormation,
     updateFormationStatus
 } from "./services/formation.service.js";
+import { createGroup, getGroups, setGroupActive, updateGroup } from "./services/group-catalog.service.js";
 import {
     createPole,
     countPoles,
@@ -65,10 +67,33 @@ const STATUS_TRANSITIONS = {
 let initialized = false;
 let root = null;
 let poleResources = { chapels: [], coordinators: [] };
+let groupCatalog = [];
 let encounterResources = { chapels: [], designatedCoordinators: [], allCoordinators: [], userNames: {} };
 let participantResources = { servers: [] };
 let lifecycleVersion = 0;
 const POLE_COUNT_CONCURRENCY = 4;
+
+// This array is the sole in-memory source for the reusable group catalog.
+// Keep its identity stable so an open Formation form and the catalog UI never
+// end up reading different cached arrays.
+function replaceGroupCatalog(groups) {
+    groupCatalog.splice(0, groupCatalog.length, ...groups);
+}
+
+async function refreshGroupCatalog() {
+    replaceGroupCatalog(await getGroups());
+}
+
+function replaceCatalogGroup(group) {
+    const index = groupCatalog.findIndex((item) => item.id === group.id);
+    if (index === -1) groupCatalog.push(group);
+    else groupCatalog.splice(index, 1, group);
+    groupCatalog.sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
+}
+
+function activeCatalogGroups() {
+    return groupCatalog.filter((group) => group.active === true);
+}
 
 function resolvePermissions() {
     const canManageFormations = isAdmin();
@@ -136,7 +161,12 @@ function render() {
         action: handleViewAction,
         applyFilters,
         save: saveFormation,
-        poleSummaryByFormationId: state.data.poleSummaryByFormationId
+        poleSummaryByFormationId: state.data.poleSummaryByFormationId,
+        groupCatalog,
+        catalogChapels: poleResources.chapels,
+        catalogCoordinators: poleResources.coordinators,
+        createCatalogGroup,
+        canManageCatalog: isAdmin()
     });
     mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation);
 }
@@ -767,18 +797,23 @@ async function saveFormation(input) {
         setUiState({ loading: true, error: null, success: null });
         render();
 
+        const selectedGroups = activeCatalogGroups().filter((group) => (input.groupIds || []).includes(group.id));
         if (input.id) {
             await updateFormation(input.id, formation);
+            const existing = getState().data.poles.filter((pole) => pole.groupId && pole.active !== false);
+            const selectedIds = new Set(selectedGroups.map((group) => group.id));
+            await Promise.all(existing.filter((pole) => !selectedIds.has(pole.groupId)).map((pole) => updatePoleActive(input.id, pole.id, false)));
+            await Promise.all(selectedGroups.filter((group) => !existing.some((pole) => pole.groupId === group.id)).map((group) => createPole(input.id, { groupId: group.id, name: group.name, baseChapelId: group.baseChapelId, chapelIds: group.chapelIds, coordinatorIds: group.defaultCoordinatorIds || [], active: true, catalogSnapshotAt: new Date() })));
             setUiState({ success: "Formação atualizada com sucesso." });
         } else {
             const user = getCurrentUser();
             if (!user?.uid) throw new Error("Não foi possível identificar o usuário autenticado.");
 
-            await createFormation({
+            await createFormationWithGroups({
                 ...formation,
                 status: "draft",
                 createdBy: user.uid
-            });
+            }, selectedGroups);
             setUiState({ success: "Formação criada com sucesso." });
         }
 
@@ -817,7 +852,7 @@ async function showDetails(formationId) {
     }
 }
 
-function showForm(formationId = null) {
+async function showForm(formationId = null) {
     const formation = formationId
         ? getState().data.formations.find((item) => item.id === formationId)
         : null;
@@ -830,6 +865,9 @@ function showForm(formationId = null) {
 
     try {
         requirePermission(formationId ? "canEdit" : "canCreate");
+        await loadPoleResources();
+        await refreshGroupCatalog();
+        if (formation) loadPoles(formation.id);
         setCurrentFormation(formation || null);
         setNavigation({ currentView: "form" });
         setUiState({ error: null, success: null });
@@ -876,6 +914,51 @@ function backToList() {
     render();
 }
 
+async function createCatalogGroup(input) {
+    try {
+        if (!isAdmin()) throw new Error("Você não possui permissão para criar grupos de formação.");
+        const group = validatePole({ ...input, coordinatorIds: input.defaultCoordinatorIds || [] });
+        const catalogGroup = { ...group, defaultCoordinatorIds: group.coordinatorIds, active: input.active === true };
+        const id = input.id || await createGroup(catalogGroup);
+        if (input.id) await updateGroup(input.id, catalogGroup);
+        const savedGroup = { id, ...catalogGroup };
+        replaceCatalogGroup(savedGroup);
+        setUiState({ error: null, success: input.id ? "Grupo atualizado." : "Grupo criado." });
+        return savedGroup;
+    } catch (error) {
+        setUiState({ error: error.message || "Não foi possível criar o grupo." });
+        render();
+        return null;
+    }
+}
+
+async function showGroupCatalog() {
+    try {
+        if (!isAdmin()) throw new Error("Você não possui permissão para administrar o catálogo de grupos.");
+        await loadPoleResources();
+        await refreshGroupCatalog();
+        setNavigation({ currentView: "catalog" });
+        setUiState({ error: null });
+    } catch (error) {
+        setUiState({ error: error.message || "Não foi possível carregar o catálogo de grupos." });
+    }
+    render();
+}
+
+async function changeCatalogGroupActive(groupId, active) {
+    try {
+        if (!isAdmin()) throw new Error("Você não possui permissão para alterar o catálogo de grupos.");
+        await setGroupActive(groupId, active);
+        const group = groupCatalog.find((item) => item.id === groupId);
+        if (!group) throw new Error("Grupo de formação não encontrado no catálogo.");
+        replaceCatalogGroup({ ...group, active });
+        setUiState({ success: active ? "Grupo ativado no catálogo." : "Grupo desativado no catálogo." });
+    } catch (error) {
+        setUiState({ error: error.message || "Não foi possível atualizar o grupo." });
+    }
+    render();
+}
+
 function handleBreadcrumbNavigation(level) {
     const { currentFormation, currentPole, currentEncounter } = getState().data;
 
@@ -910,6 +993,9 @@ function handleViewAction(action, formationId, status) {
     if (action === "status") changeStatus(formationId, status);
     if (action === "poles") showPoles(formationId);
     if (action === "group") showEncounters(formationId);
+    if (action === "catalog") showGroupCatalog();
+    if (action === "catalog-render") render();
+    if (action === "catalog-active") changeCatalogGroupActive(formationId, status === "true");
     if (action === "back") backToList();
 }
 
