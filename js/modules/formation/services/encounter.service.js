@@ -1,5 +1,5 @@
 import { db } from "../../../firebase.js";
-import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 function encountersCollection(formationId, poleId) {
     return collection(db, "formations", formationId, "poles", poleId, "encounters");
@@ -30,6 +30,14 @@ async function getEncounters(formationId, poleId) {
 function createEncounter(formationId, poleId, encounter) {
     return addDoc(encountersCollection(formationId, poleId), { ...encounter, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 }
+async function createEncounterWithParticipants(formationId, poleId, encounter, roster) {
+    if (!roster.length) throw new Error("Este grupo ainda não possui participantes preparados.");
+    if (roster.length > 499) throw new Error("Este grupo possui participantes demais para criar o encontro em uma única operação. Revise a lista de participantes.");
+    const reference = doc(encountersCollection(formationId, poleId)); const batch = writeBatch(db);
+    batch.set(reference, { ...encounter, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    roster.forEach((member) => batch.set(doc(collection(reference, "participants"), member.serverId), { serverId: member.serverId, serverName: member.serverName, chapelId: member.chapelId, chapelName: member.chapelName, participationType: "regular", attendanceStatus: "pending", addedManually: false, addedBy: encounter.createdBy, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+    await batch.commit(); return reference.id;
+}
 
 function updateEncounter(formationId, poleId, encounterId, encounter) {
     return updateDoc(encounterRef(formationId, poleId, encounterId), { ...encounter, updatedAt: serverTimestamp() });
@@ -43,4 +51,4 @@ function updateResponsibilities(formationId, poleId, encounterId, responsibiliti
     return updateDoc(encounterRef(formationId, poleId, encounterId), { responsibilities, coordinatorIds, updatedAt: serverTimestamp() });
 }
 
-export { subscribeToEncounters, getEncounter, getEncounters, createEncounter, updateEncounter, updateEncounterStatus, updateResponsibilities };
+export { subscribeToEncounters, getEncounter, getEncounters, createEncounter, createEncounterWithParticipants, updateEncounter, updateEncounterStatus, updateResponsibilities };

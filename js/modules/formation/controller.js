@@ -24,7 +24,7 @@ import {
     updatePole,
     updatePoleActive
 } from "./services/pole.service.js";
-import { createEncounter, getEncounter, subscribeToEncounters, updateEncounter, updateEncounterStatus, updateResponsibilities } from "./services/encounter.service.js";
+import { createEncounter, createEncounterWithParticipants, getEncounter, subscribeToEncounters, updateEncounter, updateEncounterStatus, updateResponsibilities } from "./services/encounter.service.js";
 import { addParticipant, countPendingParticipants, createPreparedParticipants, getParticipantExclusions, hasParticipants, removeParticipant, subscribeToParticipants, updateAttendance } from "./services/participant.service.js";
 import { getOperationalEncounters } from "./services/operational-encounters.service.js";
 import {
@@ -71,7 +71,7 @@ let initialized = false;
 let root = null;
 let poleResources = { chapels: [], coordinators: [] };
 let groupCatalog = [];
-let encounterResources = { chapels: [], designatedCoordinators: [], allCoordinators: [], userNames: {} };
+let encounterResources = { chapels: [], designatedCoordinators: [], allCoordinators: [], userNames: {}, roster: [] };
 let participantResources = { servers: [] };
 let rosterResources = { members: [], candidates: [], review: [] };
 let lifecycleVersion = 0;
@@ -509,16 +509,14 @@ function validateEncounter(input, existing = null) {
     const title = input.title?.trim();
     const startAt = new Date(input.startAt);
     const endAt = input.endAt ? new Date(input.endAt) : null;
-    const chapel = encounterResources.chapels.find((item) => item.id === input.chapelId);
+    const chapel = encounterResources.chapels.find((item) => item.id === (existing ? input.chapelId : pole.baseChapelId));
     // Rules allow a non-admin Polo Coordinator to create only an encounter
     // assigned to themself. The field is intentionally read-only in that form.
-    const designatedIds = !existing && isCoordinator() && !isAdmin()
-        ? [getCurrentUser().uid]
-        : [...new Set(input.designatedIds || [])];
+    const designatedIds = !existing ? [...new Set(pole.coordinatorIds || [])] : [...new Set(input.designatedIds || [])];
     if (!title) throw new Error("Informe o título do encontro.");
     if (Number.isNaN(startAt.getTime()) || (endAt && Number.isNaN(endAt.getTime()))) throw new Error("Informe data e horário válidos.");
     if (endAt && endAt < startAt) throw new Error("O horário final não pode ser anterior ao inicial.");
-    if (!chapel || !(pole.chapelIds || []).includes(chapel.id)) throw new Error("Selecione uma capela ativa atendida pelo grupo.");
+    if (!chapel || (pole.rosterPreparedAt && chapel.id !== pole.baseChapelId) || (!pole.rosterPreparedAt && !(pole.chapelIds || []).includes(chapel.id))) throw new Error("A capela do grupo não está disponível.");
     if (designatedIds.some((id) => !encounterResources.designatedCoordinators.some((user) => user.id === id))) throw new Error("Selecione apenas coordenadores ativos do grupo.");
     const responsibilities = normalizedResponsibilities(designatedIds, existing?.responsibilities || []);
     return { title, description: input.description?.trim() || "", startAt, ...(endAt ? { endAt } : {}), location: { chapelId: chapel.id, name: chapel.name }, responsibilities, coordinatorIds: coordinatorIdsFrom(responsibilities) };
@@ -565,11 +563,11 @@ async function openOperationalEncounter(context) {
 }
 
 async function showEncounterForm(encounterId = null) {
-    try { if (!canManageCurrentPole()) throw new Error("Você não possui permissão para administrar encontros."); const encounter = encounterId ? getState().data.encounters.find((item) => item.id === encounterId) : null; if (encounter && !canEditCurrentEncounter()) throw new Error("Este encontro não pode mais ter sua agenda editada."); await loadEncounterResources(); setCurrentEncounter(encounter || null); setNavigation({ currentView: "encounter-form" }); setUiState({ error: null, success: null }); render(); } catch (error) { setUiState({ error: error.message }); render(); }
+    try { if (!canManageCurrentPole()) throw new Error("Você não possui permissão para administrar encontros."); const encounter = encounterId ? getState().data.encounters.find((item) => item.id === encounterId) : null; if (encounter && !canEditCurrentEncounter()) throw new Error("Este encontro não pode mais ter sua agenda editada."); await loadEncounterResources(); encounterResources.roster = encounter ? null : await getRoster(getState().data.currentFormation.id, getState().data.currentPole.id); setCurrentEncounter(encounter || null); setNavigation({ currentView: "encounter-form" }); setUiState({ error: null, success: null }); render(); } catch (error) { setUiState({ error: error.message }); render(); }
 }
 
 async function saveEncounter(input) {
-    try { const { currentFormation, currentPole, currentEncounter } = getState().data; if (!canManageCurrentPole()) throw new Error("Você não possui permissão para administrar encontros."); if (currentEncounter && !canEditCurrentEncounter()) throw new Error("Este encontro não pode mais ter sua agenda editada."); const encounter = validateEncounter(input, currentEncounter); setUiState({ loading: true, error: null }); render(); if (currentEncounter) await updateEncounter(currentFormation.id, currentPole.id, currentEncounter.id, encounter); else await createEncounter(currentFormation.id, currentPole.id, { ...encounter, status: "scheduled", createdBy: getCurrentUser().uid }); setNavigation({ currentView: "encounter-list" }); setCurrentEncounter(null); } catch (error) { setUiState({ error: error.message || "Não foi possível salvar o encontro." }); } finally { setUiState({ loading: false }); render(); }
+    try { const { currentFormation, currentPole, currentEncounter } = getState().data; if (!canManageCurrentPole()) throw new Error("Você não possui permissão para administrar encontros."); if (currentEncounter && !canEditCurrentEncounter()) throw new Error("Este encontro não pode mais ter sua agenda editada."); const encounter = validateEncounter(input, currentEncounter); setUiState({ loading: true, error: null }); render(); if (currentEncounter) await updateEncounter(currentFormation.id, currentPole.id, currentEncounter.id, encounter); else if (currentPole.rosterPreparedAt) await createEncounterWithParticipants(currentFormation.id, currentPole.id, { ...encounter, status: "scheduled", createdBy: getCurrentUser().uid }, encounterResources.roster || []); else await createEncounter(currentFormation.id, currentPole.id, { ...encounter, status: "scheduled", createdBy: getCurrentUser().uid }); setNavigation({ currentView: "encounter-list" }); setCurrentEncounter(null); setUiState({ success: "Encontro criado com participantes preparados." }); } catch (error) { setUiState({ error: error.message || "Não foi possível salvar o encontro." }); } finally { setUiState({ loading: false }); render(); }
 }
 
 function statusConfirmationCopy(status) {
