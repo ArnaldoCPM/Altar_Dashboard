@@ -27,7 +27,10 @@ function formationPayload(formation, clearMissingDates = false) {
             : clearMissingDates ? { startDate: deleteField() } : {}),
         ...(formation.endDate
             ? { endDate: toTimestampDate(formation.endDate) }
-            : clearMissingDates ? { endDate: deleteField() } : {})
+            : clearMissingDates ? { endDate: deleteField() } : {}),
+        ...(formation.referenceDate
+            ? { referenceDate: toTimestampDate(formation.referenceDate) }
+            : clearMissingDates ? { referenceDate: deleteField() } : {})
     };
 }
 
@@ -61,11 +64,17 @@ async function createFormation(formation) {
     return addDoc(formationsCollection, payload);
 }
 
-async function createFormationWithGroups(formation, groups = []) {
+async function createFormationWithGroups(formation, groups = [], rosterByGroupId = {}) {
     const reference = doc(formationsCollection);
     const batch = writeBatch(db);
+    const rosterEntries = Object.values(rosterByGroupId).flat();
+    if (1 + groups.length + rosterEntries.length > 499) throw new Error("A formação ultrapassa o limite de 499 registros iniciais. Reduza os grupos ou participantes.");
     batch.set(reference, { ...formationPayload(formation), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-    groups.forEach((group) => batch.set(doc(collection(reference, "poles")), { groupId: group.id, name: group.name, baseChapelId: group.baseChapelId, chapelIds: group.chapelIds, coordinatorIds: group.defaultCoordinatorIds || [], active: true, catalogSnapshotAt: serverTimestamp(), createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+    groups.forEach((group) => {
+        const pole = doc(collection(reference, "poles"));
+        batch.set(pole, { groupId: group.id, name: group.name, baseChapelId: group.baseChapelId, chapelIds: group.chapelIds, coordinatorIds: group.defaultCoordinatorIds || [], active: true, catalogSnapshotAt: serverTimestamp(), rosterPreparedAt: serverTimestamp(), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        (rosterByGroupId[group.id] || []).forEach((member) => batch.set(doc(collection(pole, "roster"), member.serverId), { ...member, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+    });
     await batch.commit();
     return reference.id;
 }

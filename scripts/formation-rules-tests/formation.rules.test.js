@@ -56,6 +56,8 @@ function validFormation(overrides = {}) {
     modalities: ['initial'],
     startDate: Timestamp.fromDate(new Date('2026-01-10T00:00:00.000Z')),
     endDate: Timestamp.fromDate(new Date('2026-01-11T00:00:00.000Z')),
+    referenceDate: Timestamp.fromDate(new Date('2026-01-10T00:00:00.000Z')),
+    eligibilityCriteria: { minAge: 6, maxAge: 11, serverTypes: ['Candidato', 'Formando'] },
     status: 'draft',
     createdBy: users.admin.uid,
     createdAt: serverTimestamp(),
@@ -86,6 +88,7 @@ function encounterRef(db, formationId = 'formation-1', poleId = 'pole-1', encoun
 }
 function participantRef(db, serverId = 'server-1', encounterId = 'encounter-1') { return doc(db, 'formations', 'formation-1', 'poles', 'pole-1', 'encounters', encounterId, 'participants', serverId); }
 function exclusionRef(db, serverId = 'server-1', encounterId = 'encounter-1') { return doc(db, 'formations', 'formation-1', 'poles', 'pole-1', 'encounters', encounterId, 'participantExclusions', serverId); }
+function rosterRef(db, serverId = 'server-1') { return doc(db, 'formations', 'formation-1', 'poles', 'pole-1', 'roster', serverId); }
 function chapelRef(db, id = 'chapel-a') { return doc(db, 'chapels', id); }
 function serverRef(db, id = 'server-1') { return doc(db, 'artifacts', 'default-app-id', 'public', 'data', 'servers', id); }
 function validChapel(overrides = {}) { return { name: 'Capela São José', active: true, address: 'Rua Central', notes: 'Uso administrativo.', createdAt: serverTimestamp(), updatedAt: serverTimestamp(), ...overrides }; }
@@ -105,6 +108,18 @@ async function renameChapelAndSyncServerNames(db, chapelId, name) {
 }
 function validParticipant(overrides = {}) { return { serverId: 'server-1', serverName: 'Servidor', chapelId: 'chapel-a', chapelName: 'Capela A', participationType: 'regular', attendanceStatus: 'pending', addedManually: false, addedBy: users.admin.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), ...overrides }; }
 function validExclusion(overrides = {}) { return { serverId: 'server-1', excludedBy: users.admin.uid, createdAt: serverTimestamp(), ...overrides }; }
+function validRoster(overrides = {}) { return { serverId: 'server-1', serverName: 'Servidor', chapelId: 'chapel-a', chapelName: 'Capela A', serverType: 'Formando', origin: 'eligible', addedBy: users.admin.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), ...overrides }; }
+
+test('roster: admin manages, active roles read, and others cannot write', async () => {
+  await seedFormation(); await seedPole();
+  await assertSucceeds(setDoc(rosterRef(dbFor(users.admin)), validRoster()));
+  await assertSucceeds(getDoc(rosterRef(dbFor(users.coordinator))));
+  await assertSucceeds(getDoc(rosterRef(dbFor(users.viewer))));
+  await assertFails(setDoc(rosterRef(dbFor(users.coordinator), 'server-2'), validRoster({ serverId: 'server-2' })));
+  await assertFails(updateDoc(rosterRef(dbFor(users.viewer)), { serverName: 'Alterado', updatedAt: serverTimestamp() }));
+  await assertFails(getDoc(rosterRef(dbFor(users.inactive))));
+  await assertFails(getDoc(rosterRef(dbFor(null))));
+});
 
 function validEncounter(overrides = {}) {
   return {

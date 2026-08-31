@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "test": "node --test formation.rules.test.js server-history.logic.test.mjs csv-roundtrip.test.mjs"
+    "test": "node --test formation.rules.test.js server-history.logic.test.mjs csv-roundtrip.test.mjs eligibility.logic.test.mjs"
   },
   "dependencies": {
     "@firebase/rules-unit-testing": "^5.0.0",

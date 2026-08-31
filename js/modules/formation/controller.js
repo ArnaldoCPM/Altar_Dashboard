@@ -13,6 +13,8 @@ import {
     updateFormationStatus
 } from "./services/formation.service.js";
 import { createGroup, getGroups, setGroupActive, updateGroup } from "./services/group-catalog.service.js";
+import { eligibilityFor, SERVER_TYPES } from "./services/eligibility.service.js";
+import { addRosterMembers, getRoster, removeRosterMember, subscribeToRoster } from "./services/roster.service.js";
 import {
     createPole,
     countPoles,
@@ -52,6 +54,7 @@ import { renderEncounterView } from "./views/encounter.view.js";
 import { renderParticipantsView } from "./views/participants.view.js";
 import { renderEncounterReportView } from "./views/report.view.js";
 import { renderMyEncountersView } from "./views/my-encounters.view.js";
+import { renderRosterView } from "./views/roster.view.js";
 import { mountBreadcrumb } from "./components/breadcrumb.js";
 
 const VALID_STAGES = new Set(["first", "second"]);
@@ -70,6 +73,7 @@ let poleResources = { chapels: [], coordinators: [] };
 let groupCatalog = [];
 let encounterResources = { chapels: [], designatedCoordinators: [], allCoordinators: [], userNames: {} };
 let participantResources = { servers: [] };
+let rosterResources = { members: [], candidates: [], review: [] };
 let lifecycleVersion = 0;
 const POLE_COUNT_CONCURRENCY = 4;
 
@@ -111,6 +115,7 @@ function render() {
     if (!root) return;
 
     const state = getState();
+    if (state.navigation.currentView === "roster") { renderRosterView(root, state, { data: rosterResources, canManage: isAdmin(), add: addRosterSelection, remove: removeRosterSelection, prepare: prepareRoster, back: () => showEncounters(state.data.currentPole?.id) }); mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation); return; }
     if (["participants", "participant-manual"].includes(state.navigation.currentView)) {
         renderParticipantsView(root, state, { action: handleParticipantAction, addManual: addManualParticipant, canManage: canManageParticipants(), canManageAttendance: canManageAttendance(), canClose: availableEncounterStatuses(state.data.currentEncounter).includes("completed"), servers: participantResources.servers });
         mountBreadcrumb(root, breadcrumbItems(state), handleBreadcrumbNavigation);
@@ -135,6 +140,7 @@ function render() {
             canEdit: canEditCurrentEncounter(),
             canManageResponsibilities: isAdmin(),
             canAddSubstitute: isAdmin() && state.navigation.currentView !== "encounter-substitute",
+            rosterCount: rosterResources.members.length,
             statusActions: availableEncounterStatuses(state.data.currentEncounter),
             ...encounterResources
         });
@@ -264,11 +270,18 @@ function validateFormation(input) {
         throw new Error("A data final não pode ser anterior à data inicial.");
     }
 
+    const referenceDate = input.referenceDate || input.startDate;
+    const minAge = Number(input.minAge); const maxAge = Number(input.maxAge); const serverTypes = Array.from(new Set(input.serverTypes || []));
+    if (!Number.isInteger(minAge) || minAge < 0 || !Number.isInteger(maxAge) || maxAge < minAge) throw new Error("Informe uma faixa etária válida.");
+    if (!isValidDateInput(referenceDate)) throw new Error("Informe uma data de referência válida.");
+    if (!serverTypes.length || serverTypes.some((type) => !SERVER_TYPES.includes(type))) throw new Error("Selecione ao menos um tipo de servidor.");
     return {
         name,
         description,
         stage: input.stage,
         modalities,
+        eligibilityCriteria: { minAge, maxAge, serverTypes },
+        referenceDate,
         ...(input.startDate ? { startDate: input.startDate } : {}),
         ...(input.endDate ? { endDate: input.endDate } : {})
     };
@@ -516,7 +529,7 @@ async function showEncounters(poleId) {
         const pole = getState().data.poles.find((item) => item.id === poleId);
         if (!pole) throw new Error("Grupo de formação não encontrado.");
         setCurrentPole(pole); setCurrentEncounter(null); setNavigation({ currentView: "encounter-list" }); setUiState({ loading: true, error: null, success: null });
-        await loadEncounterResources(); loadEncounters(); render();
+        await loadEncounterResources(); rosterResources.members = await getRoster(getState().data.currentFormation.id, poleId); loadEncounters(); render();
     } catch (error) { setUiState({ loading: false, error: error.message || "Não foi possível carregar os encontros." }); render(); }
 }
 
@@ -808,12 +821,12 @@ async function saveFormation(input) {
         } else {
             const user = getCurrentUser();
             if (!user?.uid) throw new Error("Não foi possível identificar o usuário autenticado.");
-
+            const servers = await getAllServers();
+            const formationWithCriteria = { ...formation, status: "draft", createdBy: user.uid };
+            const rosterByGroupId = Object.fromEntries(selectedGroups.map((group) => [group.id, servers.filter((server) => eligibilityFor(server, { ...formation.eligibilityCriteria, referenceDate: formation.referenceDate }, group.chapelIds || []).eligible).map((server) => ({ ...rosterMember(server, formationWithCriteria, group), addedBy: user.uid }))]));
             await createFormationWithGroups({
-                ...formation,
-                status: "draft",
-                createdBy: user.uid
-            }, selectedGroups);
+                ...formationWithCriteria
+            }, selectedGroups, rosterByGroupId);
             setUiState({ success: "Formação criada com sucesso." });
         }
 
@@ -914,6 +927,29 @@ function backToList() {
     render();
 }
 
+function rosterMember(server, formation, pole, origin = "eligible") {
+    const result = eligibilityFor(server, { ...formation.eligibilityCriteria, referenceDate: formation.referenceDate }, pole.chapelIds || []);
+    const chapel = poleResources.chapels.find((item) => item.id === server.chapelId);
+    return { serverId: server.id, serverName: server.Nome || server.id, chapelId: server.chapelId || "", chapelName: chapel?.name || server.Capela || "", serverType: result.type || server.Tipo || "", origin };
+}
+
+async function loadRosterScreen() {
+    const { currentFormation: formation, currentPole: pole } = getState().data;
+    if (!formation || !pole) throw new Error("Selecione um grupo de formação.");
+    const [members, servers] = await Promise.all([getRoster(formation.id, pole.id), getAllServers()]);
+    const criteria = formation.eligibilityCriteria && formation.referenceDate ? { ...formation.eligibilityCriteria, referenceDate: formation.referenceDate?.toDate ? formation.referenceDate.toDate() : formation.referenceDate } : null;
+    const byId = new Map(servers.map((server) => [server.id, server])); const existing = new Set(members.map((member) => member.serverId));
+    rosterResources.members = members.map((member) => ({ ...member, ...(criteria && byId.has(member.serverId) ? (() => { const result = eligibilityFor(byId.get(member.serverId), criteria, pole.chapelIds || []); return { age: result.age, reasons: result.eligible ? [] : result.reasons }; })() : { age: null, reasons: [] }) }));
+    rosterResources.candidates = criteria ? servers.filter((server) => !existing.has(server.id) && eligibilityFor(server, criteria, pole.chapelIds || []).eligible) : [];
+    rosterResources.review = rosterResources.members.filter((member) => member.reasons?.length);
+    rosterResources.legacy = !criteria || !pole.rosterPreparedAt;
+}
+
+async function showRoster() { try { setUiState({ loading: true, error: null, success: null }); await loadRosterScreen(); setNavigation({ currentView: "roster" }); } catch (error) { setUiState({ error: error.message || "Não foi possível carregar participantes." }); } finally { setUiState({ loading: false }); render(); } }
+async function addRosterSelection(ids) { try { if (!isAdmin()) throw new Error("Apenas administradores podem alterar a lista."); if (!ids.length) throw new Error("Selecione ao menos um servidor."); const { currentFormation: formation, currentPole: pole } = getState().data; const servers = await getAllServers(); const criteria = { ...formation.eligibilityCriteria, referenceDate: formation.referenceDate?.toDate ? formation.referenceDate.toDate() : formation.referenceDate }; const selected = servers.filter((server) => ids.includes(server.id)).filter((server) => eligibilityFor(server, criteria, pole.chapelIds || []).eligible).map((server) => rosterMember(server, formation, pole, "manual")); await addRosterMembers(formation.id, pole.id, selected, getCurrentUser().uid); setUiState({ success: selected.length ? `${selected.length} participante(s) adicionado(s).` : "Nenhum selecionado permanece elegível." }); await loadRosterScreen(); } catch (error) { setUiState({ error: error.message }); } render(); }
+async function removeRosterSelection(serverId) { try { if (!isAdmin()) throw new Error("Apenas administradores podem alterar a lista."); const { currentFormation, currentPole } = getState().data; await removeRosterMember(currentFormation.id, currentPole.id, serverId); setUiState({ success: "Participante retirado da lista." }); await loadRosterScreen(); } catch (error) { setUiState({ error: error.message }); } render(); }
+async function prepareRoster() { try { if (!isAdmin()) throw new Error("Apenas administradores podem preparar a lista."); const { currentFormation, currentPole } = getState().data; if (!currentFormation.eligibilityCriteria || !currentFormation.referenceDate) throw new Error("Configure os critérios de participação antes de preparar a lista."); await addRosterSelection(rosterResources.candidates.map((server) => server.id)); const { id, ...pole } = currentPole; await updatePole(currentFormation.id, id, { ...pole, rosterPreparedAt: new Date() }); await loadRosterScreen(); setUiState({ success: "Lista de participantes preparada." }); } catch (error) { setUiState({ error: error.message }); render(); } }
+
 async function createCatalogGroup(input) {
     try {
         if (!isAdmin()) throw new Error("Você não possui permissão para criar grupos de formação.");
@@ -1008,6 +1044,7 @@ function handlePoleAction(action, poleId, active) {
 }
 
 function handleEncounterAction(action, encounterId, status) {
+    if (action === "roster") showRoster();
     if (action === "my-encounters") showMyEncounters();
     if (action === "participants") showParticipants();
     if (action === "report") showEncounterReport();

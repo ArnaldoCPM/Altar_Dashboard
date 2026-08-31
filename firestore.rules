@@ -271,11 +271,11 @@ service cloud.firestore {
     match /formations/{formationId} {
       function hasValidFormationFields(data) {
         return data.keys().hasOnly([
-          "name", "description", "stage", "modalities", "startDate", "endDate",
+          "name", "description", "stage", "modalities", "startDate", "endDate", "eligibilityCriteria", "referenceDate",
           "status", "createdBy", "createdAt", "updatedAt"
         ])
           && data.keys().hasAll([
-            "name", "stage", "modalities", "status", "createdBy", "createdAt", "updatedAt"
+            "name", "stage", "modalities", "status", "createdBy", "createdAt", "updatedAt", "eligibilityCriteria", "referenceDate"
           ])
           && data.name is string
           && data.name.size() > 0
@@ -288,6 +288,14 @@ service cloud.firestore {
           && (!data.keys().hasAny(["description"]) || data.description is string)
           && (!data.keys().hasAny(["startDate"]) || data.startDate is timestamp)
           && (!data.keys().hasAny(["endDate"]) || data.endDate is timestamp)
+          && data.referenceDate is timestamp
+          && data.eligibilityCriteria is map
+          && data.eligibilityCriteria.keys().hasOnly(["minAge", "maxAge", "serverTypes"])
+          && data.eligibilityCriteria.keys().hasAll(["minAge", "maxAge", "serverTypes"])
+          && data.eligibilityCriteria.minAge is int && data.eligibilityCriteria.minAge >= 0
+          && data.eligibilityCriteria.maxAge is int && data.eligibilityCriteria.maxAge >= data.eligibilityCriteria.minAge
+          && data.eligibilityCriteria.serverTypes is list && data.eligibilityCriteria.serverTypes.size() > 0
+          && data.eligibilityCriteria.serverTypes.hasOnly(["Candidato", "Formando", "Instituído"])
           && (!data.keys().hasAll(["startDate", "endDate"]) || data.endDate >= data.startDate);
       }
 
@@ -325,7 +333,7 @@ service cloud.firestore {
         function hasValidPoleFields(data) {
           return data.keys().hasOnly([
             "name", "baseChapelId", "chapelIds", "coordinatorIds",
-            "active", "groupId", "catalogSnapshotAt", "createdAt", "updatedAt"
+            "active", "groupId", "catalogSnapshotAt", "rosterPreparedAt", "createdAt", "updatedAt"
           ])
             && data.keys().hasAll([
               "name", "baseChapelId", "chapelIds", "coordinatorIds",
@@ -341,6 +349,7 @@ service cloud.firestore {
             && data.active is bool
             && (!data.keys().hasAny(["groupId"]) || data.groupId is string)
             && (!data.keys().hasAny(["catalogSnapshotAt"]) || data.catalogSnapshotAt is timestamp)
+            && (!data.keys().hasAny(["rosterPreparedAt"]) || data.rosterPreparedAt is timestamp)
             && data.createdAt is timestamp
             && data.updatedAt is timestamp;
         }
@@ -372,6 +381,20 @@ service cloud.firestore {
             isAdmin()
             || (isAssignedCoordinator() && coordinatorChangesOnlyOperationalFields())
           );
+
+        match /roster/{serverId} {
+          function validRoster(data) {
+            return data.keys().hasOnly(["serverId", "serverName", "chapelId", "chapelName", "serverType", "origin", "addedBy", "createdAt", "updatedAt"])
+              && data.keys().hasAll(["serverId", "serverName", "chapelId", "chapelName", "serverType", "origin", "addedBy", "createdAt", "updatedAt"])
+              && data.serverId is string && data.serverId == serverId && data.serverName is string && data.serverName.size() > 0
+              && data.chapelId is string && data.chapelName is string && data.serverType is string
+              && data.origin in ["eligible", "manual"] && data.addedBy is string && data.createdAt is timestamp && data.updatedAt is timestamp;
+          }
+          allow get, list: if isActive() && formationExists();
+          allow create: if isAdmin() && validRoster(request.resource.data) && request.resource.data.addedBy == request.auth.uid && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+          allow update: if isAdmin() && validRoster(request.resource.data) && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.updatedAt == request.time;
+          allow delete: if isAdmin();
+        }
 
         match /encounters/{encounterId} {
           function poleExists() {
