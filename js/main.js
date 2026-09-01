@@ -204,8 +204,6 @@ setupAuthStateListener(async (u) => {
 
         document.getElementById('db-status').classList.add('hidden');
 
-        console.log("1");
-        console.log(user);
         const profile = await resolveUserProfile(user);
 
         if (user?.uid === authUid) {
@@ -231,7 +229,6 @@ setupAuthStateListener(async (u) => {
 
             loginScreenMessage = null;
             showAuthenticatedScreen();
-            console.log("2", profile);
             setCurrentProfile(profile);
             setCurrentChapelId(profile?.chapelId ?? null);
             setCurrentUserRole(profile?.role);
@@ -243,17 +240,13 @@ setupAuthStateListener(async (u) => {
             updateHeaderSession(getCurrentProfile(), user);
             updateSidebar({ moduleId: activeModule, role: getCurrentProfile()?.role });
 
-            console.log("3");
             await loadChapelsIntoForm(chapels);
 
-            console.log("4");
             updateAdminUI(false);
 
-            console.log("5");
             await initializeDashboard({ chapels });
             activeModule = 'dashboard';
             updateSidebar({ moduleId: activeModule, role: getCurrentProfile()?.role });
-            console.log("6");
         }
 
     } else {
@@ -358,11 +351,7 @@ btnLoginGoogle.addEventListener('click', async () => {
         await loginWithGoogle();
         loginError.classList.add('hidden');
     } catch (error) {
-        console.error("Google Sign-In error:", error);
-        console.error("code:", error.code);
-        console.error("message:", error.message);
-        console.error("customData:", error.customData);
-        console.error("credential:", error.credential);
+        console.error("Google Sign-In error:", error.code);
         loginError.textContent = "Não foi possível iniciar sessão com Google. Tente novamente.";
         loginError.classList.remove('hidden');
     }
