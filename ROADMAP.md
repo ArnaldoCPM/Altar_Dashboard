@@ -1,35 +1,19 @@
 # Roadmap SGSA
 
-Este roadmap prioriza o estado atual do produto. Decisões e detalhes históricos permanecem em `docs/PROJECT_CONTEXT.md`.
+## Concluído
 
-## Milestones concluídos
+M7–M12 consolidaram segurança, Shell, Formação e relatório operacional. M13 (modularização operacional), M14 (Capelas), M15 (acesso por e-mail/senha), M16 (ficha e histórico) e Formação v2 estão concluídos no repositório.
 
-- **M7 — Segurança e modelo de dados:** autenticação obrigatória, perfis canônicos em `users/{uid}`, Rules Firestore e autorização por papel/capela.
-- **M8 — Estabilização de experiência:** login, sessão, Dashboard e gestão de servidores/capelas estabilizados.
-- **M9 — Application Shell e Dashboard modular:** Shell, Workspace, navegação contextual e módulo Dashboard com Controller/State/Services/Views.
-- **M10 — Formação:** Formations, Polos, Encounters, Participants e Attendance operacionais. Inclui consulta contextual de presenças após `completed`, UX1–UX3 e regressão de Rules. A composição de Participants permanece exclusiva de Encounter `scheduled`.
-- **M11 — Relatório operacional de Encounter:** pré-visualização HTML contextual e impressão A4 a partir do detalhe do Encounter. Reutiliza Participants/Attendance existentes, com variantes para os quatro estados, sem escritas, CSV, PDF client-side ou alterações de Rules.
-- **M12 — Shell responsivo e navegação:** Header compacto com menu de conta, Sidebar colapsável em desktop e drawer acessível em tablet/móvel. A navegação agora expõe somente módulos funcionais e deriva o estado ativo do módulo real; as ações legacy preservadas ficam no seu contexto operacional e continuam protegidas pelas verificações existentes.
+Formação v2 inclui grupos reutilizáveis, critérios, roster, Participants automáticos, operação de Encounter/Presença e lifecycle `draft → active → completed → archived` (com `draft → archived`).
 
-## Próximo milestone
+## Agora
 
-Será definido após priorização funcional. CSV, histórico e estatísticas permanecem itens separados de backlog.
+Preprodução e release candidate `v0.10.0` em preparação. Não há deploy ou tag v0.10.0 ainda.
 
-## Backlog pós-M12
+## Pós-release
 
-### Próximo
-
-- Histórico por Server.
-- Filtros de Encounter.
-- KPIs e relatórios de Formation.
-
-### Futuro
-
-- Substituição autônoma iniciada por coordinator.
-- Estatísticas globais.
-- Ações massivas.
-- Offline real.
-
-### Estratégico
-
-- Multi-paróquia.
+- Atualização manual e compatível das dependências de Functions.
+- Revisão do modelo e das orientações de informação de emergência.
+- Observabilidade/auditoria operacional.
+- Eventual revisão conceitual do papel Viewer.
+- CSS Tailwind compilado e versionado no lugar do Play CDN.

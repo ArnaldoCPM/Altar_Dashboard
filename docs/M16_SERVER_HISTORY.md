@@ -1,5 +1,9 @@
 # M16 — Histórico individual do servidor
 
+## Estado atual v0.10.0
+
+M16 está concluído como ficha e histórico de consulta paroquial. Os campos `Possui_alergia_doenca` e `Descricao_alergia_doenca` destinam-se a cuidado/emergência pastoral; uma melhoria futura deve orientar o registro ao mínimo necessário, sem alterar a UI neste release.
+
 ## Consulta adotada
 
 A ficha percorre exclusivamente a hierarquia canônica no momento em que o

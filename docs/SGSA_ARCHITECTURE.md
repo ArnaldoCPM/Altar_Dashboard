@@ -10,6 +10,12 @@ El SGSA es una plataforma de gestión pastoral, no solamente un dashboard. Su pr
 
 Toda nueva funcionalidad debe respetar esta arquitectura para que el sistema pueda crecer sin perder coherencia funcional, técnica ni pastoral.
 
+## Estado v0.10.0 candidate
+
+Shell e navegação organizam Dashboard, Servidores, Usuários, Capelas e Formação. Formação v2 separa catálogo `formationGroups` de instâncias técnicas `poles`; a interface usa Grupo de formação. Roster e Participants são snapshots contextuais, attendance é embutido no Participant e o lifecycle é draft/active/completed/archived.
+
+M15 é uma Function v2 callable, protegida por perfil Admin ativo. As Rules mantêm defesa em profundidade e a UI não concede permissões.
+
 ## 2. Principios
 
 - **Fuente única de verdad:** cada dato y cada decisión de autorización tienen una fuente canónica definida.
@@ -57,6 +63,8 @@ Los roles oficiales son `admin`, `coordinator` y `viewer`.
 | **VIEWER** | Consulta dashboard, gráficos y búsqueda de toda la parroquia. | No modifica datos. | No administra usuarios ni capillas. |
 
 La política oficial establece que todos los coordinadores pueden consultar toda la parroquia. `chapelId` limita exclusivamente las operaciones de escritura; nunca se utiliza para recortar el dataset visible.
+
+Leitura de Servidores é pastoral e global para usuários ativos: atividades, formações e cuidado podem envolver mais de uma capela. Contatos familiares e informações de emergência são acessíveis somente para comunicação, acompanhamento e cuidado autorizado, nunca para uso externo. CSV completo é documento administrativo confidencial e Admin-only. Viewer é usuário pastoral com acesso global de leitura.
 
 ## 6. Modelo de datos
 

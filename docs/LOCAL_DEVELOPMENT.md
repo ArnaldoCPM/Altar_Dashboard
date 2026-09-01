@@ -2,7 +2,7 @@
 
 ## Requisitos
 
-Firebase CLI, Node.js e as dependências em `scripts/formation-rules-tests` e `functions`.
+Firebase CLI, Node.js e as dependências em `scripts/formation-rules-tests` e `functions`. Functions usam Node 20.
 
 ## Iniciar os Emulators
 
@@ -48,7 +48,17 @@ No mesmo diretório:
 npm test
 ```
 
-O conjunto atual possui 95 testes de Rules.
+O conjunto de referência possui 121 testes SGSA.
+
+## Functions
+
+```powershell
+cd functions
+npm test
+npm run lint
+```
+
+Referência: 3 testes Functions. Os auditores read-only em `scripts/preprod` são ferramentas locais opcionais; nunca execute scripts de remoção/restauração sem uma decisão explícita e backup local.
 
 ## Persistência
 

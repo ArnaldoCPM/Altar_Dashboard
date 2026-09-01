@@ -6,6 +6,35 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [v0.10.0] — Release candidate
+
+### Added
+
+- M13–M16: módulos Servidores/Usuários/Capelas, CSV reversível, ficha e histórico M16 e listas paginadas.
+- Formação v2: grupos reutilizáveis, critérios, roster/lista-base, Participants automáticos, Encounter/Presença responsivos e relatório M11.
+- Lifecycle de Formação `draft`, `active`, `completed` e `archived`.
+- M15: acesso por e-mail/senha por `sendUserAccess`, mantendo Google Sign-In.
+
+### Changed
+
+- Dashboard e Meus encontros usam somente Formações active; completed/archived são consulta conforme contrato.
+- Vocabulario operacional usa Grupo de formação, preservando `pole` como termo técnico.
+
+### Security
+
+- Logs de sessão/perfil sensíveis removidos.
+- Política de leitura pastoral global documentada; CSV completo permanece Admin-only.
+
+### Fixed
+
+- Auditoria pré-produção: dados legacy tolerados classificados corretamente e perfil administrativo histórico removido controladamente.
+
+### Documentation
+
+- Release candidate, schema, arquitetura, operação local e dívida técnica pré-produção atualizados.
+
+> Candidate somente: tag, push e deploy de v0.10.0 continuam pendentes.
+
 ### Añadido
 
 - M11: vista contextual de reporte operacional de Encounter e impresión A4 mediante el diálogo nativo del navegador.

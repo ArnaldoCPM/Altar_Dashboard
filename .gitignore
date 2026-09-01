@@ -67,3 +67,6 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Local pre-production snapshots. They can contain complete Firestore documents.
+scripts/preprod/backups/

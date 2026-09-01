@@ -1,5 +1,9 @@
 # M11 — Relatório operacional de Encounter
 
+## Estado atual v0.10.0
+
+O relatório operacional permanece contextual e somente leitura. A UI usa **Grupo de formação**; o caminho técnico ainda usa `poles`. Ele acompanha o lifecycle de Formação e preserva snapshots de Participants/attendance.
+
 ## Fechamento
 
 M11 foi implementado e validado funcionalmente em 2026-08-21. O recurso disponibiliza, a partir do detalhe contextual de um Encounter, uma pré-visualização HTML e impressão A4 por `window.print()`.

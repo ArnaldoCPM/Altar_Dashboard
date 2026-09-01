@@ -2,6 +2,12 @@
 
 ## Contrato final
 
+## Estado atual — Formação v2
+
+Formação v2 acrescenta `formationGroups` reutilizáveis, critérios de elegibilidade, `referenceDate`, roster/lista-base e geração automática de Participants. `poles/{poleId}` continua sendo a instância técnica/snapshot de um grupo; na UI o termo é **Grupo de formação**. A instância mantém `groupId` e `rosterPreparedAt`.
+
+O lifecycle da Formação é `draft → active → completed → archived`, com exceção `draft → archived`. Draft permite preparação, active permite operação, completed é consulta com correção de presença por Admin em Encounter completed e archived é somente leitura.
+
 Este é o contrato de dados final de M10. A validação e autorização definitivas estão em `firestore.rules`; a arquitetura geral está em `MASTER_PROJECT.md`.
 
 ```text

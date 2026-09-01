@@ -1,5 +1,9 @@
 # M15 — Acesso por e-mail e senha
 
+## Estado atual v0.10.0
+
+`sendUserAccess` é Function v2. Email/Password e Google Sign-In coexistem; um pending `users/{email}` é transição tolerada e só é removido após perfil canônico seguro. Produção ainda requer habilitar Email/Password, domínio autorizado e modelo de recuperação no Firebase Console.
+
 ## Arquitetura
 
 `sendUserAccess` é uma Cloud Function callable mínima. Ela exige uma sessão Firebase e confirma novamente, no servidor, que `users/{request.auth.uid}` é um perfil `admin` ativo. A interface não é uma camada de autorização.
