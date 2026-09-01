@@ -14,6 +14,7 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+auth.languageCode = "pt-BR";
 const db = getFirestore(app);
 const functions = getFunctions(app);
 
