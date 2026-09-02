@@ -1,5 +1,5 @@
 import { auth, db, functions, httpsCallable, signOut } from "../firebase.js";
-import { collection, doc, getDoc, getDocs, limit, query, runTransaction, serverTimestamp, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /**
  * Obtiene un usuario por su UID.
@@ -156,54 +156,6 @@ async function getAllUsers() {
   }));
 }
 
-/**
- * Vincula el UID de Firebase Authentication con un usuario existente por email.
- * @param {string} email Correo electrónico del usuario registrado previamente.
- * @param {string} uid UID de Firebase Authentication a vincular.
- * @returns {Promise<Object|null>} Usuario actualizado con el UID vinculado o `null` si no existe.
- */
-async function linkUserUid(email, uid) {
-  if (!email || !uid) {
-    return null;
-  }
-
-  const legacyUserRef = doc(db, "users", email);
-  const canonicalUserRef = doc(db, "users", uid);
-
-  await runTransaction(db, async (transaction) => {
-    const canonicalSnapshot = await transaction.get(canonicalUserRef);
-
-    if (canonicalSnapshot.exists()) {
-      return;
-    }
-
-    const legacySnapshot = await transaction.get(legacyUserRef);
-
-    if (!legacySnapshot.exists()) {
-      return;
-    }
-
-    const legacyProfile = legacySnapshot.data();
-
-    if (
-      legacyProfile.uid !== null &&
-      legacyProfile.uid !== "" &&
-      legacyProfile.uid !== uid
-    ) {
-      return;
-    }
-
-    // Se conserva el perfil autorizado; el UID es el único campo modificado.
-    transaction.set(canonicalUserRef, {
-      ...legacyProfile,
-      uid
-    });
-    transaction.delete(legacyUserRef);
-  });
-
-  return getUserByUid(uid);
-}
-
 async function rejectUnauthorizedUser() {
   try {
     await signOut(auth);
@@ -231,33 +183,8 @@ async function resolveUserProfile(user) {
       return firestoreProfile;
     }
 
-    if (!user.email) {
-      return rejectUnauthorizedUser();
-    }
-
-    const legacySnapshot = await getDoc(doc(db, "users", user.email));
-
-    if (!legacySnapshot.exists()) {
-      return rejectUnauthorizedUser();
-    }
-
-    const legacyProfile = legacySnapshot.data();
-    const canMigrateLegacyProfile =
-      legacyProfile.uid === null ||
-      legacyProfile.uid === "" ||
-      legacyProfile.uid === user.uid;
-
-    if (canMigrateLegacyProfile) {
-      await linkUserUid(user.email, user.uid);
-
-      const linkedProfile = await getUserByUid(user.uid);
-
-      if (linkedProfile) {
-        return linkedProfile;
-      }
-    }
-
-    // El documento legacy pertenece a otro usuario o no pudo consolidarse.
+    // La ausencia del perfil canónico no autoriza ningún fallback a users/{email}.
+    // Un administrador debe ejecutar sendUserAccess para consolidar una invitación.
     return rejectUnauthorizedUser();
   } catch (error) {
     console.error("Unable to resolve authenticated user profile:", error);
@@ -275,6 +202,5 @@ export {
   updateUser,
   disableUser,
   getAllUsers,
-  linkUserUid,
   resolveUserProfile
 };

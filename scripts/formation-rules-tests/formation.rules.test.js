@@ -44,6 +44,10 @@ function dbFor(user) {
     : testEnv.unauthenticatedContext().firestore();
 }
 
+function dbForPendingEmail(uid, email, emailVerified) {
+  return testEnv.authenticatedContext(uid, { email, email_verified: emailVerified }).firestore();
+}
+
 function formationRef(db, id = 'formation-1') {
   return doc(db, 'formations', id);
 }
@@ -191,6 +195,36 @@ test.beforeEach(async () => {
 
 test.after(async () => {
   await testEnv?.cleanup();
+});
+
+test('users: pending profiles cannot be self-consolidated, even with a matching verified email', async () => {
+  const pendingEmail = 'pending@example.test';
+  const pendingProfile = { uid: null, email: pendingEmail, displayName: 'Pending User', role: 'viewer', active: true, chapelId: 'chapel-a', status: 'pending' };
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'users', pendingEmail), pendingProfile);
+  });
+
+  for (const emailVerified of [false, true]) {
+    const attackerUid = `attacker-${emailVerified}`;
+    const attackerDb = dbForPendingEmail(attackerUid, pendingEmail, emailVerified);
+    const canonicalRef = doc(attackerDb, 'users', attackerUid);
+    const legacyRef = doc(attackerDb, 'users', pendingEmail);
+    await assertFails(getDoc(legacyRef));
+    await assertFails(setDoc(canonicalRef, { ...pendingProfile, uid: attackerUid }));
+    await assertFails(deleteDoc(legacyRef));
+
+    const batch = writeBatch(attackerDb);
+    batch.set(canonicalRef, { ...pendingProfile, uid: attackerUid });
+    batch.delete(legacyRef);
+    await assertFails(batch.commit());
+  }
+});
+
+test('users: only admin can administer profiles; a canonical user retains normal profile access', async () => {
+  await assertSucceeds(getDoc(doc(dbFor(users.viewer), 'users', users.viewer.uid)));
+  await assertFails(setDoc(doc(dbFor(users.viewer), 'users', 'forged-uid'), { ...users.viewer, uid: 'forged-uid', role: 'admin' }));
+  await assertSucceeds(setDoc(doc(dbFor(users.admin), 'users', 'admin-created'), { uid: 'admin-created', email: 'created@example.test', role: 'viewer', active: true, chapelId: 'chapel-a' }));
+  await assertSucceeds(deleteDoc(doc(dbFor(users.admin), 'users', 'admin-created')));
 });
 
 test('chapels: active authenticated roles can read, but only admin can create', async () => {
