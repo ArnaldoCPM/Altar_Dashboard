@@ -15,7 +15,7 @@ import {
 import { createGroup, getGroups, setGroupActive, updateGroup } from "./services/group-catalog.service.js";
 import { filterFormations } from "./services/formation-list.service.js";
 import { canCompleteWithEncounterCounts, completionBlockMessage, getFormationEncounterStatusCounts } from "./services/formation-lifecycle.service.js";
-import { eligibilityFor, SERVER_TYPES } from "./services/eligibility.service.js";
+import { ageOn, eligibilityFor, SERVER_TYPES } from "./services/eligibility.service.js";
 import { addRosterMembers, getRoster, removeRosterMember, subscribeToRoster } from "./services/roster.service.js";
 import {
     createPole,
@@ -360,14 +360,9 @@ function participantSnapshot(server, participationType, userId) {
     return { serverId: server.id, serverName: server.Nome || server.id, chapelId: server.chapelId || "", chapelName: chapel?.name || server.Capela || server.chapelId || "", participationType, attendanceStatus: "pending", addedManually: participationType === "manual", addedBy: userId };
 }
 
-function ageAt(value, reference) {
-    const text = String(value || "").trim(); const match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/) || text.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (!match) return null; const [year, month, day] = match[3] ? [Number(match[3]), Number(match[2]), Number(match[1])] : [Number(match[1]), Number(match[2]), Number(match[3])]; const birth = new Date(year, month - 1, day); if (birth.getFullYear() !== year || birth.getMonth() !== month - 1 || birth.getDate() !== day || birth > reference) return null; let age = reference.getFullYear() - year; if (reference.getMonth() < month - 1 || (reference.getMonth() === month - 1 && reference.getDate() < day)) age -= 1; return age;
-}
-
 function isEligibleServer(server) {
     const { currentFormation, currentPole, currentEncounter } = getState().data;
-    const age = ageAt(server.Data_nascimento, currentEncounter.startAt?.toDate ? currentEncounter.startAt.toDate() : new Date(currentEncounter.startAt));
+    const age = ageOn(server.Data_nascimento, currentEncounter.startAt?.toDate ? currentEncounter.startAt.toDate() : new Date(currentEncounter.startAt));
     const stageOk = currentFormation.stage === "first" ? age >= 6 && age <= 11 : age >= 12 && age <= 24;
     const type = cleanStr(server.Tipo); const modality = type.includes("instit") ? "permanent" : type.includes("candidato") || type.includes("formando") ? "initial" : null;
     return stageOk && modality && currentFormation.modalities.includes(modality) && currentPole.chapelIds.includes(server.chapelId);
@@ -377,7 +372,7 @@ function manualInclusionWarnings(server) {
     const { currentFormation, currentPole, currentEncounter } = getState().data;
     const warnings = [];
     const reference = currentEncounter.startAt?.toDate ? currentEncounter.startAt.toDate() : new Date(currentEncounter.startAt);
-    const age = ageAt(server.Data_nascimento, reference);
+    const age = ageOn(server.Data_nascimento, reference);
     if (age === null) warnings.push("Data de nascimento inválida ou ausente");
     else if (!(currentFormation.stage === "first" ? age >= 6 && age <= 11 : age >= 12 && age <= 24)) warnings.push("Fora da faixa etária");
     const type = cleanStr(server.Tipo);
