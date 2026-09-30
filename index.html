@@ -343,7 +343,9 @@
                     </div>
                     <div>
                         <label class="font-semibold text-slate-500 block mb-1">Data de nascimento</label>
-                        <input type="date" id="form-data-nasc" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                        <input type="date" id="form-data-nasc" aria-describedby="form-data-nasc-warning" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                        <p id="form-data-nasc-warning" class="hidden mt-1 text-amber-800" role="status"></p>
+                        <label id="form-data-nasc-clear-label" class="hidden mt-2"><input type="checkbox" id="form-data-nasc-clear" /> Remover data de nascimento</label>
                     </div>
                 </div>
 

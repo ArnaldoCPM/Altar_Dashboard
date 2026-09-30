@@ -3,8 +3,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const sourcePath = new URL('../../js/modules/servers/services/import.service.js', import.meta.url);
+const datesSource = await readFile(new URL('../../js/services/birth-date.service.js', import.meta.url), 'utf8');
+const datesUrl = 'data:text/javascript;base64,' + Buffer.from(datesSource).toString('base64');
 const source = (await readFile(sourcePath, 'utf8')).replace('import { db, doc, writeBatch } from "../../../firebase.js";', 'const db = null, doc = () => null, writeBatch = () => ({ set() {}, commit: async () => {} });');
-const csv = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const linkedSource = source.replace('../../../services/birth-date.service.js', datesUrl);
+const csv = await import(`data:text/javascript;base64,${Buffer.from(linkedSource).toString('base64')}`);
 const sample = { id: 'SRV-0001', Nome: '=Ana; "da Silva"', Data_nascimento: '2010-02-03', Idade: '14', Sexo: 'Femenino', chapelId: 'inactive', Capela: 'Capela São José', Bairro: "'Centro", Tipo: 'Formando', Estado: 'Ativo', Horario_estudo: 'Manhã;Tarde', Batizado: 'Sim', Primeira_eucaristia: 'Não', Crismado: '', Possui_alergia_doenca: 'Sim', Descricao_alergia_doenca: 'Linha 1\nLinha "2"', Nome_mae: '+Maria', Whatsapp_mae: '5511999999999', Nome_pai: '@José', Whatsapp_pai: '5511888888888', Whatsapp_candidato: '5511777777777', Nome_tutor_guardiao: '-Tutor', Whatsapp_tutor_guardiao: '5511666666666' };
 test('official CSV round-trips all 24 fields, BOM, quoting and formula escape', () => {
   const text = csv.serializeOfficialCsv([sample]); assert.ok(text.startsWith('\uFEFF')); assert.ok(text.includes('\r\n'));

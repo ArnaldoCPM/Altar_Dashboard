@@ -1,6 +1,8 @@
+import { canAccessAdminMode } from "../permissions.js";
 import { db, doc, setDoc, deleteDoc } from "../firebase.js";
-import { getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getDocs, query, where, runTransaction, refEqual } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { buildServersQuery } from "../serverQuery.js";
+import { validateBirthDatePayload, assertBirthDateWrite } from "../services/birth-date.service.js";
 
 const appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
 
@@ -34,6 +36,8 @@ async function createServer(serverData) {
     throw new Error("createServer requires serverData.id");
   }
 
+  validateBirthDatePayload(serverData);
+
   const serverDocRef = doc(
     db,
     "artifacts",
@@ -60,6 +64,7 @@ async function createServer(serverData) {
  */
 async function updateServer(serverId, serverData) {
   if (!serverId) throw new Error("updateServer requires serverId");
+  validateBirthDatePayload(serverData);
   await setDoc(doc(db, "artifacts", appId, "public", "data", "servers", serverId), serverData, { merge: true });
   return { id: serverId, ...serverData };
 }
@@ -103,3 +108,53 @@ export {
   getServersByChapel,
   getServersByChapelIds
 };
+
+// UI restriction only: existing Rules still permit coordinators within their scope.
+function birthDateState(server) {
+  return { present: Object.hasOwn(server, "Data_nascimento"), value: copyStoredValue(server.Data_nascimento) };
+}
+
+function copyStoredValue(value) {
+  if (value instanceof Date) return new Date(value.getTime());
+  if (value instanceof Uint8Array) return value.slice();
+  if (Array.isArray(value)) return value.map(copyStoredValue);
+  if (value && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)) {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, copyStoredValue(item)]));
+  }
+  return value; // Firestore Timestamp, GeoPoint, Bytes and references are immutable SDK values.
+}
+function sameStoredValue(a, b) {
+  if (Object.is(a, b)) return true;
+  if (a === null || b === null || typeof a !== "object" || typeof b !== "object") return false;
+  if (a.constructor !== b.constructor) return false;
+  if (a instanceof Date) return a.getTime() === b.getTime();
+  if (a.type === "document" && a.firestore && b.firestore) return refEqual(a, b);
+  if (typeof a.isEqual === "function") return a.isEqual(b); // Timestamp, GeoPoint, Bytes
+  if (a instanceof Uint8Array) return a.length === b.length && a.every((v, i) => v === b[i]);
+  if (Array.isArray(a)) return a.length === b.length && a.every((v, i) => sameStoredValue(v, b[i]));
+  if (Object.getPrototypeOf(a) !== Object.prototype && Object.getPrototypeOf(a) !== null) return false;
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every(k => Object.hasOwn(b, k) && sameStoredValue(a[k], b[k]));
+}
+
+function sameBirthDateState(a, b) {
+  return a.present === b.present && (!a.present || sameStoredValue(a.value, b.value));
+}
+
+async function saveReviewedBirthDate({ serverId, expected, nextIso }) {
+  if (!canAccessAdminMode()) throw new Error("Esta ferramenta está disponível somente para administradores.");
+  if (typeof serverId !== "string" || !serverId || serverId.includes("/") || [".", ".."].includes(serverId)) throw new Error("ID de servidor inválido.");
+  if (!expected || typeof expected.present !== "boolean" || (expected.present && !Object.hasOwn(expected, "value"))) throw new Error("Estado original inválido.");
+  assertBirthDateWrite(nextIso);
+  const ref = doc(db, "artifacts", appId, "public", "data", "servers", serverId);
+  return runTransaction(db, async transaction => {
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists()) return { status: "not-found", serverId };
+    const current = birthDateState(snapshot.data());
+    if (!sameBirthDateState(current, expected)) return { status: "conflict", serverId, current };
+    transaction.update(ref, { Data_nascimento: nextIso });
+    return { status: "saved", serverId, value: nextIso };
+  });
+}
+
+export { birthDateState, sameBirthDateState, saveReviewedBirthDate };
