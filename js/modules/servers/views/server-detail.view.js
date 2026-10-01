@@ -1,7 +1,7 @@
 import { calculateAge, cleanStr, generateWpLink } from "../../../utils.js";
 
 const escapeHtml = (value = "") => { const element = document.createElement("span"); element.textContent = String(value); return element.innerHTML; };
-const age = (server) => calculateAge(server?.Data_nascimento) ?? (Number.isNaN(parseInt(server?.Idade)) ? null : parseInt(server?.Idade));
+const age = (server) => calculateAge(server?.Data_nascimento);
 const yesNo = (value) => ["sim", "si", "s"].includes(cleanStr(value)) ? "Sim" : ["nao", "não", "no", "n"].includes(cleanStr(value)) ? "Não" : "—";
 const dateTime = (value) => { const date = value?.toDate ? value.toDate() : value ? new Date(value.seconds ? value.seconds * 1000 : value) : null; return date && !Number.isNaN(date.getTime()) ? date.toLocaleString("pt-BR") : "Data indisponível"; };
 const encounterStatus = (status) => ({ scheduled: "Agendado", in_progress: "Em andamento", completed: "Concluído", cancelled: "Cancelado" })[status] || "Contexto indisponível";

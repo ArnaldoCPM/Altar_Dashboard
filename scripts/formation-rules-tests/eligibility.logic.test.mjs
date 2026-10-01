@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-const dateSource = await readFile(new URL('../../js/modules/formation/services/date.service.js', import.meta.url), 'utf8');
-const eligibilitySource = await readFile(new URL('../../js/modules/formation/services/eligibility.service.js', import.meta.url), 'utf8');
-const source = `${dateSource.replace(/export \{ ageOn, parseFormationDate \};/, '')}\n${eligibilitySource.replace(/import \{ ageOn, parseFormationDate \} from "\.\/date\.service\.js";\n/, '')}`;
-const eligibility = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const moduleUrl = source => 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
+const coreUrl = moduleUrl(await readFile(new URL('../../js/services/birth-date.service.js', import.meta.url), 'utf8'));
+const dateUrl = moduleUrl((await readFile(new URL('../../js/modules/formation/services/date.service.js', import.meta.url), 'utf8')).replace('../../../services/birth-date.service.js', coreUrl));
+const source = (await readFile(new URL('../../js/modules/formation/services/eligibility.service.js', import.meta.url), 'utf8')).replace('./date.service.js', dateUrl);
+const eligibility = await import(moduleUrl(source));
 const criteria = { minAge: 11, maxAge: 24, referenceDate: '2027-02-01', serverTypes: ['Candidato', 'Formando', 'Instituído'] };
 const server = (overrides = {}) => ({ id: 's', Nome: 'Ana', Data_nascimento: '2016-02-01', Tipo: 'Formando', Estado: 'Ativo', chapelId: 'a', ...overrides });
 test('eligibility honours birthdays on the fixed reference date and chapel/type/activity', () => {

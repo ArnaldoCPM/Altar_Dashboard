@@ -135,7 +135,7 @@ function renderCharts(data) {
 
     data.forEach(d => {
         const edad = getServerAge(d);
-        if (!isNaN(edad)) {
+        if (Number.isInteger(edad) && edad >= 0) {
             const rawTipo = cleanStr(d.Tipo);
             let tipoKey = 'candidato';
             if (rawTipo.includes('form')) tipoKey = 'formando';

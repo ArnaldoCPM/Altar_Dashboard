@@ -45,3 +45,16 @@ function birthDateEditPatch(state, value, { changed = false, clear = false } = {
     return value === state.original ? {} : { Data_nascimento: value };
 }
 export { isEmptyBirthDate, isValidBirthDateIso, classifyStoredBirthDate, formatBirthDate, assertBirthDateWrite, validateBirthDatePayload, createBirthDateEditState, birthDateEditPatch };
+
+// Resolves only a unique calendar date; never writes or guesses an interpretation.
+export function resolveBirthDate(value) {
+    const result = classifyStoredBirthDate(value);
+    return ['iso', 'legacy'].includes(result.category) ? result.candidates[0] : null;
+}
+export function ageOnCalendar(value, referenceDate) {
+    const birth = resolveBirthDate(value);
+    if (!birth || !isValidBirthDateIso(referenceDate) || birth > referenceDate) return null;
+    const age = Number(referenceDate.slice(0, 4)) - Number(birth.slice(0, 4))
+        - (referenceDate.slice(5) < birth.slice(5) ? 1 : 0);
+    return age;
+}
