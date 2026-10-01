@@ -15,6 +15,7 @@ const {
   getDoc,
   getDocs,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -834,3 +835,96 @@ test('attendance schema protects audit fields, notes, and immutable participant 
   await assertFails(updateDoc(ref, { attendanceStatus: 'pending', recordedAt: serverTimestamp(), updatedAt: serverTimestamp() }));
   await assertFails(updateDoc(ref, { attendanceStatus: 'pending', attendanceNote: 'No borrar', recordedBy: users.admin.uid, recordedAt: serverTimestamp(), updatedAt: serverTimestamp() }));
 });
+
+// T4D: birth-date integrity is independent of Server authorization.
+const t4dValidDates = ['', '2015-04-03', '2015-02-28', '2016-02-29', '2000-02-29', '2400-02-29', '2015-04-30', '2015-01-31', '0001-01-01', '9999-12-31', '2099-01-01'];
+const t4dInvalidDates = ['03/04/2015', '04/04/2015', 'abc', null, 123, {raw: 'x'}, ['x'], Timestamp.fromMillis(0), ' ', ' 2015-04-03 ', '2015-02-29', '1900-02-29', '2100-02-29', '2015-04-31', '2015-01-32', '0000-01-01', '2015-4-03', '2015-04-03extra', 'x2015-04-03', '2015-00-01', '2015-13-01', '2015-01-00', '28/07/17'];
+async function seedT4dServer(fields = {}, id = 't4d') {
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await setDoc(serverRef(context.firestore(), id), {Nome: 'Fixture', chapelId: 'chapel-a', ...fields});
+  });
+}
+
+// A: authorization, including both old and resulting chapel restrictions.
+test('T4D authorization: canonical values never broaden roles or chapel scope', async () => {
+  for (const user of [users.admin, users.coordinator]) {
+    await assertSucceeds(setDoc(serverRef(dbFor(user), user.uid), {chapelId:'chapel-a',Data_nascimento:'2015-04-03'}));
+    await assertSucceeds(updateDoc(serverRef(dbFor(user), user.uid), {Data_nascimento:''}));
+  }
+  await seedT4dServer({Data_nascimento:'2015-04-03'});
+  for (const user of [users.substitute, users.viewer, users.inactive, {uid:'no-profile',email:'none@example.test'}, null]) {
+    await assertFails(setDoc(serverRef(dbFor(user), 'denied'), {chapelId:'chapel-a',Data_nascimento:'2015-04-03'}));
+    await assertFails(updateDoc(serverRef(dbFor(user), 't4d'), {Data_nascimento:'2016-01-01'}));
+    await assertFails(deleteDoc(serverRef(dbFor(user), 't4d')));
+  }
+  await assertFails(updateDoc(serverRef(dbFor(users.coordinator),'t4d'), {chapelId:'chapel-b',Data_nascimento:''}));
+  await seedT4dServer({chapelId:'chapel-b',Data_nascimento:'03/04/2015'},'other');
+  await assertFails(updateDoc(serverRef(dbFor(users.coordinator),'other'), {chapelId:'chapel-a',Data_nascimento:''}));
+  await assertSucceeds(updateDoc(serverRef(dbFor(users.admin),'other'), {chapelId:'chapel-a',Data_nascimento:'2015-04-03'}));
+  await assertFails(deleteDoc(serverRef(dbFor(users.coordinator),'t4d')));
+  await assertSucceeds(deleteDoc(serverRef(dbFor(users.admin),'t4d')));
+});
+
+// B/D: type, exact syntax and full Gregorian calendar, including century rules.
+for (const role of ['admin','coordinator']) {
+  test(`T4D create/calendar: ${role} accepts absent, empty and valid dates`, async () => {
+    const db=dbFor(users[role]);
+    await assertSucceeds(setDoc(serverRef(db,'absent'),{chapelId:'chapel-a'}));
+    for (const [i,value] of t4dValidDates.entries()) await assertSucceeds(setDoc(serverRef(db,`valid-${i}`),{chapelId:'chapel-a',Data_nascimento:value}));
+  });
+  test(`T4D create/calendar: ${role} rejects noncanonical values`, async () => {
+    const db=dbFor(users[role]);
+    for (const [i,value] of t4dInvalidDates.entries()) await assertFails(setDoc(serverRef(db,`invalid-${i}`),{chapelId:'chapel-a',Data_nascimento:value}));
+  });
+
+  // C: no-op payloads and unrelated patches must preserve every historical shape.
+  test(`T4D historical transitions: ${role}`, async () => {
+    const db=dbFor(users[role]);const ref=serverRef(db,'t4d');
+    const originals=['2015-04-03','03/04/2015','abc',null,'', ' ',123,{raw:'x'},['x'],Timestamp.fromMillis(0)];
+    for (const original of originals) {
+      await seedT4dServer({Data_nascimento:original});
+      await assertSucceeds(updateDoc(ref,{Whatsapp_mae:'5511999999999'}));
+      await assertSucceeds(updateDoc(ref,{Nome:'Changed',Data_nascimento:original}));
+      for (const next of ['2016-02-29','']) {
+        await seedT4dServer({Data_nascimento:original});
+        await assertSucceeds(updateDoc(ref,{Data_nascimento:next}));
+      }
+      await seedT4dServer({Data_nascimento:original});
+      for (const next of ['04/05/2015','different-invalid',456,{raw:'changed'}]) await assertFails(updateDoc(ref,{Data_nascimento:next}));
+      if (original !== null) await assertFails(updateDoc(ref,{Data_nascimento:null}));
+      await assertFails(updateDoc(ref,{Data_nascimento:deleteField()}));
+      await assertFails(setDoc(ref,{chapelId:'chapel-a',Nome:'Replacement'}));
+    }
+    await seedT4dServer();
+    await assertSucceeds(updateDoc(ref,{Nome:'Still absent'}));
+    await assertSucceeds(updateDoc(ref,{Data_nascimento:deleteField()}));
+    for(const value of [null,'abc']) await assertFails(updateDoc(ref,{Data_nascimento:value}));
+    for(const value of ['2015-04-03','']) {await seedT4dServer();await assertSucceeds(updateDoc(ref,{Data_nascimento:value}));}
+    await seedT4dServer({Data_nascimento:{raw:'x'}});
+    await assertFails(updateDoc(ref,{'Data_nascimento.raw':'changed'}));
+  });
+
+  // E: the single-field transaction is legal for any ordinarily authorized writer.
+  test(`T4D writer transaction and merge compatibility: ${role}`, async () => {
+    const db=dbFor(users[role]);const ref=serverRef(db,'t4d');
+    for (const original of ['27/08/2014','03/04/2015','abc','',null]) {
+      await seedT4dServer({Data_nascimento:original,Idade:'99'});
+      await assertSucceeds(runTransaction(db,async tx=>{const before=await tx.get(ref);assert.ok(before.exists());tx.update(ref,{Data_nascimento:'2015-04-03'});}));
+      const after=(await getDoc(ref)).data();assert.equal(after.Idade,'99');assert.equal(after.Data_nascimento,'2015-04-03');
+    }
+    const missing=serverRef(db,'missing');
+    await assert.rejects(updateDoc(missing,{Data_nascimento:'2015-04-03'}), {code: role === 'admin' ? 'not-found' : 'permission-denied'});
+    assert.equal((await getDoc(missing)).exists(),false);
+    for(const value of ['2015-04-03','']) {
+      const merged=serverRef(db,`merge-${value || 'empty'}`);
+      await assertSucceeds(setDoc(merged,{chapelId:'chapel-a',Data_nascimento:value},{merge:true}));
+      await assertSucceeds(setDoc(merged,{Nome:'Merged'},{merge:true}));
+      await assertSucceeds(setDoc(merged,{Data_nascimento:value},{merge:true}));
+      await assertFails(setDoc(merged,{Data_nascimento:'abc'},{merge:true}));
+    }
+    await seedT4dServer({Data_nascimento:'03/04/2015'});
+    await assertSucceeds(setDoc(ref,{Capela:'Renamed'},{merge:true}));
+    const batch=writeBatch(db);batch.update(ref,{Capela:'Must not commit'});batch.set(serverRef(db,'bad-batch'),{chapelId:'chapel-a',Data_nascimento:'2015-02-31'},{merge:true});
+    await assertFails(batch.commit());assert.equal((await getDoc(ref)).data().Capela,'Renamed');
+  });
+}

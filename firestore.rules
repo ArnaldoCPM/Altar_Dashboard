@@ -83,6 +83,39 @@ service cloud.firestore {
      * La escritura queda restringida por rol y capilla.
      */
     match /artifacts/{appId}/public/data/servers/{serverId} {
+      // Calendar-only, years 0001-9999. Future dates remain allowed.
+      function isIsoCalendarBirthDate(value) {
+        return value is string && value.size() == 10
+          && !value.matches('^0000-.*$')
+          && (
+            // 31-day months, 30-day months, and February 1-28.
+            value.matches('^[0-9]{4}-((01|03|05|07|08|10|12)-(0[1-9]|[12][0-9]|3[01])|(04|06|09|11)-(0[1-9]|[12][0-9]|30)|02-(0[1-9]|1[0-9]|2[0-8]))$')
+            // Leap years: divisible by 4, excluding centuries unless divisible by 400.
+            || value.matches('^([0-9]{2}(0[48]|[2468][048]|[13579][26])|(0[48]|[2468][048]|[13579][26])00)-02-29$')
+          );
+      }
+
+      function isCanonicalBirthDateValue(value) {
+        return value is string && (value == '' || isIsoCalendarBirthDate(value));
+      }
+
+      function validBirthDateCreate(data) {
+        return !data.keys().hasAny(['Data_nascimento'])
+          || isCanonicalBirthDateValue(data.Data_nascimento);
+      }
+
+      function birthDateUnchanged() {
+        return !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['Data_nascimento']);
+      }
+
+      function validBirthDateTransition() {
+        // Preserve historical values exactly; changing/removing them requires canonical output.
+        return birthDateUnchanged()
+          || (request.resource.data.keys().hasAll(['Data_nascimento'])
+            && isCanonicalBirthDateValue(request.resource.data.Data_nascimento));
+      }
+
       /**
        * Read:
        * - cualquier usuario autenticado y activo
@@ -95,8 +128,9 @@ service cloud.firestore {
        * - coordinator únicamente cuando el chapelId del documento coincide
        *   con el chapelId del usuario autenticado
        */
-      allow create: if isAdmin()
-        || (isCoordinator() && sameChapel(request.resource.data));
+      allow create: if (
+        isAdmin() || (isCoordinator() && sameChapel(request.resource.data))
+      ) && validBirthDateCreate(request.resource.data);
 
       /**
        * Update:
@@ -104,12 +138,12 @@ service cloud.firestore {
        * - coordinator únicamente cuando el documento actual y el documento
        *   resultante permanecen dentro de su misma capilla
        */
-      allow update: if isAdmin()
-        || (
-          isCoordinator()
+      allow update: if (
+        isAdmin()
+        || (isCoordinator()
           && sameChapel(resource.data)
-          && sameChapel(request.resource.data)
-        );
+          && sameChapel(request.resource.data))
+      ) && validBirthDateTransition();
 
       /**
        * Delete:
