@@ -4,8 +4,9 @@ Sistema de Gestão dos Servidores do Altar para administração pastoral de serv
 
 ## Módulos e papéis
 
-- Dashboard e Servidores: cadastro, filtros, paginação, ficha M16 e CSV reversível.
-- Usuários e Capelas: gestão exclusiva de Admin.
+- Dashboard e Servidores: cadastro, filtros, paginação, ficha M16 e CSV reversível, com contrato central de datas e idade derivada somente de nascimento resolvível.
+- Usuários e Capelas: gestão exclusiva de Admin; consolidação de acesso pelo fluxo administrativo `sendUserAccess`.
+- Qualidade dos dados: revisão Admin de datas de nascimento, com filtros e correção transacional protegida contra conflitos.
 - Formação v2: grupos reutilizáveis, critérios, lista-base, roster, encontros, presença e relatório M11.
 - `admin`: gestão global; `coordinator`: leitura pastoral global e escrita somente na própria capela; `viewer`: leitura pastoral global, sem escrita.
 
@@ -17,4 +18,4 @@ O Emulator só é usado em host local com `?emulator=1`; sem esse parâmetro a a
 
 ## Release
 
-O código está em preparação para `v0.10.0`. A produção ainda requer configuração Console, deploy controlado e smoke test; tag e publicação não foram realizados.
+Versão atual: `v0.11.0`, em fechamento documental. O frontend funcional em `a7bd85d` e as Rules T4D já foram validados em produção. A tag v0.11.0 será criada somente após o commit documental, novo deploy e smoke test.

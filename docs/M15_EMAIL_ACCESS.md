@@ -1,8 +1,8 @@
 # M15 — Acesso por e-mail e senha
 
-## Estado atual v0.10.0
+## Estado atual v0.11.0
 
-`sendUserAccess` é Function v2. Email/Password e Google Sign-In coexistem; um pending `users/{email}` é transição tolerada e só é removido após perfil canônico seguro. Produção ainda requer habilitar Email/Password, domínio autorizado e modelo de recuperação no Firebase Console.
+`sendUserAccess` é Function v2. Email/Password e Google Sign-In coexistem; um pending `users/{email}` é transição tolerada e só é removido após perfil canônico seguro. Firebase Auth sozinho não autoriza acesso ao SGSA: é necessário perfil canônico `users/{uid}`, sujeito às regras de autorização. A consolidação pending → canonical ocorre somente pelo fluxo administrativo aprovado `sendUserAccess`; o cliente não executa migração autônoma.
 
 ## Arquitetura
 
@@ -33,7 +33,7 @@ cd functions
 npm test
 ```
 
-Checklist de Emulator/manual: Admin convida pendente ativo (UID Auth + `users/{uid}`, pendente removido, Admin permanece logado); reenvio não cria segundo UID; Coordinator/Viewer recebem `permission-denied`; pendente inativo é recusado; endereço inexistente no fluxo público recebe texto neutro; login e logout preservam `role`, `active` e `chapelId`; Google Sign-In continua sem alteração; e a migração legacy pelo cliente continua compatível.
+Checklist de Emulator/manual: Admin convida pendente ativo (UID Auth + `users/{uid}`, pendente removido, Admin permanece logado); reenvio não cria segundo UID; Coordinator/Viewer recebem `permission-denied`; pendente inativo é recusado; endereço inexistente no fluxo público recebe texto neutro; login e logout preservam `role`, `active` e `chapelId`; Google Sign-In continua sem alteração; e autenticar sem perfil canônico não concede acesso nem consolida um pending pelo cliente.
 
 ## Produção
 

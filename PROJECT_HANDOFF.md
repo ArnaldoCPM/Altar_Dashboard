@@ -1,9 +1,9 @@
-# SGSA — Handoff v0.10.0
+# SGSA — Handoff v0.11.0
 
-`main` está no commit `ba45183`; está 33 commits à frente de `origin/main`. O candidato é `v0.10.0`, ainda sem tag, push ou deploy.
+Checkpoint funcional validado: `a7bd85d8f00171637bf82608815b8d01a22c5513`. Antes do commit documental, `main` e `origin/main` estão alinhados nesse checkpoint.
 
-M13–M16 e Formação v2 estão encerrados. Não reabrir lifecycle, Rules, UX de Encounter/Presença, CSV, M15 ou política pastoral durante o release.
+Frontend funcional validado em produção, Rules T4D ativas e smoke antes e depois das Rules OK. Validação manual de referência: Firestore Emulator 180/180 PASS. Consulte [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md).
 
-T1 removeu logs sensíveis. T2 aprovou leitura pastoral global. T3 auditou produção sem blockers/migrações reais e removeu o legacy controlado. Antes do deploy faltam Console Firebase/Functions/Rules, Vercel e smoke test produtivo.
+Contrato central de nascimento/idade, CSV, Qualidade dos dados e adaptação de Formação estão entregues. Não reabrir código funcional, Rules, testes, Auth ou dependências durante o fechamento documental.
 
-Validação de referência: SGSA 121/121; Functions 3/3; `cd functions; npm run lint`. Use [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md). Produção v0.10.0 ainda não foi publicada; o tag deve apontar para o commit efetivamente testado em produção.
+Nesta etapa, o commit documental e a tag v0.11.0 ainda estão pendentes. Após o commit, confirmar novo deploy e smoke antes de criar a tag annotated no commit final aprovado. T1/T2 são ferramentas históricas fora do runtime e da release; permanecem locais, untracked, congeladas e não devem ser executadas.

@@ -8,7 +8,7 @@ Formação v2 inclui grupos reutilizáveis, critérios, roster, Participants aut
 
 ## Agora
 
-Preprodução e release candidate `v0.10.0` em preparação. Não há deploy ou tag v0.10.0 ainda.
+Pacote funcional v0.11.0 validado em produção no checkpoint `a7bd85d`, com Rules T4D ativas. Fechamento documental e tag ainda em andamento nesta etapa; a tag será criada após o commit documental, novo deploy e smoke.
 
 ## Pós-release
 

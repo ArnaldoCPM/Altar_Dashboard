@@ -6,6 +6,31 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [v0.11.0] - 2026-10-01
+
+### Added
+
+- Ferramenta Admin “Qualidade dos dados — Datas de nascimento”, com fila dinâmica, filtros, revisão individual e correção transacional com detecção de conflitos.
+
+### Changed
+
+- Contrato central de `Data_nascimento` em `YYYY-MM-DD`, com validação real de calendário, preservação de valores legacy não editados e remoção explícita.
+- Leitura e cálculo de idade centralizados; `Idade` permanece como campo legacy/interchange, mas deixa de ser fallback funcional.
+- Idades desconhecidas são `null` e não contam como zero nas métricas do Dashboard.
+- CSV oficial aceita nascimento ISO válido ou vazio; importação legacy normaliza apenas interpretações seguras e bloqueia datas ambíguas/inválidas; exportação oficial bloqueia valores de nascimento incompatíveis.
+
+### Fixed
+
+- Elegibilidade de Formação resolve datas legacy seguras pelo contrato central, sem alterar critérios pastorais.
+- Fluxos Firebase Auth de recuperação de senha configurados para pt-BR.
+
+### Security
+
+- Removida migração client-side pending → canonical; consolidação de acesso permanece no fluxo administrativo `sendUserAccess`.
+- Firestore Rules protegem a integridade de `Data_nascimento`, preservando históricos intactos e exigindo data canônica ou vazio canônico quando o campo é alterado.
+
+> As notas de preparação e de publicação pendente nas releases anteriores registram o estado histórico daquele momento.
+
 ## [v0.10.0] — Release candidate
 
 ### Added

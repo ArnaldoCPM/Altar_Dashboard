@@ -10,7 +10,7 @@ El SGSA es una plataforma de gestión pastoral, no solamente un dashboard. Su pr
 
 Toda nueva funcionalidad debe respetar esta arquitectura para que el sistema pueda crecer sin perder coherencia funcional, técnica ni pastoral.
 
-## Estado v0.10.0 candidate
+## Estado v0.11.0
 
 Shell e navegação organizam Dashboard, Servidores, Usuários, Capelas e Formação. Formação v2 separa catálogo `formationGroups` de instâncias técnicas `poles`; a interface usa Grupo de formação. Roster e Participants são snapshots contextuais, attendance é embutido no Participant e o lifecycle é draft/active/completed/archived.
 
@@ -50,7 +50,7 @@ La autenticación se realiza mediante Firebase Authentication. El perfil canóni
 
 `profile.role` es la única fuente del rol. No existen permisos determinados por emails especiales ni por identificadores de documento basados en email.
 
-La migración desde el modelo histórico `users/{email}` se realizó para trasladar perfiles autorizados hacia `users/{uid}`. Puede subsistir lógica de compatibilidad estrictamente para completar dicha migración de identidad, pero no forma parte del modelo de permisos ni debe reutilizarse para nuevas funcionalidades.
+Firebase Authentication por sí solo no autoriza acceso al SGSA: se requiere el perfil canónico `users/{uid}`. La consolidación de perfiles pending `users/{email}` ocurre exclusivamente mediante el flujo administrativo `sendUserAccess`; el cliente no realiza migración autónoma.
 
 ## 5. Modelo de autorización
 
@@ -91,7 +91,9 @@ Data_nascimento → Edad
 
 La edad no se almacena como dato oficial.
 
-Se calcula dinámicamente mediante calculateAge().
+El servicio central `js/services/birth-date.service.js` resuelve nacimiento y calcula edad con referencia calendario explícita. `calculateAge()` delega en este contrato; Formação conserva un adaptador de dominio para sus referencias.
+
+El almacenamiento canónico usa ISO `YYYY-MM-DD` o vacío canónico. Legacy seguro se admite para lectura sin escritura automática; las Rules son la frontera de integridad que preserva históricos no editados y exige valor canónico al alterar el campo. `Idade` permanece como dato legacy/interchange, sin fallback funcional. Nacimiento ambiguo, inválido o vacío produce edad `null`; edad real cero se conserva.
 
 Este principio evita inconsistencias y elimina la necesidad de procesos periódicos de actualización.
 
