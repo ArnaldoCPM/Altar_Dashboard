@@ -80,7 +80,7 @@ async function consolidatePendingProfile(pending, userRecord, email) {
   });
 }
 
-exports.sendUserAccess = onCall({ region: "us-central1" }, async (request) => {
+exports.sendUserAccess = onCall({ region: "us-central1", maxInstances: 1 }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Authentication required.");
   await requireActiveAdmin(request.auth.uid);
 
