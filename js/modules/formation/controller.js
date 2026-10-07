@@ -29,6 +29,7 @@ import {
 import { createEncounter, createEncounterWithParticipants, getEncounter, subscribeToEncounters, updateEncounter, updateEncounterStatus, updateResponsibilities } from "./services/encounter.service.js";
 import { addParticipant, countPendingParticipants, createPreparedParticipants, getParticipantExclusions, hasParticipants, removeParticipant, subscribeToParticipants, updateAttendance } from "./services/participant.service.js";
 import { getOperationalEncounters } from "./services/operational-encounters.service.js";
+import { resolvePastoralIdentityNames } from "./services/pastoral-identity.service.js";
 import {
     clearSubscriptions,
     getState,
@@ -398,17 +399,17 @@ async function loadEncounterResources() {
     if (!pole) throw new Error("Selecione um grupo antes de gerenciar encontros.");
     const chapels = (await getActiveChapels()).filter((chapel) => (pole.chapelIds || []).includes(chapel.id));
     const users = isAdmin() ? await getAllUsers() : [];
-    const allCoordinators = users.filter((user) => user.documentId === user.uid && user.role === "coordinator" && user.active === true).map((user) => ({ id: user.uid, name: user.displayName || user.email || user.uid }));
+    const allCoordinators = users.filter((user) => user.documentId === user.uid && user.role === "coordinator" && user.active === true).map((user) => ({ id: user.uid, name: user.displayName || user.uid }));
     const currentUser = getCurrentUser();
-    const visibleDesignatedIds = new Set((getState().data.currentEncounter?.responsibilities || [])
+    const responsibilities = getState().data.currentEncounter?.responsibilities || [];
+    const userNames = await resolvePastoralIdentityNames(responsibilities);
+    const visibleDesignatedIds = new Set(responsibilities
         .filter((item) => item.type === "designated")
         .map((item) => item.userId));
     if (!isAdmin() && currentUser?.uid && (pole.coordinatorIds || []).includes(currentUser.uid)) visibleDesignatedIds.add(currentUser.uid);
     const designatedCoordinators = isAdmin()
         ? allCoordinators.filter((user) => (pole.coordinatorIds || []).includes(user.id))
-        : [...visibleDesignatedIds].map((id) => ({ id, name: id === currentUser?.uid ? (currentUser.displayName || currentUser.email || id) : id }));
-    const userNames = Object.fromEntries(allCoordinators.map((user) => [user.id, user.name]));
-    if (currentUser?.uid && (currentUser.displayName || currentUser.email)) userNames[currentUser.uid] = currentUser.displayName || currentUser.email;
+        : [...visibleDesignatedIds].map((id) => ({ id, name: userNames[id] || id }));
     encounterResources = { chapels, designatedCoordinators, allCoordinators, userNames };
 }
 
@@ -700,7 +701,7 @@ function validatePole(input, existingPole = null) {
 async function loadPoleResources() {
     const chapels = await getActiveChapels();
     const coordinators = isAdmin()
-        ? (await getAllUsers()).filter((user) => user.documentId === user.uid && user.role === "coordinator" && user.active === true).map((user) => ({ id: user.uid, name: user.displayName || user.email || user.uid }))
+        ? (await getAllUsers()).filter((user) => user.documentId === user.uid && user.role === "coordinator" && user.active === true).map((user) => ({ id: user.uid, name: user.displayName || user.uid }))
         : [];
     poleResources = { chapels, coordinators };
 }
