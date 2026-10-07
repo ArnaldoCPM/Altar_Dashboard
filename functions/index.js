@@ -5,6 +5,7 @@ const { initializeApp, getApps } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { FieldValue, getFirestore } = require("firebase-admin/firestore");
 const { HttpsError, onCall } = require("firebase-functions/v2/https");
+const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 
 if (!getApps().length) initializeApp();
 const db = getFirestore();
@@ -80,6 +81,32 @@ async function consolidatePendingProfile(pending, userRecord, email) {
   });
 }
 
+function pastoralIdentityProjection(userId, profile) {
+  if (!profile || typeof profile.uid !== "string" || profile.uid.length === 0 || profile.uid !== userId) return null;
+  if (typeof profile.displayName !== "string") return null;
+  const displayName = profile.displayName.trim();
+  return displayName ? { displayName } : null;
+}
+
+function isExactPastoralIdentity(existing, projection) {
+  return !!existing
+    && Object.keys(existing).length === 1
+    && existing.displayName === projection.displayName;
+}
+
+async function synchronizePastoralIdentity({ userId, afterExists, afterData, getDirectory, setDirectory }) {
+  if (!afterExists) return { action: "ignored" };
+  const projection = pastoralIdentityProjection(userId, afterData);
+  if (!projection) return { action: "ignored" };
+
+  const existing = await getDirectory(userId);
+  if (isExactPastoralIdentity(existing, projection)) return { action: "unchanged" };
+
+  // set without merge deliberately replaces any accidental extra directory fields.
+  await setDirectory(userId, projection);
+  return { action: "synchronized" };
+}
+
 exports.sendUserAccess = onCall({ region: "us-central1", maxInstances: 1 }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Authentication required.");
   await requireActiveAdmin(request.auth.uid);
@@ -108,4 +135,30 @@ exports.sendUserAccess = onCall({ region: "us-central1", maxInstances: 1 }, asyn
   return { passwordResetEligible: hasPasswordProvider(userRecord) };
 });
 
-exports._test = { hasPasswordProvider, hasValidProfile, normalizeEmail };
+exports.syncPastoralIdentity = onDocumentWritten(
+  { document: "users/{userId}", region: "us-central1", maxInstances: 1 },
+  async (event) => {
+    const after = event.data?.after;
+    return synchronizePastoralIdentity({
+      userId: event.params.userId,
+      afterExists: after?.exists === true,
+      afterData: after?.data(),
+      getDirectory: async (uid) => {
+        const snapshot = await db.doc(`userDirectory/${uid}`).get();
+        return snapshot.exists ? snapshot.data() : null;
+      },
+      setDirectory: async (uid, projection) => {
+        await db.doc(`userDirectory/${uid}`).set(projection);
+      }
+    });
+  }
+);
+
+exports._test = {
+  hasPasswordProvider,
+  hasValidProfile,
+  isExactPastoralIdentity,
+  normalizeEmail,
+  pastoralIdentityProjection,
+  synchronizePastoralIdentity
+};

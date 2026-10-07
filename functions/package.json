@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "lint": "node --check index.js",
-    "test": "node --test test/send-user-access.test.js"
+    "test": "node --test test/send-user-access.test.js test/user-directory-sync.test.js"
   },
   "dependencies": {
     "firebase-admin": "^13.0.0",
