@@ -95,6 +95,7 @@ function participantRef(db, serverId = 'server-1', encounterId = 'encounter-1') 
 function exclusionRef(db, serverId = 'server-1', encounterId = 'encounter-1') { return doc(db, 'formations', 'formation-1', 'poles', 'pole-1', 'encounters', encounterId, 'participantExclusions', serverId); }
 function rosterRef(db, serverId = 'server-1') { return doc(db, 'formations', 'formation-1', 'poles', 'pole-1', 'roster', serverId); }
 function chapelRef(db, id = 'chapel-a') { return doc(db, 'chapels', id); }
+function userDirectoryRef(db, uid = users.coordinator.uid) { return doc(db, 'userDirectory', uid); }
 function serverRef(db, id = 'server-1') { return doc(db, 'artifacts', 'default-app-id', 'public', 'data', 'servers', id); }
 function validChapel(overrides = {}) { return { name: 'Capela São José', active: true, address: 'Rua Central', notes: 'Uso administrativo.', createdAt: serverTimestamp(), updatedAt: serverTimestamp(), ...overrides }; }
 const RENAME_TEST_BATCH_SIZE = 2;
@@ -162,6 +163,12 @@ async function seedUsers() {
   });
 }
 
+async function seedUserDirectory(uid = users.coordinator.uid, displayName = 'Coordenador') {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(userDirectoryRef(context.firestore(), uid), { displayName });
+  });
+}
+
 async function seedFormation(status = 'draft', id = 'formation-1') {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
@@ -226,6 +233,41 @@ test('users: only admin can administer profiles; a canonical user retains normal
   await assertFails(setDoc(doc(dbFor(users.viewer), 'users', 'forged-uid'), { ...users.viewer, uid: 'forged-uid', role: 'admin' }));
   await assertSucceeds(setDoc(doc(dbFor(users.admin), 'users', 'admin-created'), { uid: 'admin-created', email: 'created@example.test', role: 'viewer', active: true, chapelId: 'chapel-a' }));
   await assertSucceeds(deleteDoc(doc(dbFor(users.admin), 'users', 'admin-created')));
+});
+
+test('users: coordinator and viewer cannot read another canonical profile or enumerate profiles', async () => {
+  for (const user of [users.coordinator, users.viewer]) {
+    const db = dbFor(user);
+    await assertFails(getDoc(doc(db, 'users', users.admin.uid)));
+    await assertFails(getDocs(collection(db, 'users')));
+  }
+});
+
+test('userDirectory: every active pastoral role can resolve one known identity', async () => {
+  await seedUserDirectory();
+  for (const user of [users.admin, users.coordinator, users.viewer]) {
+    const snapshot = await assertSucceeds(getDoc(userDirectoryRef(dbFor(user))));
+    assert.equal(snapshot.data().displayName, 'Coordenador');
+  }
+  await assertFails(getDoc(userDirectoryRef(dbFor(users.inactive))));
+  await assertFails(getDoc(userDirectoryRef(dbFor(null))));
+});
+
+test('userDirectory: no client can enumerate or mutate the pastoral directory', async () => {
+  await seedUserDirectory();
+  for (const [label, user] of Object.entries({
+    admin: users.admin,
+    coordinator: users.coordinator,
+    viewer: users.viewer,
+    inactive: users.inactive,
+    anonymous: null,
+  })) {
+    const db = dbFor(user);
+    await assertFails(getDocs(collection(db, 'userDirectory')));
+    await assertFails(setDoc(userDirectoryRef(db, `new-${label}`), { displayName: 'No permitido' }));
+    await assertFails(updateDoc(userDirectoryRef(db), { displayName: 'No permitido' }));
+    await assertFails(deleteDoc(userDirectoryRef(db)));
+  }
 });
 
 test('chapels: active authenticated roles can read, but only admin can create', async () => {

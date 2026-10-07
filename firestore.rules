@@ -176,6 +176,20 @@ service cloud.firestore {
     }
 
     /**
+     * Directorio pastoral mínimo de identidad.
+     *
+     * Cada documento contiene únicamente el nombre que puede mostrarse en
+     * contextos pastorales. Los clientes activos sólo pueden resolver un UID
+     * conocido mediante get; nunca pueden enumerar ni modificar el directorio.
+     * La sincronización futura se realizará desde backend con Admin SDK.
+     */
+    match /userDirectory/{userId} {
+      allow get: if isActive();
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    /**
      * Catálogo de capillas.
      * Cualquier usuario autenticado y activo puede leerlo.
      * Solo admin puede modificarlo.
